@@ -1,9 +1,8 @@
 # Borrower commands (issues #10 and #11)
 
-This increment follows sections 3 and 5 of the local LabLog User Guide Draft v1.0.
-It builds on the `Loan` and `LoanBook` classes merged into `develop` by PR #17.
-The Java implementation files are new; none overlap the files inspected in PR #16
-(equipment, inventory, application entry point, build settings, and AGENTS.md).
+The borrower implementation uses the shared `Loan` and `LoanBook` models.
+Registration and loan listings remain in a separate console; both consoles now
+share `HelpCommands` for read-only command guidance and examples.
 
 ## Run locally
 
@@ -19,6 +18,7 @@ Enter:
 ```text
 add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu
 loans A0123456X
+help add-borrower
 ```
 
 The console accepts commands until EOF (Ctrl+Z, then Enter on Windows).
@@ -28,8 +28,8 @@ The standalone console starts with an empty loan book; it does not implement the
 loan command assigned to another team member. Active-loan behavior is exercised
 using the real shared loan model in the tests.
 
-The existing Gradle `run` entry point remains unchanged. This separate console
-avoids editing the entry point being introduced in PR #16.
+Gradle `run` starts `LabLog`, the main equipment console. Use the explicit Java
+command above for borrower registration and lookups.
 
 ## Connect to the shared application
 
@@ -39,7 +39,7 @@ command lines to `execute`, displaying its result and handling
 `IllegalArgumentException` and `IOException` as shown in `BorrowerCli`.
 Pass the same books to the loan/return commands so changes appear immediately.
 
-Once PR #16 is available, its inventory API supplies names without changes:
+The current inventory API supplies names without changes:
 
 ```java
 BorrowerCommands borrowerCommands = new BorrowerCommands(
@@ -70,6 +70,10 @@ overdue. Missing equipment records display `Unknown equipment` without hiding
 the loan. No separate loan status or copied loan list is maintained.
 
 ## Verification
+
+For the current combined application checks and remaining limitations, see
+[the verification report](../test/verification-report.md). The dated results
+below describe the original borrower increment, not the current total test count.
 
 ```powershell
 .\gradlew.bat test checkstyleMain checkstyleTest
@@ -103,7 +107,7 @@ imports, descriptive Javadocs beginning with third-person verbs, and descriptive
 
 The work is split into four commits: borrower records and persistence, command
 handlers and their JUnit tests, console regression checks, and documentation.
-PR #18 targets `develop`. This increment provides a separately runnable borrower
+PR #18 was merged into `develop`. This increment provides a separately runnable borrower
 console and reusable handlers; it does not complete the shared application flow.
 
 Before closing issues #10 and #11 as complete, connect the handlers to the shared

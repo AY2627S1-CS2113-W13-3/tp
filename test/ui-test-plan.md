@@ -1,4 +1,14 @@
-# Borrower console UI tests
+# Console UI tests
+
+## Packaged application and borrower smoke checks
+
+With Java 25 on `PATH`, run `.\gradlew.bat shadowJar`, then
+`python test/run-cli-smoke-tests.py` (Python 3). This checks the executable JAR,
+help examples, input recovery, registration, empty history, return rejection,
+and borrower persistence across fresh processes. The runner uses temporary
+files under `build/` and does not rewrite the recorded borrower transcript.
+
+The PowerShell 7 cases below remain available for exact-output borrower checks.
 
 Use Java 25. Build with `.\gradlew.bat classes` before testing. Each case runs in
 a fresh process from the repository root. Cases 1 and 2 deliberately share the

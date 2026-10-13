@@ -16,7 +16,7 @@ asset-ID prompt.
 
 ## Borrower features
 
-This increment adds the command handlers for issues #10 and #11:
+The borrower console provides:
 
 * `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` registers a borrower, rejects duplicate IDs, and saves validated contact details.
 * `loans BORROWER_ID` lists a registered borrower's active loans, ordered by due date and then asset ID. Returned loans are excluded, and a loan is overdue only after its due date.
@@ -34,6 +34,32 @@ Prerequisite: JDK 25. Configure both the project SDK and Gradle JVM to use Java 
 1. **Verify the setup**: Run the Gradle `classes` task, then run `lablog.BorrowerCli.main()` using the repository root as the working directory. Set its program argument to `build/borrowers-demo.properties` for a disposable demonstration.
 
 **Warning:** Keep the `src\main\java` folder as the root folder for Java files (i.e., don't rename those folders or move Java files to another folder outside of this folder path), as this is the default location some tools (e.g., Gradle) expect to find Java files.
+
+## Running the main console
+
+Use Java 25 and run from the repository root:
+
+```powershell
+java -version
+.\gradlew.bat run --console=plain
+```
+
+On macOS/Linux, use `./gradlew run --console=plain`. Enter `help` for the command
+list or `help return` for explained examples. To register equipment, enter an
+asset ID such as `OSC-001`, then answer the name, category, model, and location
+prompts. Enter `history OSC-001` to check its history, or `exit` to close.
+
+To build and run the executable JAR:
+
+```powershell
+.\gradlew.bat shadowJar
+java -jar build/libs/lablog.jar
+```
+
+The main console supports registration, help, history, and return handling.
+It starts with no loans and has no loan-creation command, so a fresh session
+cannot complete a loan/return workflow. Equipment, loans, and return details
+are in memory only. Borrower commands run in the separate console below.
 
 ## Running the borrower console
 
@@ -83,7 +109,11 @@ Run the JUnit and Checkstyle checks with Java 25:
 .\gradlew.bat test checkstyleMain checkstyleTest
 ```
 
-Borrower tests cover validation, duplicate IDs, persistence, failed saves, command syntax, loan filtering and ordering, overdue dates, and console output. See the [JUnit tutorial](https://se-education.org/guides/tutorials/junit.html) for background.
+Tests cover borrower validation and persistence, active-loan lookup, overdue
+dates, returns and fault descriptions, history ordering, help examples, unchanged
+records during help, and console input recovery. Return/history tests supply
+shared loan records because loan creation is not yet available through the CLI.
+See the [JUnit tutorial](https://se-education.org/guides/tutorials/junit.html) for background.
 
 ### Console tests
 
@@ -97,6 +127,17 @@ The runner uses a fresh demonstration file under `build/`, verifies exact output
 
 Run these console checks explicitly: the Gradle checks and GitHub Actions workflow do not invoke the PowerShell runner. Each run updates the transcript, so review that change before including it in a commit.
 
+For packaged-JAR checks and borrower persistence checks without PowerShell 7,
+use Python 3 with Java 25 on `PATH`:
+
+```powershell
+.\gradlew.bat shadowJar
+python test/run-cli-smoke-tests.py
+```
+
+This runner uses temporary borrower files under `build/` and verifies help,
+registration, rejected commands, history, and persistence in separate processes.
+
 ## Checkstyle
 
 * A sample CheckStyle rule configuration is provided in this project.
@@ -108,12 +149,6 @@ The project uses [GitHub actions](https://github.com/features/actions) for CI. W
 
 ## Documentation
 
-See [borrower implementation notes](docs/BorrowerImplementation.md) for shared-application integration and verification details. The repository's [User Guide](docs/UserGuide.md) and [Developer Guide](docs/DeveloperGuide.md) remain starter templates and do not yet document the complete application.
-
-Steps for publishing documentation to the public: 
-1. If you are using this project template for an individual project, go your fork on GitHub.<br>
-   If you are using this project template for a team project, go to the team fork on GitHub.
-1. Click on the `settings` tab.
-1. Scroll down to the `GitHub Pages` section.
-1. Set the `source` as `master branch /docs folder`.
-1. Optionally, use the `choose a theme` button to choose a theme for your documentation.
+See the [User Guide](docs/UserGuide.md) for current commands and limitations,
+the [Developer Guide](docs/DeveloperGuide.md) for architecture and verification,
+and [borrower implementation notes](docs/BorrowerImplementation.md) for integration.

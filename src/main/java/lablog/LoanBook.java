@@ -26,8 +26,8 @@ public class LoanBook {
     /**
      * Finds the loan that currently has the given unit out.
      *
-     * <p>A unit can be lent out many times, but only one of those loans can be
-     * active at a time, so at most one loan is ever returned.
+     * <p>Returns the first matching active loan. Callers that issue loans must
+     * prevent duplicate active loans; this lookup does not enforce uniqueness.
      *
      * @param assetId asset identifier of the unit to look up
      * @return the active loan for that unit, or empty if the unit is available

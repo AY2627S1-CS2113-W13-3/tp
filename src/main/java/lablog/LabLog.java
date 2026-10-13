@@ -100,6 +100,15 @@ public class LabLog {
                 }
                 continue;
             }
+            if (List.of("loan", "loans", "add-borrower").contains(command)) {
+                output.println("Error: " + command
+                        + " is not available in this console. Use help for command details.");
+                continue;
+            }
+            if (input.isEmpty() || input.chars().anyMatch(Character::isWhitespace)) {
+                output.println("Error: Enter a single asset ID or use help for commands.");
+                continue;
+            }
             Equipment equipment = readEquipment(input, scanner, output);
             if (equipment == null) {
                 output.println("Equipment not added: incomplete input.");

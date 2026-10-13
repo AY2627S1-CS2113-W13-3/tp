@@ -2,16 +2,87 @@
 
 ## Introduction
 
-{Give a product intro}
+LabLog helps laboratory technicians manage loanable electronics equipment and
+borrowers. The current build has two consoles: the main console for equipment,
+history, and returns, and a separate borrower console for registration and loan
+lookups. Both provide command help and examples.
 
 ## Quick Start
 
-{Give steps to get started quickly}
+Use Java 25. From the repository root in PowerShell:
 
-1. Ensure that you have Java 25 or above installed.
-1. Down the latest version of `Duke` from [here](http://link.to/duke).
+```powershell
+java -version
+.\gradlew.bat run --console=plain
+```
+
+Enter `help` to see commands, `help COMMAND` for examples, and `exit` to close
+the main console. On macOS/Linux, replace `.\gradlew.bat` with `./gradlew`.
+
+For the borrower console, compile and run:
+
+```powershell
+.\gradlew.bat classes
+java -cp build/classes/java/main lablog.BorrowerCli
+```
+
+Exit the borrower console with EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
+on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
+different path after `lablog.BorrowerCli` to select another file.
+
+**Current scope:** neither console issues loans yet. A fresh main session can
+register equipment and show empty history; successful returns and populated loan
+lists require shared loan records supplied programmatically. Only borrower
+records persist across restarts.
 
 ## Features 
+
+### Registering equipment
+
+At the main prompt, enter a single asset ID, then answer the four prompts:
+
+```text
+OSC-001
+Oscilloscope
+Electronics
+Scope Model 1
+Lab A
+```
+
+LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
+discarded. Blank or multi-word asset IDs and commands belonging to the borrower
+console are rejected at the initial prompt. `loan` is rejected as unavailable.
+Other single tokens are treated as asset IDs; use `help` to check command spelling.
+
+Equipment registration currently does not enforce unique IDs or validate the
+four detail fields. Choose unique IDs and meaningful details. Equipment is not
+saved when the program exits.
+
+### Registering borrowers: `add-borrower`
+
+In the borrower console:
+
+```text
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu
+```
+
+The ID must be an uppercase letter, seven digits, and an uppercase letter.
+Names contain 1-100 characters and no control characters; phone numbers contain
+eight digits; email addresses use `u.nus.edu`. All three prefixes are required
+exactly once and may appear in any order. Duplicate IDs and invalid fields are
+rejected. Registration saves the borrower before reporting success; a failed
+save leaves the borrower book unchanged.
+
+### Viewing a borrower's loans: `loans`
+
+In the borrower console, enter `loans A0123456X` for a registered borrower.
+Active loans are ordered by due date, then asset ID. Rows include the equipment
+name, issue date, due date, and whether the loan is overdue. Returned loans are
+excluded; a loan becomes overdue after its due date, not on that date.
+
+The standalone console has no loan-creation command, so after registration it
+currently reports `No active loans for A0123456X - Jamie Tan.` Unknown borrowers
+produce an error.
 
 ### Viewing common commands and examples: `help`
 
@@ -108,30 +179,27 @@ features are not yet connected. History can display all four types when shared
 records are supplied, as exercised by the integration tests; an ordinary fresh
 session can currently demonstrate registration and empty-history lookup only.
 
-{Give detailed description of each feature}
-
-### Adding a todo: `todo`
-Adds a new item to the list of todo items.
-
-Format: `todo n/TODO_NAME d/DEADLINE`
-
-* The `DEADLINE` can be in a natural language format.
-* The `TODO_NAME` cannot contain punctuation.  
-
-Example of usage: 
-
-`todo n/Write the rest of the User Guide d/next week`
-
-`todo n/Refactor the User Guide to remove passive voice d/13/04/2020`
-
 ## FAQ
 
 **Q**: How do I transfer my data to another computer? 
 
-**A**: {your answer here}
+**A**: Close the borrower console and copy its `.properties` data file to the
+other computer. Start `BorrowerCli` with that file path. Equipment and loans are
+in memory only and cannot currently be transferred through saved application data.
+Files under `build/` are disposable and are removed by Gradle `clean`.
 
 ## Command Summary
 
-{Give a 'cheat sheet' of commands here}
+| Input | Console | Purpose |
+| --- | --- | --- |
+| `help [COMMAND]` | Both | View commands and explained examples |
+| `ASSET_ID`, followed by prompts | Main | Register equipment |
+| `history ASSET_ID` | Main | View supplied equipment records |
+| `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
+| `exit` | Main | End the session |
+| `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Borrower | Register and save a borrower |
+| `loans BORROWER_ID` | Borrower | List a registered borrower's active loans |
 
-* Add todo `todo n/TODO_NAME d/DEADLINE`
+`loan ASSET_ID b/BORROWER_ID d/DUE_DATE` is documented by help for Version 1,
+but is not yet available to execute. There are no reservation, maintenance, or
+standalone fault-creation commands in this build.
