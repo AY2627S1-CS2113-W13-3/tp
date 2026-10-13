@@ -63,6 +63,9 @@ public class HelpCommands {
             return "Register a borrower and save their contact details (borrower console).\n"
                     + "Format: add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL\n"
                     + "Example: add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu\n"
+                    + "  Register Jamie Tan, including a name containing a space.\n"
+                    + "Example: add-borrower A0123457X e/alexlim@u.nus.edu n/Alex Lim p/92345678\n"
+                    + "  Register another borrower with the required fields in a different order.\n"
                     + "Fields: BORROWER_ID is an uppercase letter, seven digits, and an uppercase letter; "
                     + "n/ is a name of 1-100 characters; p/ is an eight-digit phone number; "
                     + "e/ is an email at u.nus.edu.\n"
@@ -71,6 +74,10 @@ public class HelpCommands {
             return "Show a borrower's active loans, ordered by due date and asset ID (borrower console).\n"
                     + "Format: loans BORROWER_ID\n"
                     + "Example: loans A0123456X\n"
+                    + "  After registering Jamie Tan, show Jamie's active loans and overdue status.\n"
+                    + "Example: loans A0123457X\n"
+                    + "  After registering Alex Lim, show Alex's active loans. "
+                    + "If none exist, report no active loans.\n"
                     + "Fields: BORROWER_ID identifies a registered borrower.\n"
                     + "Returned loans are excluded. A loan is overdue only after its due date.";
         case "exit":

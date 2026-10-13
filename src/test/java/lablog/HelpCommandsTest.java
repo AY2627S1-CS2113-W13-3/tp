@@ -67,6 +67,29 @@ class HelpCommandsTest {
     }
 
     @Test
+    void execute_borrowerExamples_registerAndLookUpBothBorrowers() throws Exception {
+        BorrowerBook borrowers = new BorrowerBook();
+        BorrowerCommands commands = new BorrowerCommands(borrowers, new LoanBook(), id -> null,
+                Clock.systemDefaultZone());
+        for (String line : help.execute("help add-borrower").split("\n")) {
+            if (line.startsWith("Example: ")) {
+                commands.execute(line.substring(9));
+            }
+        }
+        assertEquals(2, borrowers.getBorrowers().size());
+        assertEquals("Jamie Tan", borrowers.getBorrower("A0123456X").getName());
+        assertEquals("Alex Lim", borrowers.getBorrower("A0123457X").getName());
+        int lookups = 0;
+        for (String line : help.execute("help loans").split("\n")) {
+            if (line.startsWith("Example: ")) {
+                assertTrue(commands.execute(line.substring(9)).startsWith("No active loans for "));
+                lookups++;
+            }
+        }
+        assertEquals(2, lookups);
+    }
+
+    @Test
     void execute_invalidInput_explainsHowToRecover() {
         for (String input : new String[]{null, "", " ", "HELP", "loan", "help loan extra"}) {
             assertEquals("Use: help [COMMAND]",
