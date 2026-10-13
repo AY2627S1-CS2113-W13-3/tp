@@ -51,8 +51,8 @@ Lab A
 
 LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
 discarded. Blank or multi-word asset IDs and commands belonging to the borrower
-console are rejected at the initial prompt. `loan` is rejected as unavailable.
-Other single tokens are treated as asset IDs; use `help` to check command spelling.
+console are rejected at the initial prompt. Other single tokens are treated as
+asset IDs; use `help` to check command spelling.
 
 Equipment registration currently does not enforce unique IDs or validate the
 four detail fields. Choose unique IDs and meaningful details. Equipment is not
@@ -102,7 +102,7 @@ Example: loan OSC-001 b/A0123456X d/2026-09-18
   Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.
   Substitute the actual asset ID, borrower ID, and due date when issuing a loan.
 Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives the due date in YYYY-MM-DD format.
-Loan creation is not yet connected to either console.
+Borrower IDs are not checked against borrower records yet.
 ```
 
 Detailed help covers `help`, `loan`, `return`, `history`, `add-borrower`, `loans`,
@@ -128,6 +128,30 @@ Lines beginning with `Example:` contain commands you can type; the indented line
 explain their outcomes. Viewing an example never executes it. Replace sample IDs,
 contact details, and dates with your own when entering a command.
 
+### Issuing a loan: `loan`
+
+At the initial prompt, enter `loan ASSET_ID b/BORROWER_ID d/DUE_DATE`:
+
+```text
+loan OSC-001 b/A0123456X d/2026-10-30
+```
+
+LabLog confirms `Loaned OSC-001 (Oscilloscope) to A0123456X on 2026-10-13. Due
+2026-10-30.` The loan date is today's date according to the computer's clock and
+local time zone. The due date uses `YYYY-MM-DD` and must not be earlier than
+today. Both `b/` and `d/` are required exactly once and may appear in either
+order. Asset IDs are case-sensitive.
+
+The equipment must be registered and must not already be out. Unknown equipment,
+malformed or past due dates, and missing, repeated, or unknown prefixes are
+rejected without recording anything. A unit that someone still has is refused with
+a message naming the current borrower and due date, so the same unit cannot be
+lent twice; once it is returned it can be lent again.
+
+Borrower IDs are accepted as entered. The main console holds no borrower records,
+so an ID that was never registered is not detected here. Loans are currently in
+memory and are not saved across restarts.
+
 ### Recording a return: `return`
 
 At the initial prompt, enter `return ASSET_ID [faults/DESCRIPTION]`:
@@ -150,9 +174,7 @@ including their reported faults, and are excluded from active-loan listings.
 
 Fault details are stored on the loan only; this command does not create a separate
 fault record or certify that the equipment is available for lending. Loans and
-return details are currently in memory and are not saved across restarts. The
-default app still needs a loan-creation feature connected to its shared loan book
-before returns can be exercised in a normal fresh session.
+return details are currently in memory and are not saved across restarts.
 
 ### Viewing equipment history: `history`
 
@@ -173,11 +195,10 @@ date. Future reservations are included. Same-day entries are ordered by type
 Unknown equipment produces an error; registered equipment with no supplied records
 produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
-**Current integration limit:** the default application starts with an empty loan
-book and no reservation, fault, or maintenance source. Those record-creation
-features are not yet connected. History can display all four types when shared
-records are supplied, as exercised by the integration tests; an ordinary fresh
-session can currently demonstrate registration and empty-history lookup only.
+**Current integration limit:** the default application starts with no reservation,
+fault, or maintenance source, so those entries appear only when shared records are
+supplied, as exercised by the integration tests. A fresh session can register a
+unit, lend it, return it, and see the resulting loan history.
 
 ## FAQ
 
@@ -194,12 +215,12 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | --- | --- | --- |
 | `help [COMMAND]` | Both | View commands and explained examples |
 | `ASSET_ID`, followed by prompts | Main | Register equipment |
+| `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
 | `exit` | Main | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Borrower | Register and save a borrower |
 | `loans BORROWER_ID` | Borrower | List a registered borrower's active loans |
 
-`loan ASSET_ID b/BORROWER_ID d/DUE_DATE` is documented by help for Version 1,
-but is not yet available to execute. There are no reservation, maintenance, or
-standalone fault-creation commands in this build.
+There are no reservation, maintenance, or standalone fault-creation commands in
+this build.

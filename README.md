@@ -10,9 +10,8 @@ for a concise list of common Version 1 commands. Enter `help COMMAND`, such as
 shows returns with and without reported faults; `help add-borrower` demonstrates
 both the usual and reordered fields. Help displays these examples without
 executing them or changing records.
-The list identifies which console supports each command and notes that loan
-creation is not yet connected. Equipment registration uses the main console's
-asset-ID prompt.
+The list identifies which console supports each command. Equipment registration
+uses the main console's asset-ID prompt.
 
 ## Borrower features
 
@@ -47,7 +46,8 @@ java -version
 On macOS/Linux, use `./gradlew run --console=plain`. Enter `help` for the command
 list or `help return` for explained examples. To register equipment, enter an
 asset ID such as `OSC-001`, then answer the name, category, model, and location
-prompts. Enter `history OSC-001` to check its history, or `exit` to close.
+prompts. Enter `loan OSC-001 b/A0123456X d/2026-10-30` to lend it,
+`history OSC-001` to check its history, or `exit` to close.
 
 To build and run the executable JAR:
 
@@ -56,10 +56,10 @@ To build and run the executable JAR:
 java -jar build/libs/lablog.jar
 ```
 
-The main console supports registration, help, history, and return handling.
-It starts with no loans and has no loan-creation command, so a fresh session
-cannot complete a loan/return workflow. Equipment, loans, and return details
-are in memory only. Borrower commands run in the separate console below.
+The main console supports registration, help, loans, history, and return
+handling, so a fresh session can complete a loan/return workflow. Equipment,
+loans, and return details are in memory only. Borrower commands run in the
+separate console below.
 
 ## Running the borrower console
 
@@ -109,10 +109,11 @@ Run the JUnit and Checkstyle checks with Java 25:
 .\gradlew.bat test checkstyleMain checkstyleTest
 ```
 
-Tests cover borrower validation and persistence, active-loan lookup, overdue
-dates, returns and fault descriptions, history ordering, help examples, unchanged
-records during help, and console input recovery. Return/history tests supply
-shared loan records because loan creation is not yet available through the CLI.
+Tests cover borrower validation and persistence, loan issuing and the refusal to
+lend a unit that is already out, active-loan lookup, overdue dates, returns and
+fault descriptions, history ordering, help examples, unchanged records during
+help, and console input recovery. Return/history tests supply shared loan records
+directly, which keeps them independent of the loan command.
 See the [JUnit tutorial](https://se-education.org/guides/tutorials/junit.html) for background.
 
 ### Console tests
