@@ -13,6 +13,29 @@
 
 ## Features 
 
+### Viewing common commands and examples: `help`
+
+Format: `help [COMMAND]`
+
+Enter `help` for the concise Version 1 command list, or supply one command name
+to see its syntax, fields, and an example. Help is available in both consoles
+and does not change records. Command names are case-sensitive; unknown names
+and extra arguments produce an error and let you try again.
+
+For example, `help loan` displays:
+
+```text
+Issue a loan for an available equipment item.
+Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE
+Example: loan OSC-001 b/A0123456X d/2026-09-18
+Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives the due date in YYYY-MM-DD format.
+Loan creation is not yet connected to either console.
+```
+
+Detailed help covers `help`, `loan`, `return`, `history`, `add-borrower`, `loans`,
+and `exit`. The list labels commands belonging to the main or borrower console;
+viewing help does not make a command available in the other console.
+
 ### Recording a return: `return`
 
 At the initial prompt, enter `return ASSET_ID [faults/DESCRIPTION]`:
