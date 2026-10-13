@@ -6,6 +6,24 @@
 
 ## Design & implementation
 
+### Equipment returns
+
+`ReturnCommands` receives the shared inventory, loan book, and a `Clock`.
+`return ASSET_ID [faults/DESCRIPTION]` finds exactly one active loan for the unit
+and calls `Loan.markReturned(LocalDate.now(clock), faults)`. The loan validates
+the date, fault text, and active state before assigning either return field.
+The original one-argument method remains available and records no reported faults.
+
+`LabLog` supplies `Clock.systemDefaultZone()` normally and accepts an explicit
+clock for tests. Return handling shares the same loan book with history; no copied
+return records are created. Fault descriptions appear on returned loan history
+entries, and the existing borrower handler excludes the now-inactive loan.
+There is no automatic fault-record creation, availability change, or persistence.
+
+`ReturnCommandsTest` covers local-date boundaries, optional faults, invalid input,
+repeat returns, multiple active loans, date validation, historical loans, borrower
+listing updates, and the return/history console flow.
+
 ### Equipment history
 
 `HistoryCommands.execute("history ASSET_ID")` validates the command, checks

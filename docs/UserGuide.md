@@ -13,6 +13,32 @@
 
 ## Features 
 
+### Recording a return: `return`
+
+At the initial prompt, enter `return ASSET_ID [faults/DESCRIPTION]`:
+
+```text
+return OSC-001
+return OSC-002 faults/cracked screen
+```
+
+The return date is today's date according to the computer's clock and local time
+zone. Omit `faults/` if the unit is returned in its original condition with no new
+damage to report. This records "No faults reported on return"; it does not clear
+existing equipment faults. If supplied, `faults/` must appear once with a non-empty,
+single-line description. Asset IDs are case-sensitive.
+
+The equipment must exist and have exactly one active loan. Invalid commands,
+repeated returns, multiple active loans, and returns before the loan date are
+rejected without changing records. Returned loans remain in equipment history,
+including their reported faults, and are excluded from active-loan listings.
+
+Fault details are stored on the loan only; this command does not create a separate
+fault record or certify that the equipment is available for lending. Loans and
+return details are currently in memory and are not saved across restarts. The
+default app still needs a loan-creation feature connected to its shared loan book
+before returns can be exercised in a normal fresh session.
+
 ### Viewing equipment history: `history`
 
 At LabLog's initial asset-ID prompt, enter `history ASSET_ID`, for example
