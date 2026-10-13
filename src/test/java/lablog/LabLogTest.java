@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 class LabLogTest {
     @Test
     void run_unavailableCommands_rejectsWithoutConsumingEquipmentDetails() {
-        for (String input : List.of("loan OSC-001 b/A0123456X d/2026-09-18", "loan", "loans A0123456X",
+        for (String input : List.of("loans A0123456X",
                 "add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu")) {
             Inventory inventory = new Inventory();
             ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -26,6 +26,22 @@ class LabLogTest {
             assertFalse(output.toString().contains("Enter name:"));
             assertTrue(inventory.getEquipmentUnits().isEmpty());
         }
+    }
+
+    @Test
+    void run_loanCommand_issuesLoanInsteadOfRegisteringEquipment() {
+        Inventory inventory = new Inventory();
+        inventory.addEquipment(new Equipment("OSC-001", "Scope", "Electronics", "S1", "Lab"));
+        LoanBook loans = new LoanBook();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        new LabLog(inventory, loans, List::of).run(
+                new Scanner("loan OSC-001 b/A0123456X d/2099-01-01\nexit\n"),
+                new PrintStream(output));
+
+        assertTrue(output.toString().contains("Loaned OSC-001"));
+        assertFalse(output.toString().contains("Enter name:"));
+        assertTrue(loans.hasActiveLoan("OSC-001"));
     }
 
     @Test

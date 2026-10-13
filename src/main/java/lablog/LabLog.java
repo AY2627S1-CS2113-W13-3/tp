@@ -13,6 +13,7 @@ public class LabLog {
     private final Inventory inventory;
     private final HistoryCommands history;
     private final ReturnCommands returns;
+    private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
 
     /** Creates an application with empty in-memory equipment and loan records. */
@@ -43,6 +44,7 @@ public class LabLog {
         this.inventory = inventory;
         this.history = new HistoryCommands(inventory, loans, otherHistory);
         this.returns = new ReturnCommands(inventory, loans, clock);
+        this.loanCommands = new LoanCommands(inventory, loans, clock);
     }
 
     /**
@@ -64,7 +66,8 @@ public class LabLog {
     }
 
     /**
-     * Accepts an asset ID to register, a help, history or return command, or exit at the initial prompt.
+     * Accepts an asset ID to register, a help, loan, history or return command, or exit at the
+     * initial prompt.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
      * @param scanner input owned by the caller
@@ -74,8 +77,8 @@ public class LabLog {
         output.println("Welcome to LabLog!");
         output.println("Manage your laboratory equipment and loans here.");
         while (true) {
-            output.println("Enter asset ID, help [COMMAND], history ASSET_ID, "
-                    + "return ASSET_ID [faults/DESCRIPTION], or exit:");
+            output.println("Enter asset ID, help [COMMAND], loan ASSET_ID b/BORROWER_ID d/DUE_DATE, "
+                    + "history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
             if (!scanner.hasNextLine()) {
                 return;
             }
@@ -92,15 +95,15 @@ public class LabLog {
                 }
                 continue;
             }
-            if (command.equals("history") || command.equals("return")) {
+            if (command.equals("history") || command.equals("return") || command.equals("loan")) {
                 try {
-                    output.println(command.equals("history") ? history.execute(input) : returns.execute(input));
+                    output.println(executeRecordCommand(command, input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
                 continue;
             }
-            if (List.of("loan", "loans", "add-borrower").contains(command)) {
+            if (List.of("loans", "add-borrower").contains(command)) {
                 output.println("Error: " + command
                         + " is not available in this console. Use help for command details.");
                 continue;
@@ -116,6 +119,26 @@ public class LabLog {
             }
             inventory.addEquipment(equipment);
             output.println("Equipment added to inventory.");
+        }
+    }
+
+    /**
+     * Runs one command that reads or changes the shared equipment and loan records.
+     *
+     * @param command first word of the input
+     * @param input complete command line
+     * @return text to display
+     */
+    private String executeRecordCommand(String command, String input) {
+        switch (command) {
+        case "history":
+            return history.execute(input);
+        case "return":
+            return returns.execute(input);
+        case "loan":
+            return loanCommands.execute(input);
+        default:
+            throw new IllegalArgumentException("Unknown command: " + command);
         }
     }
 

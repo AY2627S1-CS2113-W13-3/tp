@@ -11,9 +11,9 @@ executable JAR. See `build.gradle` for dependency versions.
 ### Entry points and shared records
 
 `LabLog` is the Gradle application entry point. It holds an `Inventory` and
-routes help, history, and return commands to their handlers. Other valid single
-tokens begin equipment registration; blank or multi-token input is rejected.
-Known unavailable commands (`loan`, `loans`, `add-borrower`) are rejected before
+routes help, loan, history, and return commands to their handlers. Other valid
+single tokens begin equipment registration; blank or multi-token input is
+rejected. Borrower-console commands (`loans`, `add-borrower`) are rejected before
 registration so their arguments cannot become equipment details.
 
 `BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
@@ -25,22 +25,43 @@ for connecting it to shared application records.
 `BorrowerBook`, and `LoanBook` store collections. `LoanBook.findActiveLoan`
 returns an `Optional<Loan>`; `hasActiveLoan` reports whether a matching active
 loan exists. These are lookup helpers, not an enforcement mechanism:
-`addLoan` currently permits duplicate active loans, and the loan constructor
-does not validate identifiers or dates. A future issuing handler must validate
-its inputs and prevent lending an unavailable unit.
+`addLoan` still permits duplicate active loans, and the loan constructor does
+not validate identifiers or dates. `LoanCommands` applies those checks before
+storing a record; any other issuing path must repeat them.
 
 ### Help and command examples
 
 `HelpCommands` contains shared guidance for both consoles and has no record
 store dependencies. `help` returns a concise list; `help COMMAND` returns
 syntax, fields, and explained examples. Invalid names and extra arguments
-produce recoverable errors. The loan example explicitly states that loan
-creation is not connected.
+produce recoverable errors. The loan example notes that borrower IDs are not
+checked against borrower records yet.
 
 `HelpCommandsTest` checks parsing, examples against the real handlers, console
 integration, and unchanged records/files when viewing help. `LabLogTest` checks
 that unavailable commands and invalid initial input do not consume subsequent
 commands as equipment details.
+
+### Issuing loans
+
+`LoanCommands` receives the shared inventory, loan book, and a `Clock`.
+`loan ASSET_ID b/BORROWER_ID d/DUE_DATE` accepts the two prefixes in either
+order, once each. It checks the syntax, that the unit is registered, that the
+borrower ID is a single token, that the due date parses and is not in the past,
+and last that the unit has no active loan. The record is stored only after every
+check passes, so a rejected command never leaves a partial loan.
+
+Availability is derived from `LoanBook.findActiveLoan` rather than a status field
+on `Equipment`, so one place decides which units are out. The refusal names the
+current borrower and due date, which is why the lookup returns the loan itself
+rather than a boolean.
+
+Borrower identifiers are accepted as given. `LabLog` holds no `BorrowerBook`, so
+checking them belongs with the borrower-console integration.
+
+`LoanCommandsTest` covers the accepted command, prefix order, due dates at and
+before today, malformed dates, missing and repeated fields, unknown equipment,
+the refusal for a unit already out, and lending again after a return.
 
 ### Equipment returns
 
@@ -118,9 +139,10 @@ before updating memory. These behaviors are covered by automated tests.
 
 Current limitations: equipment registration does not validate detail fields or
 reject duplicate asset IDs; equipment, loans, and return details are not persisted;
-the consoles are not unified; loan creation and reservation/fault/maintenance
-record creation are not implemented. Passing tests does not imply these planned
-features are complete.
+the consoles are not unified; the loan command does not check the borrower
+against registered borrowers; reservation, fault, and maintenance record creation
+are not implemented. Passing tests does not imply these planned features are
+complete.
 
 ## Glossary
 

@@ -44,7 +44,7 @@ class HelpCommandsTest {
                 + "Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE\n"
                 + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));
-        assertTrue(detail.contains("not yet connected"));
+        assertTrue(detail.contains("not checked against borrower records"));
     }
 
     @Test
