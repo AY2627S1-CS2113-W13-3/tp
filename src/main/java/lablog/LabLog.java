@@ -103,7 +103,7 @@ public class LabLog {
                 }
                 continue;
             }
-            if (List.of("loan", "loans", "add-borrower").contains(command)) {
+            if (List.of("loans", "add-borrower").contains(command)) {
                 output.println("Error: " + command
                         + " is not available in this console. Use help for command details.");
                 continue;
