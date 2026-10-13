@@ -9,6 +9,7 @@ import java.time.LocalDate;
 
 import org.junit.jupiter.api.Test;
 
+/** Verifies the details a loan keeps and when it stops counting as active. */
 class LoanTest {
     private static final LocalDate LOAN_DATE = LocalDate.of(2026, 10, 9);
     private static final LocalDate DUE_DATE = LocalDate.of(2026, 10, 23);

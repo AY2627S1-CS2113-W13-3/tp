@@ -11,6 +11,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
+/** Verifies loan storage, the immutable snapshot, and the lookup that blocks double lending. */
 class LoanBookTest {
     private static final LocalDate LOAN_DATE = LocalDate.of(2026, 10, 9);
     private static final LocalDate DUE_DATE = LocalDate.of(2026, 10, 23);

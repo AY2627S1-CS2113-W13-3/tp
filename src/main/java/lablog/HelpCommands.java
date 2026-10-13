@@ -5,7 +5,7 @@ public class HelpCommands {
     private static final String USAGE = "Use: help [COMMAND]";
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
-            + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (not yet connected).\n"
+            + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
             + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (borrower console).\n"
@@ -48,7 +48,7 @@ public class HelpCommands {
                     + "  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.\n"
                     + "Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; "
                     + "d/ gives the due date in YYYY-MM-DD format.\n"
-                    + "Loan creation is not yet connected to either console.";
+                    + "Borrower IDs are not checked against borrower records yet.";
         case "return":
             return "Record an equipment return on today's date (main console).\n"
                     + "Format: return ASSET_ID [faults/DESCRIPTION]\n"
