@@ -2,6 +2,7 @@ package lablog;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Stores the loan records managed by LabLog.
@@ -20,6 +21,34 @@ public class LoanBook {
      */
     public void addLoan(Loan loan) {
         loans.add(loan);
+    }
+
+    /**
+     * Finds the loan that currently has the given unit out.
+     *
+     * <p>A unit can be lent out many times, but only one of those loans can be
+     * active at a time, so at most one loan is ever returned.
+     *
+     * @param assetId asset identifier of the unit to look up
+     * @return the active loan for that unit, or empty if the unit is available
+     */
+    public Optional<Loan> findActiveLoan(String assetId) {
+        for (Loan loan : loans) {
+            if (loan.isActive() && loan.getAssetId().equals(assetId)) {
+                return Optional.of(loan);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Returns whether the given unit is already out with a borrower.
+     *
+     * @param assetId asset identifier of the unit to check
+     * @return true if the unit cannot be lent out again until it is returned
+     */
+    public boolean hasActiveLoan(String assetId) {
+        return findActiveLoan(assetId).isPresent();
     }
 
     /**
