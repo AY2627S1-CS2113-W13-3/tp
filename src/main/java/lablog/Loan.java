@@ -15,6 +15,8 @@ public class Loan {
     private final LocalDate loanDate;
     private final LocalDate dueDate;
     private LocalDate returnDate;
+    // Empty means no faults were reported on return; it does not clear equipment faults.
+    private String returnFaults = "";
 
     /**
      * Creates an active loan of one equipment unit to one borrower.
@@ -52,6 +54,10 @@ public class Loan {
         return returnDate;
     }
 
+    public String getReturnFaults() {
+        return returnFaults;
+    }
+
     /**
      * Returns whether this unit is still out with the borrower.
      *
@@ -67,6 +73,27 @@ public class Loan {
      * @param returnDate date the unit was returned
      */
     public void markReturned(LocalDate returnDate) {
+        markReturned(returnDate, "");
+    }
+
+    /**
+     * Records a return and optional faults together after validating all details.
+     *
+     * @param returnDate date the unit was returned, no earlier than the loan date
+     * @param faults single-line fault description, or an empty string for no reported faults
+     * @throws IllegalArgumentException if already returned or the details are invalid
+     */
+    public void markReturned(LocalDate returnDate, String faults) {
+        if (!isActive()) {
+            throw new IllegalArgumentException("This loan has already been returned.");
+        }
+        if (returnDate == null || returnDate.isBefore(loanDate)) {
+            throw new IllegalArgumentException("Return date must not be before the loan date.");
+        }
+        if (faults == null || faults.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("Fault details must be on one line.");
+        }
+        this.returnFaults = faults.strip();
         this.returnDate = returnDate;
     }
 }

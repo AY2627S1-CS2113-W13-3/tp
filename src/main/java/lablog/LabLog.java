@@ -1,6 +1,7 @@
 package lablog;
 
 import java.io.PrintStream;
+import java.time.Clock;
 import java.util.List;
 import java.util.Scanner;
 import java.util.function.Supplier;
@@ -11,6 +12,7 @@ import java.util.function.Supplier;
 public class LabLog {
     private final Inventory inventory;
     private final HistoryCommands history;
+    private final ReturnCommands returns;
 
     /** Creates an application with empty in-memory equipment and loan records. */
     public LabLog() {
@@ -25,8 +27,21 @@ public class LabLog {
      * @param otherHistory current reservation, fault, and maintenance display entries
      */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory) {
+        this(inventory, loans, otherHistory, Clock.systemDefaultZone());
+    }
+
+    /**
+     * Connects shared records with an explicit clock for repeatable return-date tests.
+     *
+     * @param inventory shared equipment inventory
+     * @param loans shared loan book
+     * @param otherHistory current reservation, fault, and maintenance entries
+     * @param clock clock used to date returns
+     */
+    public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory, Clock clock) {
         this.inventory = inventory;
         this.history = new HistoryCommands(inventory, loans, otherHistory);
+        this.returns = new ReturnCommands(inventory, loans, clock);
     }
 
     /**
@@ -48,7 +63,7 @@ public class LabLog {
     }
 
     /**
-     * Accepts an asset ID to register, a history command, or exit at the initial prompt.
+     * Accepts an asset ID to register, a history or return command, or exit at the initial prompt.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
      * @param scanner input owned by the caller
@@ -58,7 +73,7 @@ public class LabLog {
         output.println("Welcome to LabLog!");
         output.println("Manage your laboratory equipment and loans here.");
         while (true) {
-            output.println("Enter asset ID, history ASSET_ID, or exit:");
+            output.println("Enter asset ID, history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
             if (!scanner.hasNextLine()) {
                 return;
             }
@@ -66,9 +81,10 @@ public class LabLog {
             if (input.equals("exit")) {
                 return;
             }
-            if (input.split("\\s+", 2)[0].equals("history")) {
+            String command = input.split("\\s+", 2)[0];
+            if (command.equals("history") || command.equals("return")) {
                 try {
-                    output.println(history.execute(input));
+                    output.println(command.equals("history") ? history.execute(input) : returns.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }

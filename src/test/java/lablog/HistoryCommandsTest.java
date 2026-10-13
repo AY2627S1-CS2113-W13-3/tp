@@ -44,7 +44,8 @@ class HistoryCommandsTest {
                 HistoryEntry.Type.RESERVATION, "Borrower A0123457X; confirmed"));
 
         assertEquals("History for OSC-001 - Scope:\nDate | Type | Details\n"
-                + "2026-10-01 | LOAN | Borrower A0123456X; due 2026-10-08; returned 2026-10-07\n"
+                + "2026-10-01 | LOAN | Borrower A0123456X; due 2026-10-08; returned 2026-10-07"
+                + "; no faults reported on return\n"
                 + "2026-10-08 | FAULT | Power supply failed\n"
                 + "2026-10-09 | MAINTENANCE | Power supply replaced\n"
                 + "2026-10-15 | RESERVATION | Borrower A0123457X; confirmed\n4 records.",
