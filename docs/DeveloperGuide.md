@@ -2,9 +2,45 @@
 
 ## Acknowledgements
 
-{list here sources of all reused/adapted ideas, code, documentation, and third-party libraries -- include links to the original source as well}
+LabLog builds on the SE-EDU Java project template. Gradle manages compilation,
+JUnit 5 runs tests, Checkstyle checks coding conventions, and Shadow builds the
+executable JAR. See `build.gradle` for dependency versions.
 
 ## Design & implementation
+
+### Entry points and shared records
+
+`LabLog` is the Gradle application entry point. It holds an `Inventory` and
+routes help, history, and return commands to their handlers. Other valid single
+tokens begin equipment registration; blank or multi-token input is rejected.
+Known unavailable commands (`loan`, `loans`, `add-borrower`) are rejected before
+registration so their arguments cannot become equipment details.
+
+`BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
+and an initially empty `LoanBook`. `BorrowerCommands` handles registration,
+loan listings, and help. See [borrower integration notes](BorrowerImplementation.md)
+for connecting it to shared application records.
+
+`Equipment`, `Borrower`, and `Loan` model individual records. `Inventory`,
+`BorrowerBook`, and `LoanBook` store collections. `LoanBook.findActiveLoan`
+returns an `Optional<Loan>`; `hasActiveLoan` reports whether a matching active
+loan exists. These are lookup helpers, not an enforcement mechanism:
+`addLoan` currently permits duplicate active loans, and the loan constructor
+does not validate identifiers or dates. A future issuing handler must validate
+its inputs and prevent lending an unavailable unit.
+
+### Help and command examples
+
+`HelpCommands` contains shared guidance for both consoles and has no record
+store dependencies. `help` returns a concise list; `help COMMAND` returns
+syntax, fields, and explained examples. Invalid names and extra arguments
+produce recoverable errors. The loan example explicitly states that loan
+creation is not connected.
+
+`HelpCommandsTest` checks parsing, examples against the real handlers, console
+integration, and unchanged records/files when viewing help. `LabLogTest` checks
+that unavailable commands and invalid initial input do not consume subsequent
+commands as equipment details.
 
 ### Equipment returns
 
@@ -53,33 +89,63 @@ or reservation/fault/maintenance creation commands are introduced by this featur
 fresh source updates, date ordering, invalid input, empty/unknown equipment, and
 the actual application prompt with injected shared data.
 
-{Describe the design and implementation of the product. Use UML diagrams and short code snippets where applicable.}
-
-
 ## Product scope
 ### Target user profile
 
-{Describe the target user profile}
+Laboratory technicians managing individual electronics equipment units and
+student borrowers through a text interface.
 
 ### Value proposition
 
-{Describe the value proposition: what problem does it solve?}
+Keep equipment identity, borrower contacts, and loan history accessible from
+the command line. The current handlers support parts of this workflow; the
+shared loan-issuing workflow remains unfinished.
 
 ## User Stories
 
 |Version| As a ... | I want to ... | So that I can ...|
 |--------|----------|---------------|------------------|
 |v1.0|new user|see usage instructions|refer to them when I forget how to use the application|
-|v2.0|user|find a to-do item by name|locate a to-do without having to go through the entire list|
+|v1.0|laboratory technician|register borrowers|retain validated contact details|
+|v1.0|laboratory technician|view active loans and equipment history|track who has equipment and its past loans|
+|v1.0|laboratory technician|record returns and reported damage|close loans while retaining their history|
 
 ## Non-Functional Requirements
 
-{Give non-functional requirements}
+Build and run with Java 25. Keep help read-only and reject invalid borrower and
+return commands before changing records. Save borrower additions atomically
+before updating memory. These behaviors are covered by automated tests.
+
+Current limitations: equipment registration does not validate detail fields or
+reject duplicate asset IDs; equipment, loans, and return details are not persisted;
+the consoles are not unified; loan creation and reservation/fault/maintenance
+record creation are not implemented. Passing tests does not imply these planned
+features are complete.
 
 ## Glossary
 
-* *glossary item* - Definition
+* **Asset ID:** identifier of one physical equipment unit.
+* **Active loan:** a loan whose return date is absent.
+* **Overdue loan:** an active loan with a due date before today's local date.
+* **History entry:** a display snapshot of a record, not an immutable event log.
 
 ## Instructions for manual testing
 
-{Give instructions on how to do a manual product testing e.g., how to load sample data to be used for testing}
+From the repository root with Java 25:
+
+```powershell
+.\gradlew.bat test checkstyleMain checkstyleTest shadowJar
+python test/run-cli-smoke-tests.py
+```
+
+The Python 3 runner checks the packaged JAR and separate borrower processes with
+temporary data. The existing PowerShell 7 runner also verifies exact borrower
+output: `pwsh -File test/run-borrower-ui-tests.ps1`. See the
+[console test plan](../test/ui-test-plan.md) and
+[verification report](../test/verification-report.md).
+
+For a manual main-console check, run `java -jar build/libs/lablog.jar`, enter
+`help`, `help return`, then register `OSC-001` with four detail lines. Check
+`history OSC-001`, `return OSC-001`, and `exit`. In this fresh session, history
+is empty and return reports that the unit is not on loan. Automated integration
+tests supply active loans to verify successful return and history updates.
