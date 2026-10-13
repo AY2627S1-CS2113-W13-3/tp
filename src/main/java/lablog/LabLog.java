@@ -13,6 +13,7 @@ public class LabLog {
     private final Inventory inventory;
     private final HistoryCommands history;
     private final ReturnCommands returns;
+    private final HelpCommands help = new HelpCommands();
 
     /** Creates an application with empty in-memory equipment and loan records. */
     public LabLog() {
@@ -63,7 +64,7 @@ public class LabLog {
     }
 
     /**
-     * Accepts an asset ID to register, a history or return command, or exit at the initial prompt.
+     * Accepts an asset ID to register, a help, history or return command, or exit at the initial prompt.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
      * @param scanner input owned by the caller
@@ -73,7 +74,8 @@ public class LabLog {
         output.println("Welcome to LabLog!");
         output.println("Manage your laboratory equipment and loans here.");
         while (true) {
-            output.println("Enter asset ID, history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
+            output.println("Enter asset ID, help [COMMAND], history ASSET_ID, "
+                    + "return ASSET_ID [faults/DESCRIPTION], or exit:");
             if (!scanner.hasNextLine()) {
                 return;
             }
@@ -82,6 +84,14 @@ public class LabLog {
                 return;
             }
             String command = input.split("\\s+", 2)[0];
+            if (command.equals("help")) {
+                try {
+                    output.println(help.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
             if (command.equals("history") || command.equals("return")) {
                 try {
                     output.println(command.equals("history") ? history.execute(input) : returns.execute(input));

@@ -2,6 +2,15 @@
 
 LabLog is a command-line application for laboratory technicians who manage loanable electronics equipment. The v1.0 scope covers equipment and borrower registration, loans and returns, and equipment history. Implementation is in progress.
 
+## Command help
+
+Enter `help` in either the main LabLog console or the standalone borrower console
+for a concise list of common Version 1 commands. Enter `help COMMAND`, such as
+`help loan`, for its syntax, fields, and an example. Help does not change records.
+The list identifies which console supports each command and notes that loan
+creation is not yet connected. Equipment registration uses the main console's
+asset-ID prompt.
+
 ## Borrower features
 
 This increment adds the command handlers for issues #10 and #11:

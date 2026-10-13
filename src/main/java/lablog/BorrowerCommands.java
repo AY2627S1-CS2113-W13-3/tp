@@ -53,6 +53,8 @@ public class BorrowerCommands {
         String[] parts = input.strip().split("\\s+", 2);
         String arguments = parts.length == 2 ? parts[1].strip() : "";
         switch (parts[0]) {
+        case "help":
+            return new HelpCommands().execute(input);
         case "add-borrower":
             return addBorrower(arguments);
         case "loans":
