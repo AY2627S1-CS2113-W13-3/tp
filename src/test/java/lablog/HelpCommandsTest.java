@@ -46,6 +46,27 @@ class HelpCommandsTest {
     }
 
     @Test
+    void execute_returnExamples_areAcceptedForSeparateActiveLoans() {
+        String detail = help.execute("help return");
+        int count = 0;
+        for (String line : detail.split("\n")) {
+            if (!line.startsWith("Example: ")) {
+                continue;
+            }
+            Inventory inventory = new Inventory();
+            inventory.addEquipment(new Equipment("OSC-001", "Scope", "Electronics", "S1", "Lab"));
+            LoanBook loans = new LoanBook();
+            Loan loan = new Loan("OSC-001", "A0123456X", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 18));
+            loans.addLoan(loan);
+            new ReturnCommands(inventory, loans, Clock.systemDefaultZone()).execute(line.substring(9));
+            assertFalse(loan.isActive());
+            assertEquals(line.contains("faults/") ? "cracked screen" : "", loan.getReturnFaults());
+            count++;
+        }
+        assertEquals(2, count);
+    }
+
+    @Test
     void execute_invalidInput_explainsHowToRecover() {
         for (String input : new String[]{null, "", " ", "HELP", "loan", "help loan extra"}) {
             assertEquals("Use: help [COMMAND]",

@@ -46,6 +46,11 @@ public class HelpCommands {
             return "Record an equipment return on today's date (main console).\n"
                     + "Format: return ASSET_ID [faults/DESCRIPTION]\n"
                     + "Example: return OSC-001 faults/cracked screen\n"
+                    + "  Return the unit and record a cracked screen on its loan.\n"
+                    + "Example: return OSC-001\n"
+                    + "  Return the unit with no new faults reported.\n"
+                    + "Choose one example for a unit that is currently on loan; "
+                    + "the same loan cannot be returned twice.\n"
                     + "Fields: ASSET_ID identifies equipment with exactly one active loan; "
                     + "faults/ optionally records a non-empty, single-line damage description.\n"
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
