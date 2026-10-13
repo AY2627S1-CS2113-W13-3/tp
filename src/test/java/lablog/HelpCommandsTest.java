@@ -10,7 +10,9 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Scanner;
 
@@ -58,7 +60,8 @@ class HelpCommandsTest {
             LoanBook loans = new LoanBook();
             Loan loan = new Loan("OSC-001", "A0123456X", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 18));
             loans.addLoan(loan);
-            new ReturnCommands(inventory, loans, Clock.systemDefaultZone()).execute(line.substring(9));
+            Clock clock = Clock.fixed(Instant.parse("2026-09-10T12:00:00Z"), ZoneOffset.UTC);
+            new ReturnCommands(inventory, loans, clock).execute(line.substring(9));
             assertFalse(loan.isActive());
             assertEquals(line.contains("faults/") ? "cracked screen" : "", loan.getReturnFaults());
             count++;
@@ -90,6 +93,31 @@ class HelpCommandsTest {
     }
 
     @Test
+    void execute_helpExamples_resolveToKnownGuidance() {
+        int count = 0;
+        for (String line : help.execute("help help").split("\n")) {
+            if (line.startsWith("Example: ")) {
+                assertFalse(help.execute(line.substring(9)).isBlank());
+                count++;
+            }
+        }
+        assertEquals(3, count);
+    }
+
+    @Test
+    void run_historyExample_worksAfterEquipmentRegistration() {
+        String example = help.execute("help history").lines()
+                .filter(line -> line.startsWith("Example: ")).findFirst().orElseThrow().substring(9);
+        Inventory inventory = new Inventory();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        new LabLog(inventory, new LoanBook(), List::of).run(new Scanner(
+                "help history\nOSC-001\nScope\nElectronics\nS1\nLab\n" + example + "\nexit\n"),
+                new PrintStream(output));
+        assertTrue(output.toString().contains("No history found for OSC-001 - Scope."));
+        assertEquals(1, inventory.getEquipmentUnits().size());
+    }
+
+    @Test
     void execute_invalidInput_explainsHowToRecover() {
         for (String input : new String[]{null, "", " ", "HELP", "loan", "help loan extra"}) {
             assertEquals("Use: help [COMMAND]",
@@ -111,10 +139,14 @@ class HelpCommandsTest {
         loans.addLoan(loan);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         new LabLog(inventory, loans, List::of).run(new Scanner(
-                "help\nhelp return\nhelp unknown\nhelp loan extra\nhelp loan\nexit\n"), new PrintStream(output));
+                "help\nhelp return\nhelp unknown\nhelp loan extra\nhelp loan\nhelp history\nhelp help\nexit\n"),
+                new PrintStream(output));
         String result = output.toString();
         assertTrue(result.contains(help.execute("help")));
         assertTrue(result.contains(help.execute("help loan")));
+        assertTrue(result.contains(help.execute("help return")));
+        assertTrue(result.contains(help.execute("help history")));
+        assertTrue(result.contains(help.execute("help help")));
         assertTrue(result.contains("Error: Unknown command: unknown."));
         assertTrue(result.contains("Error: Use: help [COMMAND]"));
         assertFalse(result.contains("Enter name:"));
@@ -134,9 +166,11 @@ class HelpCommandsTest {
         BorrowerCommands commands = new BorrowerCommands(borrowers, new LoanBook(), id -> null,
                 Clock.systemDefaultZone());
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        BorrowerCli.run(new Scanner("help\nhelp unknown\nhelp add-borrower\n"), new PrintStream(output), commands);
+        BorrowerCli.run(new Scanner("help\nhelp unknown\nhelp add-borrower\nhelp loans\n"),
+                new PrintStream(output), commands);
         assertTrue(output.toString().contains(help.execute("help")));
         assertTrue(output.toString().contains(help.execute("help add-borrower")));
+        assertTrue(output.toString().contains(help.execute("help loans")));
         assertEquals(List.of(borrower), borrowers.getBorrowers());
         assertEquals(saved, Files.readString(file));
     }

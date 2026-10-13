@@ -6,7 +6,10 @@ LabLog is a command-line application for laboratory technicians who manage loana
 
 Enter `help` in either the main LabLog console or the standalone borrower console
 for a concise list of common Version 1 commands. Enter `help COMMAND`, such as
-`help loan`, for its syntax, fields, and an example. Help does not change records.
+`help loan`, for its syntax, fields, and explained usage examples. `help return`
+shows returns with and without reported faults; `help add-borrower` demonstrates
+both the usual and reordered fields. Help displays these examples without
+executing them or changing records.
 The list identifies which console supports each command and notes that loan
 creation is not yet connected. Equipment registration uses the main console's
 asset-ID prompt.

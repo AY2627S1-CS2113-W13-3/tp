@@ -18,7 +18,7 @@
 Format: `help [COMMAND]`
 
 Enter `help` for the concise Version 1 command list, or supply one command name
-to see its syntax, fields, and an example. Help is available in both consoles
+to see its syntax, fields, and explained usage examples. Help is available in both consoles
 and does not change records. Command names are case-sensitive; unknown names
 and extra arguments produce an error and let you try again.
 
@@ -28,6 +28,8 @@ For example, `help loan` displays:
 Issue a loan for an available equipment item.
 Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE
 Example: loan OSC-001 b/A0123456X d/2026-09-18
+  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.
+  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.
 Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives the due date in YYYY-MM-DD format.
 Loan creation is not yet connected to either console.
 ```
@@ -35,6 +37,25 @@ Loan creation is not yet connected to either console.
 Detailed help covers `help`, `loan`, `return`, `history`, `add-borrower`, `loans`,
 and `exit`. The list labels commands belonging to the main or borrower console;
 viewing help does not make a command available in the other console.
+
+Use `help return` to compare returning an item with and without new faults:
+
+```text
+Example: return OSC-001 faults/cracked screen
+  Return the unit and record a cracked screen on its loan.
+Example: return OSC-001
+  Return the unit with no new faults reported.
+```
+
+These are alternatives: the unit must have an active loan, and a loan cannot be
+returned twice. Use `help add-borrower` to see registrations with different field
+orders, and `help loans` for lookups using those borrowers' IDs. Use `help history`
+for a history lookup and its registration prerequisite, or `help help` to see how
+to switch between the concise list and command-specific guidance.
+
+Lines beginning with `Example:` contain commands you can type; the indented lines
+explain their outcomes. Viewing an example never executes it. Replace sample IDs,
+contact details, and dates with your own when entering a command.
 
 ### Recording a return: `return`
 

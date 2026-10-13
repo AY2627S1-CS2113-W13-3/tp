@@ -12,7 +12,7 @@ public class HelpCommands {
             + "loans BORROWER_ID - View active loans (borrower console).\n"
             + "exit - Close the main console.\n"
             + "To register equipment, enter its asset ID at the main prompt and follow the prompts.\n"
-            + "Use help COMMAND for syntax, fields, and an example.";
+            + "Use help COMMAND for syntax, fields, and usage examples.";
 
     /**
      * Returns the common command list or guidance for exactly one command name.
@@ -34,11 +34,18 @@ public class HelpCommands {
             return "Show common commands or detailed help for one command.\n"
                     + "Format: help [COMMAND]\n"
                     + "Example: help loan\n"
+                    + "  Show loan syntax, fields, and a worked example without issuing a loan.\n"
+                    + "Example: help\n"
+                    + "  Show the concise command list.\n"
+                    + "Example: help return\n"
+                    + "  Show return examples with and without reported faults.\n"
                     + "Fields: COMMAND is optional; omit it for the concise list.";
         case "loan":
             return "Issue a loan for an available equipment item.\n"
                     + "Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE\n"
                     + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"
+                    + "  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.\n"
+                    + "  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.\n"
                     + "Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; "
                     + "d/ gives the due date in YYYY-MM-DD format.\n"
                     + "Loan creation is not yet connected to either console.";
@@ -58,6 +65,8 @@ public class HelpCommands {
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"
                     + "Example: history OSC-001\n"
+                    + "  After registering OSC-001, show its records, including active and returned loans.\n"
+                    + "  If no records have been supplied, report no history found.\n"
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.";
         case "add-borrower":
             return "Register a borrower and save their contact details (borrower console).\n"
@@ -81,7 +90,8 @@ public class HelpCommands {
                     + "Fields: BORROWER_ID identifies a registered borrower.\n"
                     + "Returned loans are excluded. A loan is overdue only after its due date.";
         case "exit":
-            return "Close the main console.\nFormat: exit\nExample: exit\nFields: None.\n"
+            return "Close the main console.\nFormat: exit\nExample: exit\n"
+                    + "  Enter exit at the initial main prompt to end the session.\nFields: None.\n"
                     + "In the borrower console, send EOF to exit instead.";
         default:
             throw new IllegalArgumentException("Unknown command: " + parts[1] + ". Use help for the command list.");
