@@ -16,6 +16,9 @@ java -version
 .\gradlew.bat run --console=plain
 ```
 
+Both consoles open with a LabLog version banner, a purpose statement, and a
+hint to type `help`. Include the displayed version when reporting a problem.
+
 Enter `help` to see commands, `help COMMAND` for examples, and `exit` to close
 the main console. On macOS/Linux, replace `.\gradlew.bat` with `./gradlew`.
 

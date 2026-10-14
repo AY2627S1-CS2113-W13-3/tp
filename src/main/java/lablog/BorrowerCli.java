@@ -38,7 +38,7 @@ public class BorrowerCli {
      * @param commands Handlers backed by the caller's shared data.
      */
     public static void run(Scanner scanner, PrintStream output, BorrowerCommands commands) {
-        output.println("LabLog borrower console. Use add-borrower or loans. Send EOF to exit.");
+        ConsoleWelcome.print(output, true);
         while (true) {
             output.print("lablog> ");
             if (!scanner.hasNextLine()) {

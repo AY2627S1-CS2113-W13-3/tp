@@ -14,12 +14,12 @@ $cases = @(
     @{
         Name = 'Case 1: add, duplicate rejection, and list'
         Input = "add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu`nadd-borrower A0123456X n/Other p/91234567 e/other@u.nus.edu`nloans A0123456X`n"
-        Expected = "LabLog borrower console. Use add-borrower or loans. Send EOF to exit.`nlablog> Added borrower A0123456X: Jamie Tan.`nPhone: 91234567 | Email: jamie@u.nus.edu`nlablog> Error: Borrower ID A0123456X already exists. Choose a different borrower ID.`nNo changes saved.`nlablog> No active loans for A0123456X - Jamie Tan.`nlablog> "
+        Expected = "LabLog v1.0 - Borrower console`nManage your laboratory equipment and loans here.`nType help for commands and examples.`nSend EOF to exit (Ctrl+Z then Enter on Windows, Ctrl+D on macOS/Linux).`nlablog> Added borrower A0123456X: Jamie Tan.`nPhone: 91234567 | Email: jamie@u.nus.edu`nlablog> Error: Borrower ID A0123456X already exists. Choose a different borrower ID.`nNo changes saved.`nlablog> No active loans for A0123456X - Jamie Tan.`nlablog> "
     },
     @{
         Name = 'Case 2: reload persisted borrower'
         Input = "loans A0123456X`n"
-        Expected = "LabLog borrower console. Use add-borrower or loans. Send EOF to exit.`nlablog> No active loans for A0123456X - Jamie Tan.`nlablog> "
+        Expected = "LabLog v1.0 - Borrower console`nManage your laboratory equipment and loans here.`nType help for commands and examples.`nSend EOF to exit (Ctrl+Z then Enter on Windows, Ctrl+D on macOS/Linux).`nlablog> No active loans for A0123456X - Jamie Tan.`nlablog> "
     }
 )
 

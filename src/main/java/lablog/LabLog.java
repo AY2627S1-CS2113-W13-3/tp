@@ -77,8 +77,7 @@ public class LabLog {
      * @param output destination for prompts and results
      */
     public void run(Scanner scanner, PrintStream output) {
-        output.println("Welcome to LabLog!");
-        output.println("Manage your laboratory equipment and loans here.");
+        ConsoleWelcome.print(output, false);
         while (true) {
             output.println("Enter asset ID, help [COMMAND], loan ASSET_ID b/BORROWER_ID d/DUE_DATE, "
                     + "history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
