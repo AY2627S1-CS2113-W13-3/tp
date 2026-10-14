@@ -99,7 +99,7 @@ public class HelpCommands {
         case "exit":
             return "Close the main console.\nFormat: exit\nExample: exit\n"
                     + "  Enter exit at the initial main prompt to end the session.\nFields: None.\n"
-                    + "In the borrower console, send EOF to exit instead.";
+                    + "In the borrower console, type exit or send EOF to exit.";
         default:
             LOGGER.fine("Rejected help request: unknown command");
             throw new IllegalArgumentException("Unknown command: " + parts[1] + ". Use help for the command list.");

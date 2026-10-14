@@ -26,7 +26,7 @@ For the borrower console, compile and run:
 java -cp build/classes/java/main lablog.BorrowerCli
 ```
 
-Exit the borrower console with EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
+Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
@@ -218,7 +218,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
-| `exit` | Main | End the session |
+| `exit` | Both | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Borrower | Register and save a borrower |
 | `loans BORROWER_ID` | Borrower | List a registered borrower's active loans |
 
