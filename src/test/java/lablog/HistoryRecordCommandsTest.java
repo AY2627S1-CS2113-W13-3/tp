@@ -31,7 +31,7 @@ class HistoryRecordCommandsTest {
     @Test
     void run_allNoteTypes_appearInEquipmentHistory() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        new LabLog().run(new Scanner("OSC-001\nScope\nElectronics\nS1\nLab\n"
+        new LabLog().run(new Scanner("add OSC-001\nScope\nElectronics\nS1\nLab\n"
                 + "reservation OSC-001 d/2026-10-15 desc/Teaching session\n"
                 + "fault OSC-001 d/2026-10-14 desc/Cracked screen\n"
                 + "maintenance OSC-001 d/2026-10-16 desc/Replace screen\nhistory OSC-001\nexit\n"),
