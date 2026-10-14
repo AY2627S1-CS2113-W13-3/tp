@@ -21,6 +21,8 @@ public class LabLog {
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
+    /** Present only for persistent CLI sessions; injected test sessions remain in memory. */
+    private LabLogStore store;
     private final BorrowerCommands borrowerCommands;
     private final EquipmentAddCommands equipmentAdd;
     private final HistoryRecordCommands historyRecords;
@@ -86,15 +88,37 @@ public class LabLog {
      */
     public static void main(String[] args) {
         if (args.length > 1) {
-            System.err.println("Use: java -jar lablog.jar [BORROWER_FILE]");
+            System.err.println("Use: java -jar lablog.jar [DATA_FILE]");
             return;
         }
-        Path file = Path.of(args.length == 1 ? args[0] : "data/borrowers.properties");
         try {
-            new LabLog(new Inventory(), new LoanBook(), List::of,
-                    Clock.systemDefaultZone(), new BorrowerBook(file)).run();
+            load(Path.of(args.length == 1 ? args[0] : "data/lablog.properties")).run();
         } catch (IOException exception) {
-            System.err.println("Error: Cannot load borrower data. " + exception.getMessage());
+            System.err.println("Error: Cannot load LabLog data. " + exception.getMessage());
+        }
+    }
+
+    /** Creates a persistent session only after all saved records load successfully. */
+    public static LabLog load(Path file) throws IOException {
+        LabLogStore store = new LabLogStore(file);
+        LabLog application = new LabLog(store.getInventory(), store.getLoans(), List::of);
+        application.store = store;
+        return application;
+    }
+
+    /** Saves before displaying success; failure ends the session to avoid further unsaved work. */
+    private boolean saveChanges(PrintStream output) {
+        if (store == null) {
+            return true;
+        }
+        try {
+            store.save();
+            return true;
+        } catch (IOException exception) {
+            LOGGER.warning("Cannot save LabLog records; stopping the session");
+            output.println("Error: Changes could not be saved. " + exception.getMessage());
+            output.println("Session stopped. Previous saved data is unchanged; retry after fixing file access.");
+            return false;
         }
     }
 
@@ -164,7 +188,11 @@ public class LabLog {
             }
             if (command.equals("history") || command.equals("return") || command.equals("loan")) {
                 try {
-                    output.println(executeRecordCommand(command, input));
+                    String result = executeRecordCommand(command, input);
+                    if (!command.equals("history") && !saveChanges(output)) {
+                        return;
+                    }
+                    output.println(result);
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -186,28 +214,21 @@ public class LabLog {
                 output.println("Error: Unknown command. Use help for commands.");
                 continue;
             }
-            String[] addParts = input.split("\\s+", 3);
-            if (addParts.length != 2) {
-                try {
-                    output.println(equipmentAdd.execute(input));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
-                }
+            if (store != null && inventory.getEquipmentUnits().stream()
+                    .anyMatch(unit -> unit.getAssetId().equals(input))) {
+                output.println("Error: Equipment " + input + " already exists.");
                 continue;
             }
-            Equipment equipment = readEquipment(addParts[1], scanner, output);
+            Equipment equipment = readEquipment(input, scanner, output);
             if (equipment == null) {
                 LOGGER.fine("Discarded incomplete equipment registration at end of input");
                 output.println("Equipment not added: incomplete input.");
                 return;
             }
-            try {
-                inventory.addEquipment(equipment);
-            } catch (IllegalArgumentException exception) {
-                output.println("Error: " + exception.getMessage());
-                continue;
+            inventory.addEquipment(equipment);
+            if (!saveChanges(output)) {
+                return;
             }
-            LOGGER.info(() -> "Registered equipment with asset ID " + equipment.getAssetId());
             output.println("Equipment added to inventory.");
         }
     }

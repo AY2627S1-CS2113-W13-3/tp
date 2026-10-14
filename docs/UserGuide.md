@@ -33,10 +33,14 @@ Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or C
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
-The main console supports `add-borrower` and `loans` against its live equipment
-and loan records. Register borrowers before lending to them. Borrowers persist
-in `data/borrowers.properties`; pass a file path after the JAR name to select
-another borrower file. Equipment and loans remain in memory for this session.
+The main console saves equipment, loans, return dates, and reported return faults
+in `data/lablog.properties` after each successful change. It reloads them on
+startup. To select another file, run
+`java -jar build/libs/lablog.jar PATH/TO/lablog.properties`.
+A missing file starts a new collection. Invalid existing data stops startup
+without overwriting it. If saving fails, the console reports the failure and
+stops; fix file access and restart with the previous saved records. Run only one
+main console against a given data file at a time.
 
 ## Features 
 
@@ -84,10 +88,9 @@ or prevent loans, and are lost when the session ends.
 
 ### Listing all active loans: `active-loans`
 
-Enter `active-loans` in the main console to show every outstanding loan with its
-asset ID, borrower ID, due date, and status. Results are ordered by due date,
-then asset ID. `OVERDUE` means the due date is before today in the local time
-zone; loans due today are on time. Returned loans are excluded.
+Equipment registration currently does not enforce unique IDs or validate the
+four detail fields. Persistent sessions reject duplicate asset IDs. Choose
+meaningful details. Completed registrations are saved before confirmation.
 
 ### Registering borrowers: `add-borrower`
 
@@ -233,9 +236,9 @@ The default application combines loan history with notes recorded through
 
 **Q**: How do I transfer my data to another computer? 
 
-**A**: Close the borrower console and copy its `.properties` data file to the
-other computer. Start `BorrowerCli` with that file path. Equipment and loans are
-in memory only and cannot currently be transferred through saved application data.
+**A**: Close both consoles and copy `data/lablog.properties` for equipment and
+loan history, plus `data/borrowers.properties` for borrower records. Start the
+main JAR or `BorrowerCli` with the corresponding file path on the other computer.
 Files under `build/` are disposable and are removed by Gradle `clean`.
 
 ## Command Summary
