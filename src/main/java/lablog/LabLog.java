@@ -79,9 +79,9 @@ public class LabLog {
     public void run(Scanner scanner, PrintStream output) {
         output.println("Welcome to LabLog!");
         output.println("Manage your laboratory equipment and loans here.");
+        output.println(help.execute("help"));
         while (true) {
-            output.println("Enter asset ID, help [COMMAND], loan ASSET_ID b/BORROWER_ID d/DUE_DATE, "
-                    + "history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
+            output.print("lablog> ");
             if (!scanner.hasNextLine()) {
                 return;
             }

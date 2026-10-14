@@ -16,6 +16,9 @@ java -version
 .\gradlew.bat run --console=plain
 ```
 
+The command summary appears once at startup. Subsequent input uses the short
+`lablog> ` prompt so results remain easy to find.
+
 Enter `help` to see commands, `help COMMAND` for examples, and `exit` to close
 the main console. On macOS/Linux, replace `.\gradlew.bat` with `./gradlew`.
 
