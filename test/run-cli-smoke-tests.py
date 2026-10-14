@@ -9,7 +9,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 JAR = ROOT / "build/libs/lablog.jar"
-GREETING = "LabLog borrower console. Use add-borrower or loans. Send EOF to exit.\n"
+GREETING = "LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.\n"
 
 
 class CliSmokeTests(unittest.TestCase):
@@ -58,13 +58,13 @@ class CliSmokeTests(unittest.TestCase):
         self.assertNotIn("is not available in this console", output)
         self.assertIn("Error: Borrower A0123456X was not found.", output)
         self.assertIn("Error: Equipment OSC-001 was not found.", output)
-        self.assertEqual(2, output.count("Error: Enter a single asset ID"))
+        self.assertEqual(2, output.count("Error: Unknown command. Use help"))
         self.assertEqual(1, output.count("Equipment added to inventory."))
         self.assertIn("No history found for OSC-001 - Scope.", output)
         self.assertIn("Error: Equipment OSC-001 is not currently on loan.", output)
 
     def test_main_incomplete_registration(self):
-        output = self.run_java(["-jar", str(JAR)], "OSC-001\nScope\n")
+        output = self.run_java(["-jar", str(JAR)], "add OSC-001\nScope\n")
         self.assertIn("Equipment not added: incomplete input.", output)
         self.assertNotIn("Equipment added to inventory.", output)
 
