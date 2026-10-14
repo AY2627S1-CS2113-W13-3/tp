@@ -16,6 +16,9 @@ java -version
 .\gradlew.bat run --console=plain
 ```
 
+The command summary appears once at startup. Subsequent input uses the short
+`lablog> ` prompt so results remain easy to find.
+
 Enter `help` to see commands, `help COMMAND` for examples, and `exit` to close
 the main console. On macOS/Linux, replace `.\gradlew.bat` with `./gradlew`.
 
@@ -26,7 +29,7 @@ For the borrower console, compile and run:
 java -cp build/classes/java/main lablog.BorrowerCli
 ```
 
-Exit the borrower console with EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
+Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
@@ -49,9 +52,8 @@ Scope Model 1
 Lab A
 ```
 
-Asset IDs must be unique (case-sensitive). Duplicate IDs are rejected before
-detail collection. All four detail fields must be non-blank and single-line;
-invalid details discard the proposed entry and return to the main prompt.
+Type `cancel` at any of the four detail prompts to discard the entry and return
+to the main prompt. No partial equipment record is added.
 
 LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
 discarded. Blank or multi-word asset IDs and commands belonging to the borrower
@@ -220,7 +222,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
-| `exit` | Main | End the session |
+| `exit` | Both | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Borrower | Register and save a borrower |
 | `loans BORROWER_ID` | Borrower | List a registered borrower's active loans |
 

@@ -15,9 +15,7 @@ public class Inventory {
      * @param equipment equipment unit to store
      */
     public void addEquipment(Equipment equipment) {
-        if (equipmentUnits.stream().anyMatch(unit -> unit.getAssetId().equals(equipment.getAssetId()))) {
-            throw new IllegalArgumentException("Equipment " + equipment.getAssetId() + " already exists.");
-        }
+        assert equipment != null : "equipment must not be null";
         equipmentUnits.add(equipment);
     }
 

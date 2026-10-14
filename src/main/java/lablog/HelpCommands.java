@@ -11,6 +11,7 @@ public class HelpCommands {
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
+            + "list - Show all registered equipment (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
             + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (borrower console).\n"
             + "loans BORROWER_ID - View active loans (borrower console).\n"
@@ -26,6 +27,13 @@ public class HelpCommands {
      * @throws IllegalArgumentException if the syntax or command name is invalid
      */
     public String execute(String input) {
+        String guidance = describe(input);
+        String separator = "............................................................";
+        return "\n" + separator + "\n" + guidance + "\n" + separator + "\n";
+    }
+
+    /** Resolves help text before adding presentation so validation errors stay concise. */
+    private String describe(String input) {
         String[] parts = input == null ? new String[0] : input.strip().split("\\s+");
         if (parts.length == 0 || parts.length > 2 || !parts[0].equals("help")) {
             LOGGER.fine("Rejected help request: invalid syntax");
@@ -68,6 +76,12 @@ public class HelpCommands {
                     + "Fields: ASSET_ID identifies equipment with exactly one active loan; "
                     + "faults/ optionally records a non-empty, single-line damage description.\n"
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
+        case "list":
+            return "Show all equipment currently registered in the inventory (main console).\n"
+                    + "Format: list\n"
+                    + "Example: list\n"
+                    + "  Show each registered unit's asset ID, name, category, model, and location.\n"
+                    + "Fields: None.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"
@@ -99,7 +113,7 @@ public class HelpCommands {
         case "exit":
             return "Close the main console.\nFormat: exit\nExample: exit\n"
                     + "  Enter exit at the initial main prompt to end the session.\nFields: None.\n"
-                    + "In the borrower console, send EOF to exit instead.";
+                    + "In the borrower console, type exit or send EOF to exit.";
         default:
             LOGGER.fine("Rejected help request: unknown command");
             throw new IllegalArgumentException("Unknown command: " + parts[1] + ". Use help for the command list.");
