@@ -9,6 +9,7 @@ public class HelpCommands {
     private static final String USAGE = "Use: help [COMMAND]";
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
+            + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
@@ -37,6 +38,14 @@ public class HelpCommands {
         }
         LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
+        case "reservation":
+        case "fault":
+        case "maintenance":
+            return "Record a dated equipment history note.\nFormat: " + parts[1]
+                    + " ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION\nExample: " + parts[1]
+                    + " OSC-001 d/2026-10-14 desc/Inspection scheduled\n"
+                    + "  Add a note for registered equipment; view it with history OSC-001.\n"
+                    + "Notes do not change loan availability and are held only for this session.";
         case "help":
             return "Show common commands or detailed help for one command.\n"
                     + "Format: help [COMMAND]\n"

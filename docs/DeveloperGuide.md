@@ -88,8 +88,8 @@ equipment existence in the shared `Inventory`, and reads the shared `LoanBook`.
 It includes returned loans and builds fresh descriptions on every request, so a
 later return is visible without updating a separate history store.
 
-Reservation, fault, and maintenance models are not yet implemented. Their owners
-can supply `HistoryEntry` snapshots through a `Supplier<List<HistoryEntry>>`.
+`HistoryRecordCommands` creates reservation, fault, and maintenance notes.
+Other features can also supply snapshots through a `Supplier<List<HistoryEntry>>`.
 The supplier should read the current source records on every call, include their
 status and relevant end dates in the description, and retain closed/cancelled
 records when they belong in history. It must return a non-null list and must not
@@ -103,8 +103,8 @@ description. This is a record summary rather than a permanent event audit trail.
 Pass the shared records to
 `new LabLog(inventory, loanBook, () -> currentHistoryEntries)` or construct
 `HistoryCommands` directly for a future shared dispatcher. The default application
-uses an empty source until the remaining features are connected. No persistence
-or reservation/fault/maintenance creation commands are introduced by this feature.
+combines caller-supplied entries with session notes from `HistoryRecordCommands`.
+The notes do not change equipment availability and are not persisted.
 
 `HistoryCommandsTest` covers all four types, asset filtering, returned loans,
 fresh source updates, date ordering, invalid input, empty/unknown equipment, and
@@ -140,8 +140,8 @@ before updating memory. These behaviors are covered by automated tests.
 Current limitations: equipment registration does not validate detail fields or
 reject duplicate asset IDs; equipment, loans, and return details are not persisted;
 the consoles are not unified; the loan command does not check the borrower
-against registered borrowers; reservation, fault, and maintenance record creation
-are not implemented. Passing tests does not imply these planned features are
+against registered borrowers; history notes do not enforce reservations or
+maintenance availability. Passing tests does not imply these planned features are
 complete.
 
 ## Glossary
