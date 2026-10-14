@@ -153,6 +153,29 @@ complete.
 
 ## Instructions for manual testing
 
+### Assertions and diagnostic logging
+
+`LabLog` uses Java `assert` statements to check internal assumptions: only
+supported record commands reach its dispatch helper, and equipment detail
+collection receives an already validated asset ID. User input errors still use
+normal validation, which works even when assertions are disabled.
+
+`HelpCommands` and `LabLog` use `java.util.logging` at `FINE` level to trace help
+requests, rejected input, and incomplete registration. Logs omit raw input and
+borrower details. Enable assertions and console diagnostics from the repository
+root after building the JAR:
+
+```powershell
+java -ea -Djava.util.logging.config.file=config/logging.properties -jar build/libs/lablog.jar
+```
+
+Enter `help`, `help unknown`, a blank line, and `exit` to see diagnostics on
+standard error alongside the usual console output. Without the logging option,
+the default Java logging configuration hides `FINE` messages. Gradle's test task
+enables assertions by default.
+
+### Automated and manual checks
+
 From the repository root with Java 25:
 
 ```powershell

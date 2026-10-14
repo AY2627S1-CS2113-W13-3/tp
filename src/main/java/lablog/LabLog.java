@@ -5,11 +5,14 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Scanner;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
 
 /**
  * Main entry point for the LabLog command-line application.
  */
 public class LabLog {
+    /** Records prompt validation and incomplete registration without storing user input. */
+    private static final Logger LOGGER = Logger.getLogger(LabLog.class.getName());
     private final Inventory inventory;
     private final HistoryCommands history;
     private final ReturnCommands returns;
@@ -104,16 +107,19 @@ public class LabLog {
                 continue;
             }
             if (List.of("loans", "add-borrower").contains(command)) {
+                LOGGER.fine("Rejected command: available only in the borrower console");
                 output.println("Error: " + command
                         + " is not available in this console. Use help for command details.");
                 continue;
             }
             if (input.isEmpty() || input.chars().anyMatch(Character::isWhitespace)) {
+                LOGGER.fine("Rejected equipment registration: invalid asset ID format");
                 output.println("Error: Enter a single asset ID or use help for commands.");
                 continue;
             }
             Equipment equipment = readEquipment(input, scanner, output);
             if (equipment == null) {
+                LOGGER.fine("Discarded incomplete equipment registration at end of input");
                 output.println("Equipment not added: incomplete input.");
                 return;
             }
@@ -130,6 +136,8 @@ public class LabLog {
      * @return text to display
      */
     private String executeRecordCommand(String command, String input) {
+        // Only the record-command branch in run should call this helper.
+        assert List.of("history", "return", "loan").contains(command) : "Unexpected record command";
         switch (command) {
         case "history":
             return history.execute(input);
@@ -151,6 +159,9 @@ public class LabLog {
      * @return equipment unit created from the input, or null if input ends prematurely
      */
     private Equipment readEquipment(String assetId, Scanner scanner, PrintStream output) {
+        // The initial prompt must validate the identifier before requesting equipment details.
+        assert assetId != null && !assetId.isEmpty()
+                && assetId.chars().noneMatch(Character::isWhitespace) : "Expected a validated asset ID";
         String[] prompts = {"name", "category", "model", "location"};
         String[] details = new String[prompts.length];
         for (int i = 0; i < prompts.length; i++) {
