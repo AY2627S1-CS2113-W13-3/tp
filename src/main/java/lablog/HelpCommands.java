@@ -15,7 +15,7 @@ public class HelpCommands {
             + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (borrower console).\n"
             + "loans BORROWER_ID - View active loans (borrower console).\n"
             + "exit - Close the main console.\n"
-            + "To register equipment, enter its asset ID at the main prompt and follow the prompts.\n"
+            + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
             + "Use help COMMAND for syntax, fields, and usage examples.";
 
     /**
@@ -37,6 +37,12 @@ public class HelpCommands {
         }
         LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
+        case "add":
+            return "Register equipment explicitly.\nFormat: add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION\n"
+                    + "Example: add OSC-001 n/Oscilloscope c/Electronics m/S1 l/Lab 1\n"
+                    + "  Register a unit with all four required fields, in any order.\n"
+                    + "Example: add OSC-001\n  Start the four-prompt registration wizard instead.\n"
+                    + "Unknown commands and bare asset IDs are rejected; use add to begin registration.";
         case "help":
             return "Show common commands or detailed help for one command.\n"
                     + "Format: help [COMMAND]\n"

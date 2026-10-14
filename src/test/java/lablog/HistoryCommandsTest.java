@@ -108,7 +108,7 @@ class HistoryCommandsTest {
         otherHistory.add(new HistoryEntry("OSC-001", date, HistoryEntry.Type.MAINTENANCE, "Repair"));
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         new LabLog(inventory, loans, () -> otherHistory).run(new Scanner(
-                "history missing\nhistory\nOSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nexit\n"),
+                "history missing\nhistory\nadd OSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nexit\n"),
                 new PrintStream(output));
         String result = output.toString();
         assertTrue(result.contains("Error: Equipment missing was not found."));
@@ -121,7 +121,7 @@ class HistoryCommandsTest {
     @Test
     void run_incompleteRegistration_doesNotStoreEquipment() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        new LabLog(inventory, loans, () -> otherHistory).run(new Scanner("OSC-001\nScope\n"),
+        new LabLog(inventory, loans, () -> otherHistory).run(new Scanner("add OSC-001\nScope\n"),
                 new PrintStream(output));
         assertTrue(inventory.getEquipmentUnits().isEmpty());
         assertTrue(output.toString().contains("Equipment not added: incomplete input."));

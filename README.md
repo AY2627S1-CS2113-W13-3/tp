@@ -45,7 +45,7 @@ java -version
 
 On macOS/Linux, use `./gradlew run --console=plain`. Enter `help` for the command
 list or `help return` for explained examples. To register equipment, enter an
-asset ID such as `OSC-001`, then answer the name, category, model, and location
+registration command such as `add OSC-001`, then answer the name, category, model, and location
 prompts. Enter `loan OSC-001 b/A0123456X d/2026-10-30` to lend it,
 `history OSC-001` to check its history, or `exit` to close.
 

@@ -11,9 +11,10 @@ executable JAR. See `build.gradle` for dependency versions.
 ### Entry points and shared records
 
 `LabLog` is the Gradle application entry point. It holds an `Inventory` and
-routes help, loan, history, and return commands to their handlers. Other valid
-single tokens begin equipment registration; blank or multi-token input is
-rejected. Borrower-console commands (`loans`, `add-borrower`) are rejected before
+routes help, loan, history, and return commands to their handlers. Equipment
+registration requires `add ASSET_ID` for the wizard or `add` with all four
+prefixed fields for one-line registration. Unknown commands are rejected.
+Borrower-console commands (`loans`, `add-borrower`) are rejected before
 registration so their arguments cannot become equipment details.
 
 `BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
@@ -190,7 +191,7 @@ output: `pwsh -File test/run-borrower-ui-tests.ps1`. See the
 [verification report](../test/verification-report.md).
 
 For a manual main-console check, run `java -jar build/libs/lablog.jar`, enter
-`help`, `help return`, then register `OSC-001` with four detail lines. Check
+`help`, `help return`, then enter `add OSC-001` with four detail lines. Check
 `history OSC-001`, `return OSC-001`, and `exit`. In this fresh session, history
 is empty and return reports that the unit is not on loan. Automated integration
 tests supply active loans to verify successful return and history updates.
