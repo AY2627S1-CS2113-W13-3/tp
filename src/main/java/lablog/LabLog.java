@@ -19,6 +19,7 @@ public class LabLog {
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
+    private final EquipmentAddCommands equipmentAdd;
     private final HistoryRecordCommands historyRecords;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
@@ -51,6 +52,8 @@ public class LabLog {
      */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory, Clock clock) {
         this.inventory = inventory;
+        this.equipmentAdd = new EquipmentAddCommands(inventory);
+        this.history = new HistoryCommands(inventory, loans, otherHistory);
         this.historyRecords = new HistoryRecordCommands(inventory);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
@@ -82,7 +85,8 @@ public class LabLog {
     }
 
     /**
-     * Accepts an asset ID to register or a help, loan, list, history, return, or exit command.
+     * Accepts an explicit add, help, loan, history or return command, or exit at the
+     * initial prompt.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
      * @param scanner input owned by the caller
@@ -93,7 +97,8 @@ public class LabLog {
         output.println("Manage your laboratory equipment and loans here.");
         output.println(help.execute("help"));
         while (true) {
-            output.print("lablog> ");
+            output.println("Enter add ASSET_ID, help [COMMAND], loan ASSET_ID b/BORROWER_ID d/DUE_DATE, "
+                    + "history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
             if (!scanner.hasNextLine()) {
                 return;
             }
@@ -148,26 +153,21 @@ public class LabLog {
                         + " is not available in this console. Use help for command details.");
                 continue;
             }
-            if (input.isEmpty() || input.chars().anyMatch(Character::isWhitespace)) {
-                LOGGER.fine("Rejected equipment registration: invalid asset ID format");
-                output.println("Error: Enter a single asset ID or use help for commands.");
+            if (!command.equals("add")) {
+                LOGGER.fine("Rejected unknown command");
+                output.println("Error: Unknown command. Use help for commands.");
                 continue;
             }
-            if (inventory.containsAssetId(input)) {
-                output.println("Error: Equipment with asset ID " + input + " already exists.");
+            String[] addParts = input.split("\\s+", 3);
+            if (addParts.length != 2) {
+                try {
+                    output.println(equipmentAdd.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
                 continue;
             }
-            Equipment equipment;
-            try {
-                equipment = readEquipment(input, scanner, output);
-            } catch (RegistrationCancelledException exception) {
-                LOGGER.fine("Cancelled equipment registration");
-                output.println("Equipment not added: registration cancelled.");
-                continue;
-            } catch (IllegalArgumentException exception) {
-                output.println("Error: " + exception.getMessage());
-                continue;
-            }
+            Equipment equipment = readEquipment(addParts[1], scanner, output);
             if (equipment == null) {
                 LOGGER.fine("Discarded incomplete equipment registration at end of input");
                 output.println("Equipment not added: incomplete input.");

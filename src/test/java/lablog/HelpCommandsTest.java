@@ -114,7 +114,7 @@ class HelpCommandsTest {
         Inventory inventory = new Inventory();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         new LabLog(inventory, new LoanBook(), List::of).run(new Scanner(
-                "help history\nOSC-001\nScope\nElectronics\nS1\nLab\n" + example + "\nexit\n"),
+                "help history\nadd OSC-001\nScope\nElectronics\nS1\nLab\n" + example + "\nexit\n"),
                 new PrintStream(output));
         assertTrue(output.toString().contains("No history found for OSC-001 - Scope."));
         assertEquals(1, inventory.getEquipmentUnits().size());

@@ -54,16 +54,16 @@ class CliSmokeTests(unittest.TestCase):
         output = self.run_java(["-jar", str(JAR)],
             "loan OSC-001 b/A0123456X d/2026-09-18\nloans A0123456X\n"
             "add-borrower A0123456X\n\nOSC 001\n"
-            "OSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nreturn OSC-001\nexit\n")
+            "add OSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nreturn OSC-001\nexit\n")
         self.assertEqual(2, output.count("is not available in this console"))
         self.assertIn("Error: Equipment OSC-001 was not found.", output)
-        self.assertEqual(2, output.count("Error: Enter a single asset ID"))
+        self.assertEqual(2, output.count("Error: Unknown command. Use help"))
         self.assertEqual(1, output.count("Equipment added to inventory."))
         self.assertIn("No history found for OSC-001 - Scope.", output)
         self.assertIn("Error: Equipment OSC-001 is not currently on loan.", output)
 
     def test_main_incomplete_registration(self):
-        output = self.run_java(["-jar", str(JAR)], "OSC-001\nScope\n")
+        output = self.run_java(["-jar", str(JAR)], "add OSC-001\nScope\n")
         self.assertIn("Equipment not added: incomplete input.", output)
         self.assertNotIn("Equipment added to inventory.", output)
 

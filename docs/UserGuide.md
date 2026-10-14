@@ -42,10 +42,14 @@ records persist across restarts.
 
 ### Registering equipment
 
-At the main prompt, enter a single asset ID, then answer the four prompts:
+Use `add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION` to register in one line.
+All four non-empty prefixes are required exactly once, in any order; values may
+contain spaces. Duplicate IDs are rejected by this one-line command.
+
+Alternatively, enter `add ASSET_ID`, then answer the four prompts:
 
 ```text
-OSC-001
+add OSC-001
 Oscilloscope
 Electronics
 Scope Model 1
@@ -56,9 +60,8 @@ Type `cancel` at any of the four detail prompts to discard the entry and return
 to the main prompt. No partial equipment record is added.
 
 LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
-discarded. Blank or multi-word asset IDs and commands belonging to the borrower
-console are rejected at the initial prompt. Other single tokens are treated as
-asset IDs; use `help` to check command spelling.
+discarded. Unknown commands and bare asset IDs are rejected with a help hint.
+Registration begins only after an explicit `add` command.
 
 Equipment is not saved when the program exits.
 
@@ -240,7 +243,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | Input | Console | Purpose |
 | --- | --- | --- |
 | `help [COMMAND]` | Both | View commands and explained examples |
-| `ASSET_ID`, followed by prompts | Main | Register equipment |
+| `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
