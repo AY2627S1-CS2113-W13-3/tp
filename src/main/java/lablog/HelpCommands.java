@@ -11,6 +11,7 @@ public class HelpCommands {
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
+            + "list - Show all registered equipment (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
             + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (borrower console).\n"
             + "loans BORROWER_ID - View active loans (borrower console).\n"
@@ -68,6 +69,12 @@ public class HelpCommands {
                     + "Fields: ASSET_ID identifies equipment with exactly one active loan; "
                     + "faults/ optionally records a non-empty, single-line damage description.\n"
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
+        case "list":
+            return "Show all equipment currently registered in the inventory (main console).\n"
+                    + "Format: list\n"
+                    + "Example: list\n"
+                    + "  Show each registered unit's asset ID, name, category, model, and location.\n"
+                    + "Fields: None.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"
