@@ -106,6 +106,11 @@ public class LabLog {
             if (command.equals("active-loans")) {
                 try {
                     output.println(activeLoans.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
             if (command.equals("list")) {
                 try {
                     output.println(equipmentList.execute(input));
@@ -133,6 +138,10 @@ public class LabLog {
                 output.println("Error: Enter a single asset ID or use help for commands.");
                 continue;
             }
+            if (inventory.containsAssetId(input)) {
+                output.println("Error: Equipment with asset ID " + input + " already exists.");
+                continue;
+            }
             Equipment equipment;
             try {
                 equipment = readEquipment(input, scanner, output);
@@ -140,13 +149,21 @@ public class LabLog {
                 LOGGER.fine("Cancelled equipment registration");
                 output.println("Equipment not added: registration cancelled.");
                 continue;
+            } catch (IllegalArgumentException exception) {
+                output.println("Error: " + exception.getMessage());
+                continue;
             }
             if (equipment == null) {
                 LOGGER.fine("Discarded incomplete equipment registration at end of input");
                 output.println("Equipment not added: incomplete input.");
                 return;
             }
-            inventory.addEquipment(equipment);
+            try {
+                inventory.addEquipment(equipment);
+            } catch (IllegalArgumentException exception) {
+                output.println("Error: " + exception.getMessage());
+                continue;
+            }
             LOGGER.info(() -> "Registered equipment with asset ID " + equipment.getAssetId());
             output.println("Equipment added to inventory.");
         }
