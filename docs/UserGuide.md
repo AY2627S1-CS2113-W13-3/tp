@@ -60,9 +60,7 @@ discarded. Blank or multi-word asset IDs and commands belonging to the borrower
 console are rejected at the initial prompt. Other single tokens are treated as
 asset IDs; use `help` to check command spelling.
 
-Equipment registration currently does not enforce unique IDs or validate the
-four detail fields. Choose unique IDs and meaningful details. Equipment is not
-saved when the program exits.
+Equipment is not saved when the program exits.
 
 ### Registering borrowers: `add-borrower`
 

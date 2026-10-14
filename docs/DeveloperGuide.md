@@ -137,8 +137,8 @@ Build and run with Java 25. Keep help read-only and reject invalid borrower and
 return commands before changing records. Save borrower additions atomically
 before updating memory. These behaviors are covered by automated tests.
 
-Current limitations: equipment registration does not validate detail fields or
-reject duplicate asset IDs; equipment, loans, and return details are not persisted;
+Equipment rejects blank detail fields, and Inventory rejects duplicate asset IDs.
+Current limitations: equipment, loans, and return details are not persisted;
 the consoles are not unified; the loan command does not check the borrower
 against registered borrowers; reservation, fault, and maintenance record creation
 are not implemented. Passing tests does not imply these planned features are
