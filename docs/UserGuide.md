@@ -3,9 +3,9 @@
 ## Introduction
 
 LabLog helps laboratory technicians manage loanable electronics equipment and
-borrowers. The current build has two consoles: the main console for equipment,
-history, and returns, and a separate borrower console for registration and loan
-lookups. Both provide command help and examples.
+borrowers. The main console shares equipment, loans, and borrowers for registration,
+lending, returns, and loan lookups. A standalone borrower console remains available.
+Both provide command help and examples.
 
 ## Quick Start
 
@@ -15,6 +15,9 @@ Use Java 25. From the repository root in PowerShell:
 java -version
 .\gradlew.bat run --console=plain
 ```
+
+The command summary appears once at startup. Subsequent input uses the short
+`lablog> ` prompt so results remain easy to find.
 
 Enter `help` to see commands, `help COMMAND` for examples, and `exit` to close
 the main console. On macOS/Linux, replace `.\gradlew.bat` with `./gradlew`.
@@ -26,7 +29,7 @@ For the borrower console, compile and run:
 java -cp build/classes/java/main lablog.BorrowerCli
 ```
 
-Exit the borrower console with EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
+Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
@@ -43,20 +46,47 @@ main console against a given data file at a time.
 
 ### Registering equipment
 
-At the main prompt, enter a single asset ID, then answer the four prompts:
+Use `add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION` to register in one line.
+All four non-empty prefixes are required exactly once, in any order; values may
+contain spaces. Duplicate IDs are rejected by this one-line command.
+
+Alternatively, enter `add ASSET_ID`, then answer the four prompts:
 
 ```text
-OSC-001
+add OSC-001
 Oscilloscope
 Electronics
 Scope Model 1
 Lab A
 ```
 
+Type `cancel` at any of the four detail prompts to discard the entry and return
+to the main prompt. No partial equipment record is added.
+
 LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
-discarded. Blank or multi-word asset IDs and commands belonging to the borrower
-console are rejected at the initial prompt. Other single tokens are treated as
-asset IDs; use `help` to check command spelling.
+discarded. Unknown commands and bare asset IDs are rejected with a help hint.
+Registration begins only after an explicit `add` command.
+
+Equipment is not saved when the program exits.
+
+### Listing equipment: `list`
+
+Enter `list` in the main console to show asset ID, name, category, model,
+location, and availability for each registered unit. A unit is on loan when it
+has an active loan; returning it makes it available in the next listing.
+An empty inventory reports `No equipment registered.` No records are changed.
+
+### Recording equipment history notes
+
+Use `reservation ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION`, `fault` with the same
+fields, or `maintenance` with the same fields. For example:
+`fault OSC-001 d/2026-10-14 desc/Cracked screen`.
+The equipment must already be registered. Dates must be real calendar dates,
+and descriptions must be non-empty and single-line. View recorded notes using
+`history ASSET_ID`. Notes describe events only: they do not reserve availability
+or prevent loans, and are lost when the session ends.
+
+### Listing all active loans: `active-loans`
 
 Equipment registration currently does not enforce unique IDs or validate the
 four detail fields. Persistent sessions reject duplicate asset IDs. Choose
@@ -64,7 +94,7 @@ meaningful details. Completed registrations are saved before confirmation.
 
 ### Registering borrowers: `add-borrower`
 
-In the borrower console:
+In either console:
 
 ```text
 add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu
@@ -79,7 +109,7 @@ save leaves the borrower book unchanged.
 
 ### Viewing a borrower's loans: `loans`
 
-In the borrower console, enter `loans A0123456X` for a registered borrower.
+In the main console, enter `loans A0123456X` for a registered borrower.
 Active loans are ordered by due date, then asset ID. Rows include the equipment
 name, issue date, due date, and whether the loan is overdue. Returned loans are
 excluded; a loan becomes overdue after its due date, not on that date.
@@ -106,7 +136,7 @@ Example: loan OSC-001 b/A0123456X d/2026-09-18
   Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.
   Substitute the actual asset ID, borrower ID, and due date when issuing a loan.
 Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives the due date in YYYY-MM-DD format.
-Borrower IDs are not checked against borrower records yet.
+The main console checks borrower IDs against registered borrowers before lending.
 ```
 
 Detailed help covers `help`, `loan`, `return`, `history`, `add-borrower`, `loans`,
@@ -199,10 +229,8 @@ date. Future reservations are included. Same-day entries are ordered by type
 Unknown equipment produces an error; registered equipment with no supplied records
 produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
-**Current integration limit:** the default application starts with no reservation,
-fault, or maintenance source, so those entries appear only when shared records are
-supplied, as exercised by the integration tests. A fresh session can register a
-unit, lend it, return it, and see the resulting loan history.
+The default application combines loan history with notes recorded through
+`reservation`, `fault`, and `maintenance`. These notes last for the session.
 
 ## FAQ
 
@@ -218,13 +246,13 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | Input | Console | Purpose |
 | --- | --- | --- |
 | `help [COMMAND]` | Both | View commands and explained examples |
-| `ASSET_ID`, followed by prompts | Main | Register equipment |
+| `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
 | `exit` | Main | End the session |
-| `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Borrower | Register and save a borrower |
-| `loans BORROWER_ID` | Borrower | List a registered borrower's active loans |
+| `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
+| `loans BORROWER_ID` | Both | List a registered borrower's active loans |
 
-There are no reservation, maintenance, or standalone fault-creation commands in
-this build.
+Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
+to add a dated history note in the main console.

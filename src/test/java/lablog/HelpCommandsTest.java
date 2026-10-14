@@ -28,7 +28,8 @@ class HelpCommandsTest {
         String summary = help.execute("help");
         assertEquals(summary, help.execute("  help\t "));
         assertFalse(summary.contains("Example:"));
-        for (String command : List.of("help", "loan", "return", "history", "add-borrower", "loans", "exit")) {
+        for (String command : List.of("help", "loan", "return", "list", "history", "add-borrower", "loans",
+                "exit")) {
             assertTrue(summary.contains(command));
             String detail = help.execute("help " + command);
             assertTrue(detail.contains("Format: " + command));
@@ -40,11 +41,13 @@ class HelpCommandsTest {
     @Test
     void execute_loanHelp_includesRequestedExampleAndFieldGuidance() {
         String detail = help.execute("  help\tloan  ");
-        assertTrue(detail.startsWith("Issue a loan for an available equipment item.\n"
+        assertTrue(detail.startsWith("\n" + ".".repeat(60) + "\n"));
+        assertTrue(detail.endsWith("\n" + ".".repeat(60) + "\n"));
+        assertTrue(detail.contains("Issue a loan for an available equipment item.\n"
                 + "Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE\n"
                 + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));
-        assertTrue(detail.contains("not checked against borrower records"));
+        assertTrue(detail.contains("Register the borrower with add-borrower"));
     }
 
     @Test
@@ -111,7 +114,7 @@ class HelpCommandsTest {
         Inventory inventory = new Inventory();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         new LabLog(inventory, new LoanBook(), List::of).run(new Scanner(
-                "help history\nOSC-001\nScope\nElectronics\nS1\nLab\n" + example + "\nexit\n"),
+                "help history\nadd OSC-001\nScope\nElectronics\nS1\nLab\n" + example + "\nexit\n"),
                 new PrintStream(output));
         assertTrue(output.toString().contains("No history found for OSC-001 - Scope."));
         assertEquals(1, inventory.getEquipmentUnits().size());

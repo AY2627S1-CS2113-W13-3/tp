@@ -9,13 +9,16 @@ public class HelpCommands {
     private static final String USAGE = "Use: help [COMMAND]";
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
+            + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
+            + "list - List registered equipment and availability (main console).\n"
+            + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
-            + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (borrower console).\n"
-            + "loans BORROWER_ID - View active loans (borrower console).\n"
+            + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (both consoles).\n"
+            + "loans BORROWER_ID - View active loans (both consoles).\n"
             + "exit - Close the main console.\n"
-            + "To register equipment, enter its asset ID at the main prompt and follow the prompts.\n"
+            + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
             + "Use help COMMAND for syntax, fields, and usage examples.";
 
     /**
@@ -26,6 +29,13 @@ public class HelpCommands {
      * @throws IllegalArgumentException if the syntax or command name is invalid
      */
     public String execute(String input) {
+        String guidance = describe(input);
+        String separator = "............................................................";
+        return "\n" + separator + "\n" + guidance + "\n" + separator + "\n";
+    }
+
+    /** Resolves help text before adding presentation so validation errors stay concise. */
+    private String describe(String input) {
         String[] parts = input == null ? new String[0] : input.strip().split("\\s+");
         if (parts.length == 0 || parts.length > 2 || !parts[0].equals("help")) {
             LOGGER.fine("Rejected help request: invalid syntax");
@@ -37,6 +47,24 @@ public class HelpCommands {
         }
         LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
+        case "add":
+            return "Register equipment explicitly.\nFormat: add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION\n"
+                    + "Example: add OSC-001 n/Oscilloscope c/Electronics m/S1 l/Lab 1\n"
+                    + "  Register a unit with all four required fields, in any order.\n"
+                    + "Example: add OSC-001\n  Start the four-prompt registration wizard instead.\n"
+                    + "Unknown commands and bare asset IDs are rejected; use add to begin registration.";
+        case "reservation":
+        case "fault":
+        case "maintenance":
+            return "Record a dated equipment history note.\nFormat: " + parts[1]
+                    + " ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION\nExample: " + parts[1]
+                    + " OSC-001 d/2026-10-14 desc/Inspection scheduled\n"
+                    + "  Add a note for registered equipment; view it with history OSC-001.\n"
+                    + "Notes do not change loan availability and are held only for this session.";
+        case "active-loans":
+            return "List active loans across all borrowers.\nFormat: active-loans\nExample: active-loans\n"
+                    + "  Show asset ID, borrower ID, due date, and overdue status in due-date order.\n"
+                    + "Returned loans are excluded. Loans due today are not overdue.";
         case "help":
             return "Show common commands or detailed help for one command.\n"
                     + "Format: help [COMMAND]\n"
@@ -55,7 +83,7 @@ public class HelpCommands {
                     + "  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.\n"
                     + "Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; "
                     + "d/ gives the due date in YYYY-MM-DD format.\n"
-                    + "Borrower IDs are not checked against borrower records yet.";
+                    + "Register the borrower with add-borrower before issuing a loan.";
         case "return":
             return "Record an equipment return on today's date (main console).\n"
                     + "Format: return ASSET_ID [faults/DESCRIPTION]\n"
@@ -68,6 +96,12 @@ public class HelpCommands {
                     + "Fields: ASSET_ID identifies equipment with exactly one active loan; "
                     + "faults/ optionally records a non-empty, single-line damage description.\n"
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
+        case "list":
+            return "List registered equipment and current availability (main console).\n"
+                    + "Format: list\nExample: list\n"
+                    + "  Show asset IDs, names, categories, models, locations, and availability.\n"
+                    + "Availability is derived from active loans; returned units are available.\n"
+                    + "Fields: None.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"
@@ -76,7 +110,7 @@ public class HelpCommands {
                     + "  If no records have been supplied, report no history found.\n"
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.";
         case "add-borrower":
-            return "Register a borrower and save their contact details (borrower console).\n"
+            return "Register a borrower and save their contact details (both consoles).\n"
                     + "Format: add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL\n"
                     + "Example: add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu\n"
                     + "  Register Jamie Tan, including a name containing a space.\n"
@@ -87,7 +121,7 @@ public class HelpCommands {
                     + "e/ is an email at u.nus.edu.\n"
                     + "All three prefixes are required exactly once, in any order. IDs must be unique.";
         case "loans":
-            return "Show a borrower's active loans, ordered by due date and asset ID (borrower console).\n"
+            return "Show a borrower's active loans, ordered by due date and asset ID (both consoles).\n"
                     + "Format: loans BORROWER_ID\n"
                     + "Example: loans A0123456X\n"
                     + "  After registering Jamie Tan, show Jamie's active loans and overdue status.\n"
@@ -99,7 +133,7 @@ public class HelpCommands {
         case "exit":
             return "Close the main console.\nFormat: exit\nExample: exit\n"
                     + "  Enter exit at the initial main prompt to end the session.\nFields: None.\n"
-                    + "In the borrower console, send EOF to exit instead.";
+                    + "In the borrower console, type exit or send EOF to exit.";
         default:
             LOGGER.fine("Rejected help request: unknown command");
             throw new IllegalArgumentException("Unknown command: " + parts[1] + ". Use help for the command list.");
