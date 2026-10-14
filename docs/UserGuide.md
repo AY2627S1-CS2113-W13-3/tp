@@ -49,14 +49,16 @@ Scope Model 1
 Lab A
 ```
 
+Asset IDs must be unique (case-sensitive). Duplicate IDs are rejected before
+detail collection. All four detail fields must be non-blank and single-line;
+invalid details discard the proposed entry and return to the main prompt.
+
 LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
 discarded. Blank or multi-word asset IDs and commands belonging to the borrower
 console are rejected at the initial prompt. Other single tokens are treated as
 asset IDs; use `help` to check command spelling.
 
-Equipment registration currently does not enforce unique IDs or validate the
-four detail fields. Choose unique IDs and meaningful details. Equipment is not
-saved when the program exits.
+Equipment is not saved when the program exits.
 
 ### Registering borrowers: `add-borrower`
 

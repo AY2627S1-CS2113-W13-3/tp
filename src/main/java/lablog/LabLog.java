@@ -117,7 +117,17 @@ public class LabLog {
                 output.println("Error: Enter a single asset ID or use help for commands.");
                 continue;
             }
-            Equipment equipment = readEquipment(input, scanner, output);
+            if (inventory.getEquipmentUnits().stream().anyMatch(unit -> unit.getAssetId().equals(input))) {
+                output.println("Error: Equipment " + input + " already exists.");
+                continue;
+            }
+            Equipment equipment;
+            try {
+                equipment = readEquipment(input, scanner, output);
+            } catch (IllegalArgumentException exception) {
+                output.println("Error: " + exception.getMessage());
+                continue;
+            }
             if (equipment == null) {
                 LOGGER.fine("Discarded incomplete equipment registration at end of input");
                 output.println("Equipment not added: incomplete input.");
