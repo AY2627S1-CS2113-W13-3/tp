@@ -58,6 +58,13 @@ Equipment registration currently does not enforce unique IDs or validate the
 four detail fields. Choose unique IDs and meaningful details. Equipment is not
 saved when the program exits.
 
+### Listing all active loans: `active-loans`
+
+Enter `active-loans` in the main console to show every outstanding loan with its
+asset ID, borrower ID, due date, and status. Results are ordered by due date,
+then asset ID. `OVERDUE` means the due date is before today in the local time
+zone; loans due today are on time. Returned loans are excluded.
+
 ### Registering borrowers: `add-borrower`
 
 In the borrower console:

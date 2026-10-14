@@ -9,6 +9,7 @@ public class HelpCommands {
     private static final String USAGE = "Use: help [COMMAND]";
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
+            + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
@@ -37,6 +38,10 @@ public class HelpCommands {
         }
         LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
+        case "active-loans":
+            return "List active loans across all borrowers.\nFormat: active-loans\nExample: active-loans\n"
+                    + "  Show asset ID, borrower ID, due date, and overdue status in due-date order.\n"
+                    + "Returned loans are excluded. Loans due today are not overdue.";
         case "help":
             return "Show common commands or detailed help for one command.\n"
                     + "Format: help [COMMAND]\n"
