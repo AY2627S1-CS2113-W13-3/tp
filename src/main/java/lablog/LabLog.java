@@ -2,6 +2,7 @@ package lablog;
 
 import java.io.PrintStream;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.function.Supplier;
@@ -18,6 +19,7 @@ public class LabLog {
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
+    private final HistoryRecordCommands historyRecords;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
 
@@ -49,9 +51,14 @@ public class LabLog {
      */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory, Clock clock) {
         this.inventory = inventory;
+        this.historyRecords = new HistoryRecordCommands(inventory);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
+        this.history = new HistoryCommands(inventory, loans, () -> {
+            List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
+            entries.addAll(historyRecords.getEntries());
+            return entries;
+        });
         this.equipmentList = new EquipmentListCommands(inventory, loans);
-        this.history = new HistoryCommands(inventory, loans, otherHistory);
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock);
     }
@@ -98,6 +105,14 @@ public class LabLog {
             if (command.equals("help")) {
                 try {
                     output.println(help.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (List.of("reservation", "fault", "maintenance").contains(command)) {
+                try {
+                    output.println(historyRecords.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }

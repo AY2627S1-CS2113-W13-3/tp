@@ -69,6 +69,16 @@ location, and availability for each registered unit. A unit is on loan when it
 has an active loan; returning it makes it available in the next listing.
 An empty inventory reports `No equipment registered.` No records are changed.
 
+### Recording equipment history notes
+
+Use `reservation ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION`, `fault` with the same
+fields, or `maintenance` with the same fields. For example:
+`fault OSC-001 d/2026-10-14 desc/Cracked screen`.
+The equipment must already be registered. Dates must be real calendar dates,
+and descriptions must be non-empty and single-line. View recorded notes using
+`history ASSET_ID`. Notes describe events only: they do not reserve availability
+or prevent loans, and are lost when the session ends.
+
 ### Listing all active loans: `active-loans`
 
 Enter `active-loans` in the main console to show every outstanding loan with its
@@ -213,10 +223,8 @@ date. Future reservations are included. Same-day entries are ordered by type
 Unknown equipment produces an error; registered equipment with no supplied records
 produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
-**Current integration limit:** the default application starts with no reservation,
-fault, or maintenance source, so those entries appear only when shared records are
-supplied, as exercised by the integration tests. A fresh session can register a
-unit, lend it, return it, and see the resulting loan history.
+The default application combines loan history with notes recorded through
+`reservation`, `fault`, and `maintenance`. These notes last for the session.
 
 ## FAQ
 
@@ -240,5 +248,5 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Borrower | Register and save a borrower |
 | `loans BORROWER_ID` | Borrower | List a registered borrower's active loans |
 
-There are no reservation, maintenance, or standalone fault-creation commands in
-this build.
+Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
+to add a dated history note in the main console.
