@@ -18,6 +18,7 @@ public class LabLog {
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
+    private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
 
 
@@ -48,6 +49,7 @@ public class LabLog {
      */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory, Clock clock) {
         this.inventory = inventory;
+        this.activeLoans = new ActiveLoanCommands(loans, clock);
         this.equipmentList = new EquipmentListCommands(inventory, loans);
         this.history = new HistoryCommands(inventory, loans, otherHistory);
         this.returns = new ReturnCommands(inventory, loans, clock);
@@ -101,6 +103,9 @@ public class LabLog {
                 }
                 continue;
             }
+            if (command.equals("active-loans")) {
+                try {
+                    output.println(activeLoans.execute(input));
             if (command.equals("list")) {
                 try {
                     output.println(equipmentList.execute(input));

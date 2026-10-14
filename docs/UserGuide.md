@@ -69,6 +69,13 @@ location, and availability for each registered unit. A unit is on loan when it
 has an active loan; returning it makes it available in the next listing.
 An empty inventory reports `No equipment registered.` No records are changed.
 
+### Listing all active loans: `active-loans`
+
+Enter `active-loans` in the main console to show every outstanding loan with its
+asset ID, borrower ID, due date, and status. Results are ordered by due date,
+then asset ID. `OVERDUE` means the due date is before today in the local time
+zone; loans due today are on time. Returned loans are excluded.
+
 ### Registering borrowers: `add-borrower`
 
 In the borrower console:

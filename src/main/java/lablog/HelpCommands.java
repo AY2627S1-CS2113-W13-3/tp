@@ -46,10 +46,10 @@ public class HelpCommands {
         }
         LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
-        case "list":
-            return "List registered equipment and current availability.\nFormat: list\nExample: list\n"
-                    + "  Show asset IDs, names, categories, models, locations, and availability.\n"
-                    + "Availability is derived from active loans; returned units are available.";
+        case "active-loans":
+            return "List active loans across all borrowers.\nFormat: active-loans\nExample: active-loans\n"
+                    + "  Show asset ID, borrower ID, due date, and overdue status in due-date order.\n"
+                    + "Returned loans are excluded. Loans due today are not overdue.";
         case "help":
             return "Show common commands or detailed help for one command.\n"
                     + "Format: help [COMMAND]\n"
