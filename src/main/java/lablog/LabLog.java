@@ -2,6 +2,7 @@ package lablog;
 
 import java.io.PrintStream;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.function.Supplier;
@@ -19,6 +20,11 @@ public class LabLog {
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
     private final EquipmentAddCommands equipmentAdd;
+    private final HistoryRecordCommands historyRecords;
+    private final ActiveLoanCommands activeLoans;
+    private final EquipmentListCommands equipmentList;
+
+
 
     /** Creates an application with empty in-memory equipment and loan records. */
     public LabLog() {
@@ -48,6 +54,14 @@ public class LabLog {
         this.inventory = inventory;
         this.equipmentAdd = new EquipmentAddCommands(inventory);
         this.history = new HistoryCommands(inventory, loans, otherHistory);
+        this.historyRecords = new HistoryRecordCommands(inventory);
+        this.activeLoans = new ActiveLoanCommands(loans, clock);
+        this.history = new HistoryCommands(inventory, loans, () -> {
+            List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
+            entries.addAll(historyRecords.getEntries());
+            return entries;
+        });
+        this.equipmentList = new EquipmentListCommands(inventory, loans);
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock);
     }
@@ -81,6 +95,7 @@ public class LabLog {
     public void run(Scanner scanner, PrintStream output) {
         output.println("Welcome to LabLog!");
         output.println("Manage your laboratory equipment and loans here.");
+        output.println(help.execute("help"));
         while (true) {
             output.println("Enter add ASSET_ID, help [COMMAND], loan ASSET_ID b/BORROWER_ID d/DUE_DATE, "
                     + "history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
@@ -95,6 +110,30 @@ public class LabLog {
             if (command.equals("help")) {
                 try {
                     output.println(help.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (List.of("reservation", "fault", "maintenance").contains(command)) {
+                try {
+                    output.println(historyRecords.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("active-loans")) {
+                try {
+                    output.println(activeLoans.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("list")) {
+                try {
+                    output.println(equipmentList.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -134,8 +173,29 @@ public class LabLog {
                 output.println("Equipment not added: incomplete input.");
                 return;
             }
-            inventory.addEquipment(equipment);
+            try {
+                inventory.addEquipment(equipment);
+            } catch (IllegalArgumentException exception) {
+                output.println("Error: " + exception.getMessage());
+                continue;
+            }
+            LOGGER.info(() -> "Registered equipment with asset ID " + equipment.getAssetId());
             output.println("Equipment added to inventory.");
+        }
+    }
+
+    /** Displays every equipment unit currently registered in the inventory. */
+    private void listEquipment(PrintStream output) {
+        List<Equipment> equipmentUnits = inventory.getEquipmentUnits();
+        if (equipmentUnits.isEmpty()) {
+            output.println("No equipment registered.");
+            return;
+        }
+        output.println("Asset ID | Name | Category | Model | Location");
+        for (Equipment equipment : equipmentUnits) {
+            output.println(equipment.getAssetId() + " | " + equipment.getName() + " | "
+                    + equipment.getCategory() + " | " + equipment.getModel() + " | "
+                    + equipment.getLocation());
         }
     }
 
@@ -176,12 +236,19 @@ public class LabLog {
         String[] prompts = {"name", "category", "model", "location"};
         String[] details = new String[prompts.length];
         for (int i = 0; i < prompts.length; i++) {
-            output.println("Enter " + prompts[i] + ":");
+            output.println("Enter " + prompts[i] + ": (type cancel to abort)");
             if (!scanner.hasNextLine()) {
                 return null;
             }
             details[i] = scanner.nextLine();
+            if (details[i].strip().equals("cancel")) {
+                throw new RegistrationCancelledException();
+            }
         }
         return new Equipment(assetId, details[0], details[1], details[2], details[3]);
+    }
+
+    /** Separates an explicit cancellation from EOF, which closes the console. */
+    private static class RegistrationCancelledException extends RuntimeException {
     }
 }

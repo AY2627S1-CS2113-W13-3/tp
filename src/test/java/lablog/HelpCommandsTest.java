@@ -28,7 +28,8 @@ class HelpCommandsTest {
         String summary = help.execute("help");
         assertEquals(summary, help.execute("  help\t "));
         assertFalse(summary.contains("Example:"));
-        for (String command : List.of("help", "loan", "return", "history", "add-borrower", "loans", "exit")) {
+        for (String command : List.of("help", "loan", "return", "list", "history", "add-borrower", "loans",
+                "exit")) {
             assertTrue(summary.contains(command));
             String detail = help.execute("help " + command);
             assertTrue(detail.contains("Format: " + command));
@@ -40,7 +41,9 @@ class HelpCommandsTest {
     @Test
     void execute_loanHelp_includesRequestedExampleAndFieldGuidance() {
         String detail = help.execute("  help\tloan  ");
-        assertTrue(detail.startsWith("Issue a loan for an available equipment item.\n"
+        assertTrue(detail.startsWith("\n" + ".".repeat(60) + "\n"));
+        assertTrue(detail.endsWith("\n" + ".".repeat(60) + "\n"));
+        assertTrue(detail.contains("Issue a loan for an available equipment item.\n"
                 + "Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE\n"
                 + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));

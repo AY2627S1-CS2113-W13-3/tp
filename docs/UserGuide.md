@@ -16,6 +16,9 @@ java -version
 .\gradlew.bat run --console=plain
 ```
 
+The command summary appears once at startup. Subsequent input uses the short
+`lablog> ` prompt so results remain easy to find.
+
 Enter `help` to see commands, `help COMMAND` for examples, and `exit` to close
 the main console. On macOS/Linux, replace `.\gradlew.bat` with `./gradlew`.
 
@@ -26,7 +29,7 @@ For the borrower console, compile and run:
 java -cp build/classes/java/main lablog.BorrowerCli
 ```
 
-Exit the borrower console with EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
+Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
@@ -53,13 +56,38 @@ Scope Model 1
 Lab A
 ```
 
+Type `cancel` at any of the four detail prompts to discard the entry and return
+to the main prompt. No partial equipment record is added.
+
 LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
 discarded. Unknown commands and bare asset IDs are rejected with a help hint.
 Registration begins only after an explicit `add` command.
 
-Equipment registration currently does not enforce unique IDs or validate the
-four detail fields. Choose unique IDs and meaningful details. Equipment is not
-saved when the program exits.
+Equipment is not saved when the program exits.
+
+### Listing equipment: `list`
+
+Enter `list` in the main console to show asset ID, name, category, model,
+location, and availability for each registered unit. A unit is on loan when it
+has an active loan; returning it makes it available in the next listing.
+An empty inventory reports `No equipment registered.` No records are changed.
+
+### Recording equipment history notes
+
+Use `reservation ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION`, `fault` with the same
+fields, or `maintenance` with the same fields. For example:
+`fault OSC-001 d/2026-10-14 desc/Cracked screen`.
+The equipment must already be registered. Dates must be real calendar dates,
+and descriptions must be non-empty and single-line. View recorded notes using
+`history ASSET_ID`. Notes describe events only: they do not reserve availability
+or prevent loans, and are lost when the session ends.
+
+### Listing all active loans: `active-loans`
+
+Enter `active-loans` in the main console to show every outstanding loan with its
+asset ID, borrower ID, due date, and status. Results are ordered by due date,
+then asset ID. `OVERDUE` means the due date is before today in the local time
+zone; loans due today are on time. Returned loans are excluded.
 
 ### Registering borrowers: `add-borrower`
 
@@ -198,10 +226,8 @@ date. Future reservations are included. Same-day entries are ordered by type
 Unknown equipment produces an error; registered equipment with no supplied records
 produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
-**Current integration limit:** the default application starts with no reservation,
-fault, or maintenance source, so those entries appear only when shared records are
-supplied, as exercised by the integration tests. A fresh session can register a
-unit, lend it, return it, and see the resulting loan history.
+The default application combines loan history with notes recorded through
+`reservation`, `fault`, and `maintenance`. These notes last for the session.
 
 ## FAQ
 
@@ -221,9 +247,9 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
-| `exit` | Main | End the session |
+| `exit` | Both | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Borrower | Register and save a borrower |
 | `loans BORROWER_ID` | Borrower | List a registered borrower's active loans |
 
-There are no reservation, maintenance, or standalone fault-creation commands in
-this build.
+Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
+to add a dated history note in the main console.
