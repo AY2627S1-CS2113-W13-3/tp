@@ -38,13 +38,16 @@ public class BorrowerCli {
      * @param commands Handlers backed by the caller's shared data.
      */
     public static void run(Scanner scanner, PrintStream output, BorrowerCommands commands) {
-        ConsoleWelcome.print(output, true);
+        output.println("LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.");
         while (true) {
             output.print("lablog> ");
             if (!scanner.hasNextLine()) {
                 break;
             }
             String input = scanner.nextLine();
+            if (input.strip().equals("exit")) {
+                break;
+            }
             try {
                 output.println(commands.execute(input));
             } catch (IllegalArgumentException exception) {

@@ -21,7 +21,7 @@ loans A0123456X
 help add-borrower
 ```
 
-The console accepts commands until EOF (Ctrl+Z, then Enter on Windows).
+The console accepts commands until `exit` or EOF (Ctrl+Z, then Enter on Windows).
 Borrowers persist in the specified file. The default is `data/borrowers.properties`.
 Use a path under `build/` for disposable demonstrations to avoid tracking personal data.
 The standalone console starts with an empty loan book; it does not implement the

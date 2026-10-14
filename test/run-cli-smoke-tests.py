@@ -9,7 +9,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 JAR = ROOT / "build/libs/lablog.jar"
-GREETING = "LabLog v1.0 - Borrower console\nManage your laboratory equipment and loans here.\nType help for commands and examples.\nSend EOF to exit (Ctrl+Z then Enter on Windows, Ctrl+D on macOS/Linux).\n"
+GREETING = "LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.\n"
 
 
 class CliSmokeTests(unittest.TestCase):
