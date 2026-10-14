@@ -19,6 +19,8 @@ public class LabLog {
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
 
+
+
     /** Creates an application with empty in-memory equipment and loan records. */
     public LabLog() {
         this(new Inventory(), new LoanBook(), List::of);
@@ -69,8 +71,7 @@ public class LabLog {
     }
 
     /**
-     * Accepts an asset ID to register, a help, loan, history or return command, or exit at the
-     * initial prompt.
+     * Accepts an asset ID to register or a help, loan, list, history, return, or exit command.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
      * @param scanner input owned by the caller
@@ -95,6 +96,14 @@ public class LabLog {
                     output.println(help.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("list")) {
+                if (!input.equals("list")) {
+                    output.println("Error: Use: list");
+                } else {
+                    listEquipment(output);
                 }
                 continue;
             }
@@ -131,7 +140,23 @@ public class LabLog {
                 return;
             }
             inventory.addEquipment(equipment);
+            LOGGER.info(() -> "Registered equipment with asset ID " + equipment.getAssetId());
             output.println("Equipment added to inventory.");
+        }
+    }
+
+    /** Displays every equipment unit currently registered in the inventory. */
+    private void listEquipment(PrintStream output) {
+        List<Equipment> equipmentUnits = inventory.getEquipmentUnits();
+        if (equipmentUnits.isEmpty()) {
+            output.println("No equipment registered.");
+            return;
+        }
+        output.println("Asset ID | Name | Category | Model | Location");
+        for (Equipment equipment : equipmentUnits) {
+            output.println(equipment.getAssetId() + " | " + equipment.getName() + " | "
+                    + equipment.getCategory() + " | " + equipment.getModel() + " | "
+                    + equipment.getLocation());
         }
     }
 
