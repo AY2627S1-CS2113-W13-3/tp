@@ -20,6 +20,7 @@ public class LabLog {
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
     private final HistoryRecordCommands historyRecords;
+    private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
 
 
@@ -51,13 +52,13 @@ public class LabLog {
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory, Clock clock) {
         this.inventory = inventory;
         this.historyRecords = new HistoryRecordCommands(inventory);
+        this.activeLoans = new ActiveLoanCommands(loans, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
             List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
             entries.addAll(historyRecords.getEntries());
             return entries;
         });
         this.equipmentList = new EquipmentListCommands(inventory, loans);
-        this.history = new HistoryCommands(inventory, loans, otherHistory);
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock);
     }
@@ -112,6 +113,19 @@ public class LabLog {
             if (List.of("reservation", "fault", "maintenance").contains(command)) {
                 try {
                     output.println(historyRecords.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("active-loans")) {
+                try {
+                    output.println(activeLoans.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
             if (command.equals("list")) {
                 try {
                     output.println(equipmentList.execute(input));
@@ -139,6 +153,10 @@ public class LabLog {
                 output.println("Error: Enter a single asset ID or use help for commands.");
                 continue;
             }
+            if (inventory.containsAssetId(input)) {
+                output.println("Error: Equipment with asset ID " + input + " already exists.");
+                continue;
+            }
             Equipment equipment;
             try {
                 equipment = readEquipment(input, scanner, output);
@@ -146,13 +164,21 @@ public class LabLog {
                 LOGGER.fine("Cancelled equipment registration");
                 output.println("Equipment not added: registration cancelled.");
                 continue;
+            } catch (IllegalArgumentException exception) {
+                output.println("Error: " + exception.getMessage());
+                continue;
             }
             if (equipment == null) {
                 LOGGER.fine("Discarded incomplete equipment registration at end of input");
                 output.println("Equipment not added: incomplete input.");
                 return;
             }
-            inventory.addEquipment(equipment);
+            try {
+                inventory.addEquipment(equipment);
+            } catch (IllegalArgumentException exception) {
+                output.println("Error: " + exception.getMessage());
+                continue;
+            }
             LOGGER.info(() -> "Registered equipment with asset ID " + equipment.getAssetId());
             output.println("Equipment added to inventory.");
         }

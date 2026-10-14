@@ -79,6 +79,13 @@ and descriptions must be non-empty and single-line. View recorded notes using
 `history ASSET_ID`. Notes describe events only: they do not reserve availability
 or prevent loans, and are lost when the session ends.
 
+### Listing all active loans: `active-loans`
+
+Enter `active-loans` in the main console to show every outstanding loan with its
+asset ID, borrower ID, due date, and status. Results are ordered by due date,
+then asset ID. `OVERDUE` means the due date is before today in the local time
+zone; loans due today are on time. Returned loans are excluded.
+
 ### Registering borrowers: `add-borrower`
 
 In the borrower console:

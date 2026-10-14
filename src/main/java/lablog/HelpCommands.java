@@ -11,9 +11,9 @@ public class HelpCommands {
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
             + "list - List registered equipment and availability (main console).\n"
+            + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
-            + "list - Show all registered equipment (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
             + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (borrower console).\n"
             + "loans BORROWER_ID - View active loans (borrower console).\n"
@@ -55,10 +55,10 @@ public class HelpCommands {
                     + " OSC-001 d/2026-10-14 desc/Inspection scheduled\n"
                     + "  Add a note for registered equipment; view it with history OSC-001.\n"
                     + "Notes do not change loan availability and are held only for this session.";
-        case "list":
-            return "List registered equipment and current availability.\nFormat: list\nExample: list\n"
-                    + "  Show asset IDs, names, categories, models, locations, and availability.\n"
-                    + "Availability is derived from active loans; returned units are available.";
+        case "active-loans":
+            return "List active loans across all borrowers.\nFormat: active-loans\nExample: active-loans\n"
+                    + "  Show asset ID, borrower ID, due date, and overdue status in due-date order.\n"
+                    + "Returned loans are excluded. Loans due today are not overdue.";
         case "help":
             return "Show common commands or detailed help for one command.\n"
                     + "Format: help [COMMAND]\n"
@@ -91,10 +91,10 @@ public class HelpCommands {
                     + "faults/ optionally records a non-empty, single-line damage description.\n"
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
         case "list":
-            return "Show all equipment currently registered in the inventory (main console).\n"
-                    + "Format: list\n"
-                    + "Example: list\n"
-                    + "  Show each registered unit's asset ID, name, category, model, and location.\n"
+            return "List registered equipment and current availability (main console).\n"
+                    + "Format: list\nExample: list\n"
+                    + "  Show asset IDs, names, categories, models, locations, and availability.\n"
+                    + "Availability is derived from active loans; returned units are available.\n"
                     + "Fields: None.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
