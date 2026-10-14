@@ -18,6 +18,7 @@ public class LabLog {
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
+    private final EquipmentListCommands equipmentList;
 
     /** Creates an application with empty in-memory equipment and loan records. */
     public LabLog() {
@@ -45,6 +46,7 @@ public class LabLog {
      */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory, Clock clock) {
         this.inventory = inventory;
+        this.equipmentList = new EquipmentListCommands(inventory, loans);
         this.history = new HistoryCommands(inventory, loans, otherHistory);
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock);
@@ -93,6 +95,14 @@ public class LabLog {
             if (command.equals("help")) {
                 try {
                     output.println(help.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("list")) {
+                try {
+                    output.println(equipmentList.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
