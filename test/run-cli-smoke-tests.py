@@ -42,7 +42,8 @@ class CliSmokeTests(unittest.TestCase):
         return self.run_java(["-cp", str(JAR), "lablog.BorrowerCli", str(file)], user_input)
 
     def test_main_help_examples_and_recovery(self):
-        commands = ("help", "loan", "return", "history", "add-borrower", "loans", "exit")
+        commands = ("help", "add", "list", "active-loans", "loan", "return", "history",
+                    "add-borrower", "loans", "exit")
         user_input = "help\nhelp unknown\nhelp loan extra\n"
         user_input += "".join("help " + command + "\n" for command in commands) + "exit\n"
         output = self.run_java(["-jar", str(JAR)], user_input)
@@ -57,7 +58,7 @@ class CliSmokeTests(unittest.TestCase):
         output = self.run_java(["-jar", str(JAR)],
             "loan OSC-001 b/A0123456X d/2026-09-18\nloans A0123456X\n"
             "add-borrower A0123456X\n\nOSC 001\n"
-            "OSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nreturn OSC-001\nexit\n")
+            "add OSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nreturn OSC-001\nexit\n")
         self.assertNotIn("is not available in this console", output)
         self.assertIn("Error: Borrower A0123456X was not found.", output)
         self.assertIn("Error: Equipment OSC-001 was not found.", output)
@@ -75,7 +76,9 @@ class CliSmokeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="restart-smoke-", dir=ROOT / "build") as directory:
             file = Path(directory) / "lablog.properties"
             args = ["-jar", str(JAR), str(file)]
-            output = self.run_java(args, "OSC-001\nScope\nElectronics\nS1\nLab\n"
+            output = self.run_java(args,
+                "add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\n"
+                "add OSC-001\nScope\nElectronics\nS1\nLab\n"
                 "loan OSC-001 b/A0123456X d/2099-01-01\nexit\n")
             self.assertIn("Loaned OSC-001", output)
             output = self.run_java(args, "history OSC-001\nreturn OSC-001 faults/cracked screen\nexit\n")

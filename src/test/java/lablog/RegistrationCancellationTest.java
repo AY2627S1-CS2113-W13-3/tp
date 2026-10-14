@@ -17,8 +17,8 @@ class RegistrationCancellationTest {
         for (int field = 0; field < 4; field++) {
             Inventory inventory = new Inventory();
             ByteArrayOutputStream output = new ByteArrayOutputStream();
-            String input = "CANCELLED\n" + "detail\n".repeat(field) + " cancel \n"
-                    + "help\nSAVED\nScope\nElectronics\nS1\nLab\nexit\n";
+            String input = "add CANCELLED\n" + "detail\n".repeat(field) + " cancel \n"
+                    + "help\nadd SAVED\nScope\nElectronics\nS1\nLab\nexit\n";
             new LabLog(inventory, new LoanBook(), List::of).run(new Scanner(input), new PrintStream(output));
             assertTrue(output.toString().contains("registration cancelled"));
             assertTrue(output.toString().contains("Common Version 1 commands:"));

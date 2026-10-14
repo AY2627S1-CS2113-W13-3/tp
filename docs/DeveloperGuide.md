@@ -16,24 +16,26 @@ history in one versioned UTF-8 properties snapshot. Save to a temporary file
 in the destination directory, then atomically replace the snapshot before
 printing success. Unsupported atomic replacement is reported as a save failure;
 there is no non-atomic fallback. Save failure stops the session to avoid further
-unsaved operations. Injected constructors remain in memory for unit tests.
+unsaved operations. Borrower data is stored separately in a sibling
+`borrowers.properties` file. Injected constructors remain in memory for unit tests.
 
 Loading rejects missing required fields, invalid dates, duplicate IDs, unknown
 equipment references, and multiple active loans per unit. A corrupt file is not
 overwritten. This store assumes one application process owns a data file;
-concurrent writers are not supported. Borrower persistence remains separate.
+concurrent writers are not supported.
 
-`LabLog` is the Gradle application entry point. It holds an `Inventory` and
-routes help, loan, history, and return commands to their handlers. Other valid
-single tokens begin equipment registration; blank or multi-token input is
-rejected. Borrower commands (`loans`, `add-borrower`) share the main console's
-inventory and loan book. The CLI loads borrowers from a persistent file;
-in-memory constructors remain available for tests.
+`LabLog` is the Gradle application entry point. It routes explicit equipment
+registration, listing, active loans, history notes, help, loan, history, return,
+and borrower commands to their handlers. The prompted and single-line equipment
+registration forms both validate before storing. Borrower commands share the
+main console's inventory and loan book. The CLI loads borrowers from the sibling
+data file; in-memory constructors remain available for tests.
 
 `BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
 and an initially empty `LoanBook`. `BorrowerCommands` handles registration,
-loan listings, and help. See [borrower integration notes](BorrowerImplementation.md)
-for connecting it to shared application records.
+loan listings, and help. The main application wires those handlers to shared
+books; [borrower implementation notes](BorrowerImplementation.md) document the
+standalone console and original integration increment.
 
 `Equipment`, `Borrower`, and `Loan` model individual records. `Inventory`,
 `BorrowerBook`, and `LoanBook` store collections. `LoanBook.findActiveLoan`
@@ -89,7 +91,8 @@ The original one-argument method remains available and records no reported fault
 clock for tests. Return handling shares the same loan book with history; no copied
 return records are created. Fault descriptions appear on returned loan history
 entries, and the existing borrower handler excludes the now-inactive loan.
-There is no automatic fault-record creation, availability change, or persistence.
+`LabLog` persists the updated loan and return details after successful commands.
+Return faults do not create a separate fault-history note.
 
 `ReturnCommandsTest` covers local-date boundaries, optional faults, invalid input,
 repeat returns, multiple active loans, date validation, historical loans, borrower
@@ -133,8 +136,8 @@ student borrowers through a text interface.
 ### Value proposition
 
 Keep equipment identity, borrower contacts, and loan history accessible from
-the command line. The current handlers support parts of this workflow; the
-shared loan-issuing workflow remains unfinished.
+the command line. The main console shares records across registration, lending,
+returns, and lookups.
 
 ## User Stories
 
@@ -151,12 +154,11 @@ Build and run with Java 25. Keep help read-only and reject invalid borrower and
 return commands before changing records. Save borrower additions atomically
 before updating memory. These behaviors are covered by automated tests.
 
-Current limitations: equipment detail validation remains incomplete;
-the consoles are not unified; the loan command does not check the borrower
-against registered borrowers; reservation, fault, and maintenance record creation
-are not implemented. Standalone history notes are not persisted.
-Passing tests does not imply these planned features are
-complete.
+Current limitations: the standalone borrower console has its own initially
+empty loan book; reservation, fault, and maintenance history notes are held only
+for the session; and concurrent writers to the same data files are unsupported.
+Return fault descriptions are stored in loan history and do not create a
+separate fault note.
 
 ## Glossary
 
@@ -203,8 +205,10 @@ output: `pwsh -File test/run-borrower-ui-tests.ps1`. See the
 [console test plan](../test/ui-test-plan.md) and
 [verification report](../test/verification-report.md).
 
-For a manual main-console check, run `java -jar build/libs/lablog.jar`, enter
-`help`, `help return`, then enter `add OSC-001` with four detail lines. Check
-`history OSC-001`, `return OSC-001`, and `exit`. In this fresh session, history
-is empty and return reports that the unit is not on loan. Automated integration
-tests supply active loans to verify successful return and history updates.
+For a manual main-console check, run `java -jar build/libs/lablog.jar` with a
+disposable data-file path, register equipment with `add`, register a borrower
+with `add-borrower`, then issue a loan. Check `active-loans`, `loans
+BORROWER_ID`, `return ASSET_ID`, and `history ASSET_ID`. Restart with the same
+data path to confirm equipment, loans, returns, and borrowers reload. Use a
+separate disposable directory because borrower data is stored beside the
+LabLog data file.

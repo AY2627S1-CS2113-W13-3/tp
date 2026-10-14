@@ -1,9 +1,9 @@
 # About us
 
-Display |   Name   |            Github Profile             | Portfolio 
---------|:--------:|:-------------------------------------:|:---------:
-![](https://via.placeholder.com/100.png?text=Photo) | Kim Doyeon | [Github](https://github.com/) | [Portfolio](doyk0215)
-![](https://via.placeholder.com/100.png?text=Photo) | Lulu Wen | [Github](https://github.com/lulu-wen) | [Portfolio](docs/team/johndoe.md)
-![](https://via.placeholder.com/100.png?text=Photo) | Kwan Tze | [Github](https://github.com/) | [Portfolio](https://github.com/YamYamui)
-![](https://via.placeholder.com/100.png?text=Photo) | Zeph | [Github](https://github.com/zephtzk) | [Portfolio](team/johndoe.md)
-![](https://via.placeholder.com/100.png?text=Photo) | Yunncong | [Github](https://github.com/yuncongshen) | [Portfolio](docs/team/johndoe.md)
+| Name | GitHub profile |
+| --- | --- |
+| Kim Doyeon | [doyk0215](https://github.com/doyk0215) |
+| Lulu Wen | [lulu-wen](https://github.com/lulu-wen) |
+| Kwan Tze | [YamYamui](https://github.com/YamYamui) |
+| Zeph | [zephtzk](https://github.com/zephtzk) |
+| Yuncong Shen | [yuncongshen](https://github.com/yuncongshen) |

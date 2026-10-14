@@ -38,7 +38,8 @@ class EquipmentValidationTest {
         Inventory inventory = new Inventory();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         new LabLog(inventory, new LoanBook(), List::of).run(new Scanner(
-                "BAD\n \nElectronics\nS1\nLab\nGOOD\nScope\nElectronics\nS1\nLab\nGOOD\nhelp\nexit\n"),
+                "add BAD\n \nElectronics\nS1\nLab\nadd GOOD\nScope\nElectronics\nS1\nLab\n"
+                        + "add GOOD\nhelp\nexit\n"),
                 new PrintStream(output));
         assertEquals(1, inventory.getEquipmentUnits().size());
         assertEquals("GOOD", inventory.getEquipmentUnits().get(0).getAssetId());
