@@ -20,6 +20,9 @@ public class LabLog {
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
     private final HistoryRecordCommands historyRecords;
+    private final EquipmentListCommands equipmentList;
+
+
 
     /** Creates an application with empty in-memory equipment and loan records. */
     public LabLog() {
@@ -53,6 +56,8 @@ public class LabLog {
             entries.addAll(historyRecords.getEntries());
             return entries;
         });
+        this.equipmentList = new EquipmentListCommands(inventory, loans);
+        this.history = new HistoryCommands(inventory, loans, otherHistory);
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock);
     }
@@ -76,8 +81,7 @@ public class LabLog {
     }
 
     /**
-     * Accepts an asset ID to register, a help, loan, history or return command, or exit at the
-     * initial prompt.
+     * Accepts an asset ID to register or a help, loan, list, history, return, or exit command.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
      * @param scanner input owned by the caller
@@ -86,9 +90,9 @@ public class LabLog {
     public void run(Scanner scanner, PrintStream output) {
         output.println("Welcome to LabLog!");
         output.println("Manage your laboratory equipment and loans here.");
+        output.println(help.execute("help"));
         while (true) {
-            output.println("Enter asset ID, help [COMMAND], loan ASSET_ID b/BORROWER_ID d/DUE_DATE, "
-                    + "history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
+            output.print("lablog> ");
             if (!scanner.hasNextLine()) {
                 return;
             }
@@ -108,6 +112,9 @@ public class LabLog {
             if (List.of("reservation", "fault", "maintenance").contains(command)) {
                 try {
                     output.println(historyRecords.execute(input));
+            if (command.equals("list")) {
+                try {
+                    output.println(equipmentList.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -132,14 +139,37 @@ public class LabLog {
                 output.println("Error: Enter a single asset ID or use help for commands.");
                 continue;
             }
-            Equipment equipment = readEquipment(input, scanner, output);
+            Equipment equipment;
+            try {
+                equipment = readEquipment(input, scanner, output);
+            } catch (RegistrationCancelledException exception) {
+                LOGGER.fine("Cancelled equipment registration");
+                output.println("Equipment not added: registration cancelled.");
+                continue;
+            }
             if (equipment == null) {
                 LOGGER.fine("Discarded incomplete equipment registration at end of input");
                 output.println("Equipment not added: incomplete input.");
                 return;
             }
             inventory.addEquipment(equipment);
+            LOGGER.info(() -> "Registered equipment with asset ID " + equipment.getAssetId());
             output.println("Equipment added to inventory.");
+        }
+    }
+
+    /** Displays every equipment unit currently registered in the inventory. */
+    private void listEquipment(PrintStream output) {
+        List<Equipment> equipmentUnits = inventory.getEquipmentUnits();
+        if (equipmentUnits.isEmpty()) {
+            output.println("No equipment registered.");
+            return;
+        }
+        output.println("Asset ID | Name | Category | Model | Location");
+        for (Equipment equipment : equipmentUnits) {
+            output.println(equipment.getAssetId() + " | " + equipment.getName() + " | "
+                    + equipment.getCategory() + " | " + equipment.getModel() + " | "
+                    + equipment.getLocation());
         }
     }
 
@@ -180,12 +210,19 @@ public class LabLog {
         String[] prompts = {"name", "category", "model", "location"};
         String[] details = new String[prompts.length];
         for (int i = 0; i < prompts.length; i++) {
-            output.println("Enter " + prompts[i] + ":");
+            output.println("Enter " + prompts[i] + ": (type cancel to abort)");
             if (!scanner.hasNextLine()) {
                 return null;
             }
             details[i] = scanner.nextLine();
+            if (details[i].strip().equals("cancel")) {
+                throw new RegistrationCancelledException();
+            }
         }
         return new Equipment(assetId, details[0], details[1], details[2], details[3]);
+    }
+
+    /** Separates an explicit cancellation from EOF, which closes the console. */
+    private static class RegistrationCancelledException extends RuntimeException {
     }
 }

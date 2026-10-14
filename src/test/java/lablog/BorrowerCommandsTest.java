@@ -120,7 +120,7 @@ class BorrowerCommandsTest {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         BorrowerCli.run(new Scanner("unknown\n" + ADD + "\nloans " + ID + "\n"),
                 new PrintStream(output), commands);
-        assertEquals("LabLog borrower console. Use add-borrower or loans. Send EOF to exit.\n"
+        assertEquals("LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.\n"
                 + "lablog> Error: Unknown borrower command. Use add-borrower or loans.\nNo changes saved.\n"
                 + "lablog> Added borrower " + ID + ": Jamie Tan.\nPhone: 91234567 | Email: jamie@u.nus.edu\n"
                 + "lablog> No active loans for " + ID + " - Jamie Tan.\nlablog> ",
