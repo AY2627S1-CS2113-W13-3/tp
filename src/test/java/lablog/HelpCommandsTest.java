@@ -47,7 +47,7 @@ class HelpCommandsTest {
                 + "Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE\n"
                 + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));
-        assertTrue(detail.contains("not checked against borrower records"));
+        assertTrue(detail.contains("Register the borrower with add-borrower"));
     }
 
     @Test

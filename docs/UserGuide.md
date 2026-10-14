@@ -3,9 +3,9 @@
 ## Introduction
 
 LabLog helps laboratory technicians manage loanable electronics equipment and
-borrowers. The current build has two consoles: the main console for equipment,
-history, and returns, and a separate borrower console for registration and loan
-lookups. Both provide command help and examples.
+borrowers. The main console shares equipment, loans, and borrowers for registration,
+lending, returns, and loan lookups. A standalone borrower console remains available.
+Both provide command help and examples.
 
 ## Quick Start
 
@@ -33,10 +33,10 @@ Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or C
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
-**Current scope:** neither console issues loans yet. A fresh main session can
-register equipment and show empty history; successful returns and populated loan
-lists require shared loan records supplied programmatically. Only borrower
-records persist across restarts.
+The main console supports `add-borrower` and `loans` against its live equipment
+and loan records. Register borrowers before lending to them. Borrowers persist
+in `data/borrowers.properties`; pass a file path after the JAR name to select
+another borrower file. Equipment and loans remain in memory for this session.
 
 ## Features 
 
@@ -91,7 +91,7 @@ zone; loans due today are on time. Returned loans are excluded.
 
 ### Registering borrowers: `add-borrower`
 
-In the borrower console:
+In either console:
 
 ```text
 add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu
@@ -106,7 +106,7 @@ save leaves the borrower book unchanged.
 
 ### Viewing a borrower's loans: `loans`
 
-In the borrower console, enter `loans A0123456X` for a registered borrower.
+In the main console, enter `loans A0123456X` for a registered borrower.
 Active loans are ordered by due date, then asset ID. Rows include the equipment
 name, issue date, due date, and whether the loan is overdue. Returned loans are
 excluded; a loan becomes overdue after its due date, not on that date.
@@ -133,7 +133,7 @@ Example: loan OSC-001 b/A0123456X d/2026-09-18
   Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.
   Substitute the actual asset ID, borrower ID, and due date when issuing a loan.
 Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives the due date in YYYY-MM-DD format.
-Borrower IDs are not checked against borrower records yet.
+The main console checks borrower IDs against registered borrowers before lending.
 ```
 
 Detailed help covers `help`, `loan`, `return`, `history`, `add-borrower`, `loans`,
@@ -247,9 +247,9 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
-| `exit` | Both | End the session |
-| `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Borrower | Register and save a borrower |
-| `loans BORROWER_ID` | Borrower | List a registered borrower's active loans |
+| `exit` | Main | End the session |
+| `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
+| `loans BORROWER_ID` | Both | List a registered borrower's active loans |
 
 Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
 to add a dated history note in the main console.

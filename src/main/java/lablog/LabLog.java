@@ -1,6 +1,8 @@
 package lablog;
 
 import java.io.PrintStream;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +21,7 @@ public class LabLog {
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
+    private final BorrowerCommands borrowerCommands;
     private final EquipmentAddCommands equipmentAdd;
     private final HistoryRecordCommands historyRecords;
     private final ActiveLoanCommands activeLoans;
@@ -51,6 +54,12 @@ public class LabLog {
      * @param clock clock used to date returns
      */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory, Clock clock) {
+        this(inventory, loans, otherHistory, clock, new BorrowerBook());
+    }
+
+    /** Connects both command groups to the same equipment, loans, and borrower records. */
+    public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory,
+            Clock clock, BorrowerBook borrowers) {
         this.inventory = inventory;
         this.equipmentAdd = new EquipmentAddCommands(inventory);
         this.history = new HistoryCommands(inventory, loans, otherHistory);
@@ -63,7 +72,11 @@ public class LabLog {
         });
         this.equipmentList = new EquipmentListCommands(inventory, loans);
         this.returns = new ReturnCommands(inventory, loans, clock);
-        this.loanCommands = new LoanCommands(inventory, loans, clock);
+        this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers);
+        this.borrowerCommands = new BorrowerCommands(borrowers, loans,
+                assetId -> inventory.getEquipmentUnits().stream()
+                        .filter(unit -> unit.getAssetId().equals(assetId)).map(Equipment::getName)
+                        .findFirst().orElse(null), clock);
     }
 
     /**
@@ -72,7 +85,17 @@ public class LabLog {
      * @param args command-line arguments
      */
     public static void main(String[] args) {
-        new LabLog().run();
+        if (args.length > 1) {
+            System.err.println("Use: java -jar lablog.jar [BORROWER_FILE]");
+            return;
+        }
+        Path file = Path.of(args.length == 1 ? args[0] : "data/borrowers.properties");
+        try {
+            new LabLog(new Inventory(), new LoanBook(), List::of,
+                    Clock.systemDefaultZone(), new BorrowerBook(file)).run();
+        } catch (IOException exception) {
+            System.err.println("Error: Cannot load borrower data. " + exception.getMessage());
+        }
     }
 
     /**
@@ -148,9 +171,14 @@ public class LabLog {
                 continue;
             }
             if (List.of("loans", "add-borrower").contains(command)) {
-                LOGGER.fine("Rejected command: available only in the borrower console");
-                output.println("Error: " + command
-                        + " is not available in this console. Use help for command details.");
+                try {
+                    output.println(borrowerCommands.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                } catch (IOException exception) {
+                    output.println("Error: Cannot save borrower data. " + exception.getMessage());
+                    output.println("No changes saved.");
+                }
                 continue;
             }
             if (!command.equals("add")) {

@@ -58,8 +58,10 @@ java -jar build/libs/lablog.jar
 
 The main console supports registration, help, loans, history, and return
 handling, so a fresh session can complete a loan/return workflow. Equipment,
-loans, and return details are in memory only. Borrower commands run in the
-separate console below.
+loans, and return details are in memory only. Use `add-borrower` before lending,
+then `loans BORROWER_ID` to see that borrower's current loans in the main console.
+Borrowers are saved to `data/borrowers.properties`. The standalone borrower
+console below remains available, but does not share live equipment or loans.
 
 ## Running the borrower console
 

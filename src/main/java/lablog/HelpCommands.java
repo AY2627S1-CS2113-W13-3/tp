@@ -15,8 +15,8 @@ public class HelpCommands {
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
-            + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (borrower console).\n"
-            + "loans BORROWER_ID - View active loans (borrower console).\n"
+            + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (both consoles).\n"
+            + "loans BORROWER_ID - View active loans (both consoles).\n"
             + "exit - Close the main console.\n"
             + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
             + "Use help COMMAND for syntax, fields, and usage examples.";
@@ -83,7 +83,7 @@ public class HelpCommands {
                     + "  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.\n"
                     + "Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; "
                     + "d/ gives the due date in YYYY-MM-DD format.\n"
-                    + "Borrower IDs are not checked against borrower records yet.";
+                    + "Register the borrower with add-borrower before issuing a loan.";
         case "return":
             return "Record an equipment return on today's date (main console).\n"
                     + "Format: return ASSET_ID [faults/DESCRIPTION]\n"
@@ -110,7 +110,7 @@ public class HelpCommands {
                     + "  If no records have been supplied, report no history found.\n"
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.";
         case "add-borrower":
-            return "Register a borrower and save their contact details (borrower console).\n"
+            return "Register a borrower and save their contact details (both consoles).\n"
                     + "Format: add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL\n"
                     + "Example: add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu\n"
                     + "  Register Jamie Tan, including a name containing a space.\n"
@@ -121,7 +121,7 @@ public class HelpCommands {
                     + "e/ is an email at u.nus.edu.\n"
                     + "All three prefixes are required exactly once, in any order. IDs must be unique.";
         case "loans":
-            return "Show a borrower's active loans, ordered by due date and asset ID (borrower console).\n"
+            return "Show a borrower's active loans, ordered by due date and asset ID (both consoles).\n"
                     + "Format: loans BORROWER_ID\n"
                     + "Example: loans A0123456X\n"
                     + "  After registering Jamie Tan, show Jamie's active loans and overdue status.\n"

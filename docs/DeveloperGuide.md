@@ -11,11 +11,11 @@ executable JAR. See `build.gradle` for dependency versions.
 ### Entry points and shared records
 
 `LabLog` is the Gradle application entry point. It holds an `Inventory` and
-routes help, loan, history, and return commands to their handlers. Equipment
-registration requires `add ASSET_ID` for the wizard or `add` with all four
-prefixed fields for one-line registration. Unknown commands are rejected.
-Borrower-console commands (`loans`, `add-borrower`) are rejected before
-registration so their arguments cannot become equipment details.
+routes help, loan, history, and return commands to their handlers. Other valid
+single tokens begin equipment registration; blank or multi-token input is
+rejected. Borrower commands (`loans`, `add-borrower`) share the main console's
+inventory and loan book. The CLI loads borrowers from a persistent file;
+in-memory constructors remain available for tests.
 
 `BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
 and an initially empty `LoanBook`. `BorrowerCommands` handles registration,
@@ -35,8 +35,7 @@ storing a record; any other issuing path must repeat them.
 `HelpCommands` contains shared guidance for both consoles and has no record
 store dependencies. `help` returns a concise list; `help COMMAND` returns
 syntax, fields, and explained examples. Invalid names and extra arguments
-produce recoverable errors. The loan example notes that borrower IDs are not
-checked against borrower records yet.
+produce recoverable errors. The loan guidance requires borrower registration.
 
 `HelpCommandsTest` checks parsing, examples against the real handlers, console
 integration, and unchanged records/files when viewing help. `LabLogTest` checks
@@ -57,8 +56,9 @@ on `Equipment`, so one place decides which units are out. The refusal names the
 current borrower and due date, which is why the lookup returns the loan itself
 rather than a boolean.
 
-Borrower identifiers are accepted as given. `LabLog` holds no `BorrowerBook`, so
-checking them belongs with the borrower-console integration.
+`LabLog` supplies its shared `BorrowerBook` to `LoanCommands`, which rejects
+unregistered borrowers before recording a loan. The three-argument handler
+constructor remains available to standalone callers with their own validation.
 
 `LoanCommandsTest` covers the accepted command, prefix order, due dates at and
 before today, malformed dates, missing and repeated fields, unknown equipment,
@@ -138,11 +138,11 @@ Build and run with Java 25. Keep help read-only and reject invalid borrower and
 return commands before changing records. Save borrower additions atomically
 before updating memory. These behaviors are covered by automated tests.
 
-Equipment rejects blank detail fields, and Inventory rejects duplicate asset IDs.
-Current limitations: equipment, loans, and return details are not persisted;
-the consoles are not unified; the loan command does not check the borrower
-against registered borrowers; history notes do not enforce reservations or
-maintenance availability. Passing tests does not imply these planned features are
+Current limitations: equipment registration does not validate detail fields or
+reject duplicate asset IDs; equipment, loans, and return details are not persisted;
+the standalone borrower console still has no equipment or loans;
+reservation, fault, and maintenance record creation
+are not implemented. Passing tests does not imply these planned features are
 complete.
 
 ## Glossary
