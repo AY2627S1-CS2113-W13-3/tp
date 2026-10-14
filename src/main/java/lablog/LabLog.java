@@ -1,6 +1,8 @@
 package lablog;
 
 import java.io.PrintStream;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
 import java.util.Scanner;
@@ -18,6 +20,8 @@ public class LabLog {
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
+    /** Present only for persistent CLI sessions; injected test sessions remain in memory. */
+    private LabLogStore store;
 
     /** Creates an application with empty in-memory equipment and loan records. */
     public LabLog() {
@@ -56,7 +60,39 @@ public class LabLog {
      * @param args command-line arguments
      */
     public static void main(String[] args) {
-        new LabLog().run();
+        if (args.length > 1) {
+            System.err.println("Use: java -jar lablog.jar [DATA_FILE]");
+            return;
+        }
+        try {
+            load(Path.of(args.length == 1 ? args[0] : "data/lablog.properties")).run();
+        } catch (IOException exception) {
+            System.err.println("Error: Cannot load LabLog data. " + exception.getMessage());
+        }
+    }
+
+    /** Creates a persistent session only after all saved records load successfully. */
+    public static LabLog load(Path file) throws IOException {
+        LabLogStore store = new LabLogStore(file);
+        LabLog application = new LabLog(store.getInventory(), store.getLoans(), List::of);
+        application.store = store;
+        return application;
+    }
+
+    /** Saves before displaying success; failure ends the session to avoid further unsaved work. */
+    private boolean saveChanges(PrintStream output) {
+        if (store == null) {
+            return true;
+        }
+        try {
+            store.save();
+            return true;
+        } catch (IOException exception) {
+            LOGGER.warning("Cannot save LabLog records; stopping the session");
+            output.println("Error: Changes could not be saved. " + exception.getMessage());
+            output.println("Session stopped. Previous saved data is unchanged; retry after fixing file access.");
+            return false;
+        }
     }
 
     /**
@@ -100,7 +136,11 @@ public class LabLog {
             }
             if (command.equals("history") || command.equals("return") || command.equals("loan")) {
                 try {
-                    output.println(executeRecordCommand(command, input));
+                    String result = executeRecordCommand(command, input);
+                    if (!command.equals("history") && !saveChanges(output)) {
+                        return;
+                    }
+                    output.println(result);
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -117,6 +157,11 @@ public class LabLog {
                 output.println("Error: Enter a single asset ID or use help for commands.");
                 continue;
             }
+            if (store != null && inventory.getEquipmentUnits().stream()
+                    .anyMatch(unit -> unit.getAssetId().equals(input))) {
+                output.println("Error: Equipment " + input + " already exists.");
+                continue;
+            }
             Equipment equipment = readEquipment(input, scanner, output);
             if (equipment == null) {
                 LOGGER.fine("Discarded incomplete equipment registration at end of input");
@@ -124,6 +169,9 @@ public class LabLog {
                 return;
             }
             inventory.addEquipment(equipment);
+            if (!saveChanges(output)) {
+                return;
+            }
             output.println("Equipment added to inventory.");
         }
     }

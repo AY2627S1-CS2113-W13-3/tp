@@ -10,6 +10,19 @@ executable JAR. See `build.gradle` for dependency versions.
 
 ### Entry points and shared records
 
+The production main entry point loads `LabLogStore` from `data/lablog.properties`
+or the optional command-line file path. It stores equipment and complete loan
+history in one versioned UTF-8 properties snapshot. Save to a temporary file
+in the destination directory, then atomically replace the snapshot before
+printing success. Unsupported atomic replacement is reported as a save failure;
+there is no non-atomic fallback. Save failure stops the session to avoid further
+unsaved operations. Injected constructors remain in memory for unit tests.
+
+Loading rejects missing required fields, invalid dates, duplicate IDs, unknown
+equipment references, and multiple active loans per unit. A corrupt file is not
+overwritten. This store assumes one application process owns a data file;
+concurrent writers are not supported. Borrower persistence remains separate.
+
 `LabLog` is the Gradle application entry point. It holds an `Inventory` and
 routes help, loan, history, and return commands to their handlers. Other valid
 single tokens begin equipment registration; blank or multi-token input is
@@ -137,11 +150,11 @@ Build and run with Java 25. Keep help read-only and reject invalid borrower and
 return commands before changing records. Save borrower additions atomically
 before updating memory. These behaviors are covered by automated tests.
 
-Current limitations: equipment registration does not validate detail fields or
-reject duplicate asset IDs; equipment, loans, and return details are not persisted;
+Current limitations: equipment detail validation remains incomplete;
 the consoles are not unified; the loan command does not check the borrower
 against registered borrowers; reservation, fault, and maintenance record creation
-are not implemented. Passing tests does not imply these planned features are
+are not implemented. Standalone history notes are not persisted.
+Passing tests does not imply these planned features are
 complete.
 
 ## Glossary

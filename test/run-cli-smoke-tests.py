@@ -27,6 +27,9 @@ class CliSmokeTests(unittest.TestCase):
 
     def run_java(self, arguments, user_input):
         """Runs one session and checks its exit status and error stream."""
+        if len(arguments) == 2 and arguments[0] == "-jar":
+            with tempfile.TemporaryDirectory(prefix="main-smoke-", dir=ROOT / "build") as directory:
+                return self.run_java([*arguments, str(Path(directory) / "lablog.properties")], user_input)
         result = subprocess.run(
             ["java", *arguments], input=user_input, capture_output=True,
             text=True, cwd=ROOT, timeout=20,
@@ -66,6 +69,20 @@ class CliSmokeTests(unittest.TestCase):
         output = self.run_java(["-jar", str(JAR)], "OSC-001\nScope\n")
         self.assertIn("Equipment not added: incomplete input.", output)
         self.assertNotIn("Equipment added to inventory.", output)
+
+    def test_main_equipment_loans_and_returns_survive_restart(self):
+        with tempfile.TemporaryDirectory(prefix="restart-smoke-", dir=ROOT / "build") as directory:
+            file = Path(directory) / "lablog.properties"
+            args = ["-jar", str(JAR), str(file)]
+            output = self.run_java(args, "OSC-001\nScope\nElectronics\nS1\nLab\n"
+                "loan OSC-001 b/A0123456X d/2099-01-01\nexit\n")
+            self.assertIn("Loaned OSC-001", output)
+            output = self.run_java(args, "history OSC-001\nreturn OSC-001 faults/cracked screen\nexit\n")
+            self.assertIn("A0123456X", output)
+            self.assertIn("cracked screen", output)
+            output = self.run_java(args, "history OSC-001\nreturn OSC-001\nexit\n")
+            self.assertIn("cracked screen", output)
+            self.assertIn("not currently on loan", output)
 
     def test_borrower_exact_output_and_restart(self):
         with tempfile.TemporaryDirectory(prefix="cli-smoke-", dir=ROOT / "build") as directory:

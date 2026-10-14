@@ -58,7 +58,9 @@ java -jar build/libs/lablog.jar
 
 The main console supports registration, help, loans, history, and return
 handling, so a fresh session can complete a loan/return workflow. Equipment,
-loans, and return details are in memory only. Borrower commands run in the
+loans, and return details are saved to `data/lablog.properties` and reloaded on
+startup. Pass another data-file path after the JAR name to use it instead.
+Use only one main-console process per data file. Borrower commands run in the
 separate console below.
 
 ## Running the borrower console
