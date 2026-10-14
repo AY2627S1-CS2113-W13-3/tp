@@ -62,6 +62,13 @@ asset IDs; use `help` to check command spelling.
 
 Equipment is not saved when the program exits.
 
+### Listing equipment: `list`
+
+Enter `list` in the main console to show asset ID, name, category, model,
+location, and availability for each registered unit. A unit is on loan when it
+has an active loan; returning it makes it available in the next listing.
+An empty inventory reports `No equipment registered.` No records are changed.
+
 ### Registering borrowers: `add-borrower`
 
 In the borrower console:

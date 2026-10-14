@@ -18,6 +18,7 @@ public class LabLog {
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
+    private final EquipmentListCommands equipmentList;
 
 
 
@@ -47,6 +48,7 @@ public class LabLog {
      */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory, Clock clock) {
         this.inventory = inventory;
+        this.equipmentList = new EquipmentListCommands(inventory, loans);
         this.history = new HistoryCommands(inventory, loans, otherHistory);
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock);
@@ -100,10 +102,10 @@ public class LabLog {
                 continue;
             }
             if (command.equals("list")) {
-                if (!input.equals("list")) {
-                    output.println("Error: Use: list");
-                } else {
-                    listEquipment(output);
+                try {
+                    output.println(equipmentList.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
                 }
                 continue;
             }
