@@ -1,7 +1,11 @@
 package lablog;
 
+import java.util.logging.Logger;
+
 /** Displays command guidance without accessing or changing application records. */
 public class HelpCommands {
+    /** Records help requests at FINE level without including raw user input. */
+    private static final Logger LOGGER = Logger.getLogger(HelpCommands.class.getName());
     private static final String USAGE = "Use: help [COMMAND]";
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
@@ -24,11 +28,14 @@ public class HelpCommands {
     public String execute(String input) {
         String[] parts = input == null ? new String[0] : input.strip().split("\\s+");
         if (parts.length == 0 || parts.length > 2 || !parts[0].equals("help")) {
+            LOGGER.fine("Rejected help request: invalid syntax");
             throw new IllegalArgumentException(USAGE);
         }
         if (parts.length == 1) {
+            LOGGER.fine("Displaying command summary");
             return SUMMARY;
         }
+        LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
         case "help":
             return "Show common commands or detailed help for one command.\n"
@@ -94,6 +101,7 @@ public class HelpCommands {
                     + "  Enter exit at the initial main prompt to end the session.\nFields: None.\n"
                     + "In the borrower console, send EOF to exit instead.";
         default:
+            LOGGER.fine("Rejected help request: unknown command");
             throw new IllegalArgumentException("Unknown command: " + parts[1] + ". Use help for the command list.");
         }
     }
