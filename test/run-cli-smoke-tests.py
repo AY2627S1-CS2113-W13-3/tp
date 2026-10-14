@@ -55,7 +55,8 @@ class CliSmokeTests(unittest.TestCase):
             "loan OSC-001 b/A0123456X d/2026-09-18\nloans A0123456X\n"
             "add-borrower A0123456X\n\nOSC 001\n"
             "OSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nreturn OSC-001\nexit\n")
-        self.assertEqual(2, output.count("is not available in this console"))
+        self.assertNotIn("is not available in this console", output)
+        self.assertIn("Error: Borrower A0123456X was not found.", output)
         self.assertIn("Error: Equipment OSC-001 was not found.", output)
         self.assertEqual(2, output.count("Error: Enter a single asset ID"))
         self.assertEqual(1, output.count("Equipment added to inventory."))
