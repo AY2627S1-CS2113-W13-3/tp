@@ -26,6 +26,13 @@ public class HelpCommands {
      * @throws IllegalArgumentException if the syntax or command name is invalid
      */
     public String execute(String input) {
+        String guidance = describe(input);
+        String separator = "............................................................";
+        return "\n" + separator + "\n" + guidance + "\n" + separator + "\n";
+    }
+
+    /** Resolves help text before adding presentation so validation errors stay concise. */
+    private String describe(String input) {
         String[] parts = input == null ? new String[0] : input.strip().split("\\s+");
         if (parts.length == 0 || parts.length > 2 || !parts[0].equals("help")) {
             LOGGER.fine("Rejected help request: invalid syntax");

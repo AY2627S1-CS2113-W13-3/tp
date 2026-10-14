@@ -16,6 +16,10 @@ java -version
 .\gradlew.bat run --console=plain
 ```
 
+Help output uses blank lines and dotted separators to distinguish guidance from
+surrounding prompts in both consoles. Plain ASCII formatting works in terminals
+without colour support.
+
 Enter `help` to see commands, `help COMMAND` for examples, and `exit` to close
 the main console. On macOS/Linux, replace `.\gradlew.bat` with `./gradlew`.
 
