@@ -49,6 +49,9 @@ Scope Model 1
 Lab A
 ```
 
+Type `cancel` at any of the four detail prompts to discard the entry and return
+to the main prompt. No partial equipment record is added.
+
 LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
 discarded. Blank or multi-word asset IDs and commands belonging to the borrower
 console are rejected at the initial prompt. Other single tokens are treated as

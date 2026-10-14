@@ -117,7 +117,14 @@ public class LabLog {
                 output.println("Error: Enter a single asset ID or use help for commands.");
                 continue;
             }
-            Equipment equipment = readEquipment(input, scanner, output);
+            Equipment equipment;
+            try {
+                equipment = readEquipment(input, scanner, output);
+            } catch (RegistrationCancelledException exception) {
+                LOGGER.fine("Cancelled equipment registration");
+                output.println("Equipment not added: registration cancelled.");
+                continue;
+            }
             if (equipment == null) {
                 LOGGER.fine("Discarded incomplete equipment registration at end of input");
                 output.println("Equipment not added: incomplete input.");
@@ -165,12 +172,19 @@ public class LabLog {
         String[] prompts = {"name", "category", "model", "location"};
         String[] details = new String[prompts.length];
         for (int i = 0; i < prompts.length; i++) {
-            output.println("Enter " + prompts[i] + ":");
+            output.println("Enter " + prompts[i] + ": (type cancel to abort)");
             if (!scanner.hasNextLine()) {
                 return null;
             }
             details[i] = scanner.nextLine();
+            if (details[i].strip().equals("cancel")) {
+                throw new RegistrationCancelledException();
+            }
         }
         return new Equipment(assetId, details[0], details[1], details[2], details[3]);
+    }
+
+    /** Separates an explicit cancellation from EOF, which closes the console. */
+    private static class RegistrationCancelledException extends RuntimeException {
     }
 }
