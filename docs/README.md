@@ -1,12 +1,11 @@
 # LabLog
 
 LabLog is a command-line application for laboratory technicians who manage
-loanable electronics equipment. The main console registers equipment, issues
-loans, and offers help, history, and return handling. A separate borrower console
-registers and saves borrowers and can list loans supplied to its handler.
-
-Implementation is in progress: the borrower console is still separate from the
-main one, and only borrower records persist across restarts.
+loanable electronics equipment. The main console supports equipment and borrower
+registration, loans, returns, active-loan listings, and equipment history.
+Equipment and loans persist in the LabLog data file; borrowers persist in a
+sibling `borrowers.properties` file. A standalone borrower console is also
+available.
 
 Useful links:
 

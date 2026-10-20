@@ -64,7 +64,6 @@ public class LabLog {
             Clock clock, BorrowerBook borrowers) {
         this.inventory = inventory;
         this.equipmentAdd = new EquipmentAddCommands(inventory);
-        this.history = new HistoryCommands(inventory, loans, otherHistory);
         this.historyRecords = new HistoryRecordCommands(inventory);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
@@ -101,7 +100,10 @@ public class LabLog {
     /** Creates a persistent session only after all saved records load successfully. */
     public static LabLog load(Path file) throws IOException {
         LabLogStore store = new LabLogStore(file);
-        LabLog application = new LabLog(store.getInventory(), store.getLoans(), List::of);
+        Path borrowerFile = file.toAbsolutePath().resolveSibling("borrowers.properties");
+        BorrowerBook borrowers = new BorrowerBook(borrowerFile);
+        LabLog application = new LabLog(store.getInventory(), store.getLoans(), List::of,
+                Clock.systemDefaultZone(), borrowers);
         application.store = store;
         return application;
     }
@@ -144,8 +146,7 @@ public class LabLog {
         output.println("Manage your laboratory equipment and loans here.");
         output.println(help.execute("help"));
         while (true) {
-            output.println("Enter add ASSET_ID, help [COMMAND], loan ASSET_ID b/BORROWER_ID d/DUE_DATE, "
-                    + "history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
+            output.print("lablog> ");
             if (!scanner.hasNextLine()) {
                 return;
             }
@@ -214,37 +215,35 @@ public class LabLog {
                 output.println("Error: Unknown command. Use help for commands.");
                 continue;
             }
-            if (store != null && inventory.getEquipmentUnits().stream()
-                    .anyMatch(unit -> unit.getAssetId().equals(input))) {
-                output.println("Error: Equipment " + input + " already exists.");
-                continue;
+            String[] addParts = input.split("\\s+", 3);
+            try {
+                String result;
+                if (addParts.length == 2) {
+                    String assetId = addParts[1];
+                    if (inventory.containsAssetId(assetId)) {
+                        output.println("Error: Equipment " + assetId + " already exists.");
+                        continue;
+                    }
+                    Equipment equipment = readEquipment(assetId, scanner, output);
+                    if (equipment == null) {
+                        LOGGER.fine("Discarded incomplete equipment registration at end of input");
+                        output.println("Equipment not added: incomplete input.");
+                        return;
+                    }
+                    inventory.addEquipment(equipment);
+                    result = "Equipment added to inventory.";
+                } else {
+                    result = equipmentAdd.execute(input);
+                }
+                if (!saveChanges(output)) {
+                    return;
+                }
+                output.println(result);
+            } catch (RegistrationCancelledException exception) {
+                output.println("Equipment registration cancelled.");
+            } catch (IllegalArgumentException exception) {
+                output.println("Error: " + exception.getMessage());
             }
-            Equipment equipment = readEquipment(input, scanner, output);
-            if (equipment == null) {
-                LOGGER.fine("Discarded incomplete equipment registration at end of input");
-                output.println("Equipment not added: incomplete input.");
-                return;
-            }
-            inventory.addEquipment(equipment);
-            if (!saveChanges(output)) {
-                return;
-            }
-            output.println("Equipment added to inventory.");
-        }
-    }
-
-    /** Displays every equipment unit currently registered in the inventory. */
-    private void listEquipment(PrintStream output) {
-        List<Equipment> equipmentUnits = inventory.getEquipmentUnits();
-        if (equipmentUnits.isEmpty()) {
-            output.println("No equipment registered.");
-            return;
-        }
-        output.println("Asset ID | Name | Category | Model | Location");
-        for (Equipment equipment : equipmentUnits) {
-            output.println(equipment.getAssetId() + " | " + equipment.getName() + " | "
-                    + equipment.getCategory() + " | " + equipment.getModel() + " | "
-                    + equipment.getLocation());
         }
     }
 

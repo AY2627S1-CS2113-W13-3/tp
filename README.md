@@ -1,6 +1,8 @@
 # LabLog
 
-LabLog is a command-line application for laboratory technicians who manage loanable electronics equipment. The v1.0 scope covers equipment and borrower registration, loans and returns, and equipment history. Implementation is in progress.
+LabLog is a command-line application for laboratory technicians who manage
+loanable electronics equipment. It supports equipment and borrower registration,
+loans and returns, active-loan listings, and equipment history.
 
 ## Command help
 
@@ -11,7 +13,8 @@ shows returns with and without reported faults; `help add-borrower` demonstrates
 both the usual and reordered fields. Help displays these examples without
 executing them or changing records.
 The list identifies which console supports each command. Equipment registration
-uses the main console's asset-ID prompt.
+uses either a complete `add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION`
+command or the prompted `add ASSET_ID` form.
 
 ## Borrower features
 
@@ -22,7 +25,9 @@ The borrower console provides:
 
 Borrower IDs follow the form `A0123456X`: an uppercase letter, seven digits, and an uppercase letter. Names contain 1-100 characters, phone numbers contain exactly eight digits, and email addresses use `u.nus.edu`. All three prefixes are required, may appear in any order, and must occur only once.
 
-The borrower commands have a standalone console while the team's shared command dispatcher is being developed. This console starts with an empty loan book and does not issue loans. The loan-listing handler accepts the application's shared loan book and equipment-name lookup; tests exercise it with active and returned loans. Connecting these handlers to the shared LabLog prompt remains an integration step.
+The standalone borrower console remains available for borrower registration and
+lookup, and starts with its own empty loan book. In the main console, borrower
+records are shared with loan commands and persist beside the LabLog data file.
 
 ## Setting up in IntelliJ IDEA
 
@@ -44,10 +49,11 @@ java -version
 ```
 
 On macOS/Linux, use `./gradlew run --console=plain`. Enter `help` for the command
-list or `help return` for explained examples. To register equipment, enter an
-registration command such as `add OSC-001`, then answer the name, category, model, and location
-prompts. Enter `loan OSC-001 b/A0123456X d/2026-10-30` to lend it,
-`history OSC-001` to check its history, or `exit` to close.
+list or `help return` for explained examples. To register equipment, enter
+`add OSC-001`, then answer the name, category, model, and location prompts. Add
+a borrower with `add-borrower` before using
+`loan OSC-001 b/A0123456X d/2026-10-30` to lend it. Use `history OSC-001` to
+check its history, or `exit` to close.
 
 To build and run the executable JAR:
 
@@ -56,12 +62,13 @@ To build and run the executable JAR:
 java -jar build/libs/lablog.jar
 ```
 
-The main console supports registration, help, loans, history, and return
-handling, so a fresh session can complete a loan/return workflow. Equipment,
-loans, and return details are saved to `data/lablog.properties` and reloaded on
-startup. Pass another data-file path after the JAR name to use it instead.
-Use only one main-console process per data file. Borrower commands run in the
-separate console below.
+The main console supports registration, help, loans, history, active-loan lists,
+returns, and borrower commands, so a fresh session can complete a loan/return
+workflow. Equipment, loans, and return details are saved to
+`data/lablog.properties`; borrower records are saved to
+`data/borrowers.properties`. Both are reloaded on startup. Pass another data-file
+path after the JAR name to use it for equipment and loan records. Use only one
+main-console process per data file.
 
 ## Running the borrower console
 

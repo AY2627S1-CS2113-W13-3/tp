@@ -55,6 +55,20 @@ class LabLogStoreTest {
     }
 
     @Test
+    void load_persistsBorrowersBesideLabLogData(@TempDir Path directory) throws Exception {
+        Path file = directory.resolve("records.properties");
+        Path borrowerFile = directory.resolve("borrowers.properties");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        LabLog.load(file).run(new Scanner("add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\nexit\n"),
+                new PrintStream(output));
+
+        assertTrue(Files.exists(borrowerFile));
+        output.reset();
+        LabLog.load(file).run(new Scanner("loans A0123456X\nexit\n"), new PrintStream(output));
+        assertTrue(output.toString().contains("No active loans for A0123456X - Jamie."));
+    }
+
+    @Test
     void run_saveFailure_stopsWithoutSuccessOrOverwriting(@TempDir Path directory) throws Exception {
         Path file = directory.resolve("records.properties");
         LabLog application = LabLog.load(file);
@@ -62,10 +76,10 @@ class LabLogStoreTest {
         Files.createDirectory(file);
         Files.writeString(file.resolve("keep.txt"), "keep");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        application.run(new Scanner("OSC-001\nScope\nElectronics\nS1\nLab\nhelp\n"), new PrintStream(output));
+        application.run(new Scanner("add OSC-001\nScope\nElectronics\nS1\nLab\nhelp\n"), new PrintStream(output));
         assertTrue(output.toString().contains("Changes could not be saved"));
         assertFalse(output.toString().contains("Equipment added to inventory."));
-        assertFalse(output.toString().contains("Common Version 1 commands:"));
+        assertEquals(1, output.toString().split("Common Version 1 commands:", -1).length - 1);
         assertEquals("keep", Files.readString(file.resolve("keep.txt")));
         try (var files = Files.list(directory)) {
             assertEquals(1, files.count());

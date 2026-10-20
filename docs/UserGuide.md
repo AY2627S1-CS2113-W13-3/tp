@@ -67,7 +67,8 @@ LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
 discarded. Unknown commands and bare asset IDs are rejected with a help hint.
 Registration begins only after an explicit `add` command.
 
-Equipment is not saved when the program exits.
+Equipment is saved to the configured LabLog data file after each successful
+registration and is available after restart.
 
 ### Listing equipment: `list`
 
@@ -88,9 +89,9 @@ or prevent loans, and are lost when the session ends.
 
 ### Listing all active loans: `active-loans`
 
-Equipment registration currently does not enforce unique IDs or validate the
-four detail fields. Persistent sessions reject duplicate asset IDs. Choose
-meaningful details. Completed registrations are saved before confirmation.
+Enter `active-loans` to show every current loan, ordered by due date. Each row
+includes asset ID, borrower ID, due date, and overdue status. Returned loans are
+excluded; a loan due today is not overdue.
 
 ### Registering borrowers: `add-borrower`
 
@@ -115,8 +116,9 @@ name, issue date, due date, and whether the loan is overdue. Returned loans are
 excluded; a loan becomes overdue after its due date, not on that date.
 
 The standalone console has no loan-creation command, so after registration it
-currently reports `No active loans for A0123456X - Jamie Tan.` Unknown borrowers
-produce an error.
+reports `No active loans for A0123456X - Jamie Tan.` Unknown borrowers produce
+an error. In the main console, active loans are shared with the loan and return
+commands.
 
 ### Viewing common commands and examples: `help`
 
@@ -139,9 +141,10 @@ Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives 
 The main console checks borrower IDs against registered borrowers before lending.
 ```
 
-Detailed help covers `help`, `loan`, `return`, `history`, `add-borrower`, `loans`,
-and `exit`. The list labels commands belonging to the main or borrower console;
-viewing help does not make a command available in the other console.
+Detailed help covers `add`, history-note commands, `active-loans`, `list`,
+`loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
+commands belonging to the main or borrower console; viewing help does not make
+a command available in the other console.
 
 Use `help return` to compare returning an item with and without new faults:
 
@@ -182,9 +185,10 @@ rejected without recording anything. A unit that someone still has is refused wi
 a message naming the current borrower and due date, so the same unit cannot be
 lent twice; once it is returned it can be lent again.
 
-Borrower IDs are accepted as entered. The main console holds no borrower records,
-so an ID that was never registered is not detected here. Loans are currently in
-memory and are not saved across restarts.
+Borrower IDs must already exist in the shared borrower book. The main console
+rejects unknown borrower IDs. Equipment and loan history are saved in the
+configured LabLog file; borrower records are saved in the sibling
+`borrowers.properties` file. Both are reloaded on restart.
 
 ### Recording a return: `return`
 
@@ -207,14 +211,14 @@ rejected without changing records. Returned loans remain in equipment history,
 including their reported faults, and are excluded from active-loan listings.
 
 Fault details are stored on the loan only; this command does not create a separate
-fault record or certify that the equipment is available for lending. Loans and
-return details are currently in memory and are not saved across restarts.
+fault record or certify that the equipment is available for lending. The updated
+loan and return details are saved with the LabLog data.
 
 ### Viewing equipment history: `history`
 
-At LabLog's initial asset-ID prompt, enter `history ASSET_ID`, for example
-`history OSC-001`. The identifier is case-sensitive and must be a single token.
-Register the equipment first using the existing equipment prompts.
+At the main prompt, enter `history ASSET_ID`, for example `history OSC-001`.
+The identifier is case-sensitive and must be a single token. Register the
+equipment first using `add`.
 
 The display combines loan, reservation, fault, and maintenance records for that
 unit, oldest first. Loans include both active and returned records, with borrower
@@ -229,8 +233,9 @@ date. Future reservations are included. Same-day entries are ordered by type
 Unknown equipment produces an error; registered equipment with no supplied records
 produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
-The default application combines loan history with notes recorded through
-`reservation`, `fault`, and `maintenance`. These notes last for the session.
+The application combines loan history with notes recorded through `reservation`,
+`fault`, and `maintenance`. These notes last for the session and are not saved
+across restarts.
 
 ## FAQ
 
@@ -247,8 +252,11 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | --- | --- | --- |
 | `help [COMMAND]` | Both | View commands and explained examples |
 | `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
+| `list` | Main | List equipment and availability |
+| `active-loans` | Main | List all active loans |
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
+| `reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
 | `exit` | Main | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
