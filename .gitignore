@@ -3,6 +3,9 @@
 /out/
 /*.iml
 
+# Local VS Code settings
+/.vscode/settings.json
+
 # Gradle build files
 /.gradle/
 /build/
