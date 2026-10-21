@@ -425,3 +425,15 @@ SnapshotValidationTest supplies malformed versions, counts, contact fields,
 dates, references, duplicate IDs/keys, unknown fields, unsupported audit data,
 invalid UTF-8 and oversized input. Dispatcher-level cases verify saved content
 and active-loan listings remain unchanged after each invalid import.
+
+## Explicit command recall (issue #93)
+
+CommandHistory intercepts commands and recall before normal dispatch. It keeps
+at most 20 submitted top-level lines and returns display text without recursively
+dispatching the recalled command. Scanner-based consoles do not support portable
+editable terminal buffers, so copying/editing and explicit resubmission is the
+documented interaction. No terminal dependency or hidden execution is needed.
+
+CommandHistoryTest covers empty history, invalid/overflowing indices, eviction,
+session isolation, wizard-answer exclusion, both consoles and explicit execution
+after editing a recalled command.
