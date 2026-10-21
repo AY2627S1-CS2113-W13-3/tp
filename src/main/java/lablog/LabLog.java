@@ -4,6 +4,7 @@ import java.io.PrintStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.util.Properties;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +24,6 @@ public class LabLog {
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
     /** Present only for persistent CLI sessions; injected test sessions remain in memory. */
-    private LabLogStore store;
     private Path dataFile;
     private final BorrowerBook borrowers;
     private final LoanBook loans;
@@ -107,19 +107,66 @@ public class LabLog {
 
     /** Creates a persistent session only after all saved records load successfully. */
     public static LabLog load(Path file) throws IOException {
-        LabLogStore store = new LabLogStore(file);
-        Path borrowerFile = file.toAbsolutePath().resolveSibling("borrowers.properties");
-        BorrowerBook borrowers = new BorrowerBook(borrowerFile);
-        LabLog application = new LabLog(store.getInventory(), store.getLoans(), List::of,
-                Clock.systemDefaultZone(), borrowers);
-        application.store = store;
-        application.dataFile = file.toAbsolutePath().normalize();
+        Path absolute = file.toAbsolutePath().normalize();
+        Inventory inventory;
+        LoanBook loans;
+        BorrowerBook borrowers = new BorrowerBook();
+        List<HistoryEntry> notes = List.of();
+        Properties records = Files.exists(absolute) ? ApplicationSnapshot.readProperties(absolute) : null;
+        if (records != null && "2".equals(records.getProperty("format"))) {
+            ApplicationSnapshot snapshot = ApplicationSnapshot.decode(records);
+            inventory = new Inventory();
+            inventory.replaceAll(snapshot.getEquipment());
+            loans = new LoanBook();
+            loans.replaceAll(snapshot.getLoans());
+            borrowers.replaceAll(snapshot.getBorrowers());
+            notes = snapshot.getNotes();
+        } else {
+            LabLogStore legacy = new LabLogStore(absolute);
+            inventory = legacy.getInventory();
+            loans = legacy.getLoans();
+            Path borrowerFile = absolute.resolveSibling("borrowers.properties");
+            borrowers.replaceAll(new BorrowerBook(borrowerFile).getBorrowers());
+        }
+        LabLog application = new LabLog(inventory, loans, List::of, Clock.systemDefaultZone(), borrowers);
+        application.dataFile = absolute;
+        application.historyRecords.replaceAll(notes);
+        // Persist proposed borrowers in the same atomic file as their equipment and loan references.
+        borrowers.setSaver(proposed -> application.snapshot(proposed).write(absolute));
         return application;
     }
 
-    /** Exports the supported records without modifying the session or overwriting a previous file. */
-    private String exportSnapshot(String input) throws IOException {
-        String argument = input.substring("export".length()).strip();
+    /** Captures supported history notes as well as borrowers, equipment and complete loans. */
+    private ApplicationSnapshot snapshot(List<Borrower> proposedBorrowers) {
+        List<HistoryEntry> notes = new ArrayList<>(otherHistory.get());
+        notes.addAll(historyRecords.getEntries());
+        return new ApplicationSnapshot(inventory.getEquipmentUnits(), proposedBorrowers, loans.getLoans(), notes);
+    }
+
+    /** Validates and saves an import before replacing any of the shared live books. */
+    private void importSnapshot(Path source) throws IOException {
+        if (!otherHistory.get().isEmpty()) {
+            throw new IllegalArgumentException("Import cannot replace externally owned history records.");
+        }
+        ApplicationSnapshot replacement = ApplicationSnapshot.read(source);
+        if (dataFile != null) {
+            replacement.write(dataFile);
+        }
+        inventory.replaceAll(replacement.getEquipment());
+        loans.replaceAll(replacement.getLoans());
+        borrowers.replaceAll(replacement.getBorrowers());
+        historyRecords.replaceAll(replacement.getNotes());
+    }
+
+    /** Uses explicit replacement syntax and never overwrites an existing export destination. */
+    private String transfer(String input, String command) throws IOException {
+        String argument = input.substring(command.length()).strip();
+        if (command.equals("import")) {
+            if (!argument.endsWith(" --replace")) {
+                throw new IllegalArgumentException("Use: import FILE --replace (replaces all current records)");
+            }
+            argument = argument.substring(0, argument.length() - " --replace".length()).strip();
+        }
         if (argument.startsWith("\"") && argument.endsWith("\"") && argument.length() >= 2) {
             argument = argument.substring(1, argument.length() - 1);
         }
@@ -127,25 +174,26 @@ public class LabLog {
             throw new IllegalArgumentException("Supply a snapshot file path.");
         }
         Path path = Path.of(argument).toAbsolutePath().normalize();
-        if (Files.exists(path) || (dataFile != null && (path.equals(dataFile)
-                || path.equals(dataFile.resolveSibling("borrowers.properties"))))) {
-            throw new IllegalArgumentException("Export destination already exists or is a live data path."
-                    + " Choose a new file.");
+        if (command.equals("export")) {
+            if (Files.exists(path) || (dataFile != null && (path.equals(dataFile)
+                    || path.equals(dataFile.resolveSibling("borrowers.properties"))))) {
+                throw new IllegalArgumentException("Export destination already exists or is a live data path."
+                        + " Choose a new file.");
+            }
+            snapshot(borrowers.getBorrowers()).write(path);
+            return "Exported application data to " + path + ".";
         }
-        List<HistoryEntry> notes = new ArrayList<>(otherHistory.get());
-        notes.addAll(historyRecords.getEntries());
-        new ApplicationSnapshot(inventory.getEquipmentUnits(), borrowers.getBorrowers(), loans.getLoans(), notes)
-                .write(path);
-        return "Exported application data to " + path + ".";
+        importSnapshot(path);
+        return "Imported application data. All current records were replaced.";
     }
 
     /** Saves before displaying success; failure ends the session to avoid further unsaved work. */
     private boolean saveChanges(PrintStream output) {
-        if (store == null) {
+        if (dataFile == null) {
             return true;
         }
         try {
-            store.save();
+            snapshot(borrowers.getBorrowers()).write(dataFile);
             return true;
         } catch (IOException exception) {
             LOGGER.warning("Cannot save LabLog records; stopping the session");
@@ -186,11 +234,12 @@ public class LabLog {
                 return;
             }
             String command = input.split("\\s+", 2)[0];
-            if (command.equals("export")) {
+            if (command.equals("export") || command.equals("import")) {
                 try {
-                    output.println(exportSnapshot(input));
+                    output.println(transfer(input, command));
                 } catch (IOException | IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
+                    output.println("Current records were not changed.");
                 }
                 continue;
             }
@@ -204,7 +253,11 @@ public class LabLog {
             }
             if (List.of("reservation", "fault", "maintenance").contains(command)) {
                 try {
-                    output.println(historyRecords.execute(input));
+                    String result = historyRecords.execute(input);
+                    if (!saveChanges(output)) {
+                        return;
+                    }
+                    output.println(result);
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -339,3 +392,4 @@ public class LabLog {
     private static class RegistrationCancelledException extends RuntimeException {
     }
 }
+

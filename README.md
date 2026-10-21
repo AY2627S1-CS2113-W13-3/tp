@@ -27,7 +27,7 @@ Borrower IDs follow the form `A0123456X`: an uppercase letter, seven digits, and
 
 The standalone borrower console remains available for borrower registration and
 lookup, and starts with its own empty loan book. In the main console, borrower
-records are shared with loan commands and persist beside the LabLog data file.
+records are shared with loan commands and persist in the complete LabLog snapshot.
 
 ## Setting up in IntelliJ IDEA
 
@@ -64,9 +64,10 @@ java -jar build/libs/lablog.jar
 
 The main console supports registration, help, loans, history, active-loan lists,
 returns, and borrower commands, so a fresh session can complete a loan/return
-workflow. Equipment, loans, and return details are saved to
-`data/lablog.properties`; borrower records are saved to
-`data/borrowers.properties`. Both are reloaded on startup. Pass another data-file
+workflow. The main console saves equipment, borrowers, loans, returns and history
+notes together in `data/lablog.properties` (format 2). Legacy format-1 installations
+load the sibling borrower file and migrate on their next successful save. The
+old borrower file is retained as a backup and ignored after migration. Pass another data-file
 path after the JAR name to use it for equipment and loan records. Use only one
 main-console process per data file.
 

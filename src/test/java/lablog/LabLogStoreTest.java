@@ -55,14 +55,15 @@ class LabLogStoreTest {
     }
 
     @Test
-    void load_persistsBorrowersBesideLabLogData(@TempDir Path directory) throws Exception {
+    void load_persistsBorrowersInCompleteSnapshot(@TempDir Path directory) throws Exception {
         Path file = directory.resolve("records.properties");
         Path borrowerFile = directory.resolve("borrowers.properties");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         LabLog.load(file).run(new Scanner("add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\nexit\n"),
                 new PrintStream(output));
 
-        assertTrue(Files.exists(borrowerFile));
+        assertFalse(Files.exists(borrowerFile));
+        assertEquals("Jamie", ApplicationSnapshot.read(file).getBorrowers().get(0).getName());
         output.reset();
         LabLog.load(file).run(new Scanner("loans A0123456X\nexit\n"), new PrintStream(output));
         assertTrue(output.toString().contains("No active loans for A0123456X - Jamie."));

@@ -18,6 +18,7 @@ public class HelpCommands {
             + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (both consoles).\n"
             + "edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL] - Edit contacts (both consoles).\n"
             + "export FILE - Export a complete snapshot to a new file (main console).\n"
+            + "import FILE --replace - Replace all records from a validated snapshot (main console).\n"
             + "loans BORROWER_ID - View active loans (both consoles).\n"
             + "exit - Close the main console.\n"
             + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
@@ -62,6 +63,13 @@ public class HelpCommands {
                     + "Snapshot format 2 supports current reservation, fault and maintenance notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected.";
+        case "import":
+            return "Replace all current records after complete snapshot validation.\n"
+                    + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
+                    + "Fields: FILE is a format-2 snapshot; --replace explicitly requests replacement,\n"
+                    + "not merging.\n"
+                    + "Invalid data or a failed save leaves live and saved records unchanged. "
+                    + "Export first for a backup.";
         case "add":
             return "Register equipment explicitly.\nFormat: add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION\n"
                     + "Example: add OSC-001 n/Oscilloscope c/Electronics m/S1 l/Lab 1\n"
@@ -75,7 +83,7 @@ public class HelpCommands {
                     + " ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION\nExample: " + parts[1]
                     + " OSC-001 d/2026-10-14 desc/Inspection scheduled\n"
                     + "  Add a note for registered equipment; view it with history OSC-001.\n"
-                    + "Notes do not change loan availability and are held only for this session.";
+                    + "Notes do not change loan availability and are saved in the main application snapshot.";
         case "active-loans":
             return "List active loans across all borrowers.\nFormat: active-loans\nExample: active-loans\n"
                     + "  Show asset ID, borrower ID, due date, and overdue status in due-date order.\n"
