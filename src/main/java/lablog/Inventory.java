@@ -41,4 +41,9 @@ public class Inventory {
     public List<Equipment> getEquipmentUnits() {
         return List.copyOf(equipmentUnits);
     }
+    /** Installs records that have already passed complete validation and persistence. */
+    void replaceAll(List<Equipment> replacement) {
+        equipmentUnits.clear();
+        equipmentUnits.addAll(replacement);
+    }
 }

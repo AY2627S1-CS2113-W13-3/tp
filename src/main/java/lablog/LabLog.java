@@ -3,6 +3,7 @@ package lablog;
 import java.io.PrintStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +24,10 @@ public class LabLog {
     private final HelpCommands help = new HelpCommands();
     /** Present only for persistent CLI sessions; injected test sessions remain in memory. */
     private LabLogStore store;
+    private Path dataFile;
+    private final BorrowerBook borrowers;
+    private final LoanBook loans;
+    private final Supplier<List<HistoryEntry>> otherHistory;
     private final BorrowerCommands borrowerCommands;
     private final EquipmentAddCommands equipmentAdd;
     private final HistoryRecordCommands historyRecords;
@@ -63,6 +68,9 @@ public class LabLog {
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory,
             Clock clock, BorrowerBook borrowers) {
         this.inventory = inventory;
+        this.borrowers = borrowers;
+        this.loans = loans;
+        this.otherHistory = otherHistory;
         this.equipmentAdd = new EquipmentAddCommands(inventory);
         this.historyRecords = new HistoryRecordCommands(inventory);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
@@ -105,7 +113,30 @@ public class LabLog {
         LabLog application = new LabLog(store.getInventory(), store.getLoans(), List::of,
                 Clock.systemDefaultZone(), borrowers);
         application.store = store;
+        application.dataFile = file.toAbsolutePath().normalize();
         return application;
+    }
+
+    /** Exports the supported records without modifying the session or overwriting a previous file. */
+    private String exportSnapshot(String input) throws IOException {
+        String argument = input.substring("export".length()).strip();
+        if (argument.startsWith("\"") && argument.endsWith("\"") && argument.length() >= 2) {
+            argument = argument.substring(1, argument.length() - 1);
+        }
+        if (argument.isBlank()) {
+            throw new IllegalArgumentException("Supply a snapshot file path.");
+        }
+        Path path = Path.of(argument).toAbsolutePath().normalize();
+        if (Files.exists(path) || (dataFile != null && (path.equals(dataFile)
+                || path.equals(dataFile.resolveSibling("borrowers.properties"))))) {
+            throw new IllegalArgumentException("Export destination already exists or is a live data path."
+                    + " Choose a new file.");
+        }
+        List<HistoryEntry> notes = new ArrayList<>(otherHistory.get());
+        notes.addAll(historyRecords.getEntries());
+        new ApplicationSnapshot(inventory.getEquipmentUnits(), borrowers.getBorrowers(), loans.getLoans(), notes)
+                .write(path);
+        return "Exported application data to " + path + ".";
     }
 
     /** Saves before displaying success; failure ends the session to avoid further unsaved work. */
@@ -155,6 +186,14 @@ public class LabLog {
                 return;
             }
             String command = input.split("\\s+", 2)[0];
+            if (command.equals("export")) {
+                try {
+                    output.println(exportSnapshot(input));
+                } catch (IOException | IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
             if (command.equals("help")) {
                 try {
                     output.println(help.execute(input));

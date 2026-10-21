@@ -38,6 +38,13 @@ public class LabLogStore {
         }
     }
 
+    /** Decodes equipment and loans already read by the import boundary. */
+    LabLogStore(Properties records) {
+        file = null;
+        Set<String> assets = readEquipment(records);
+        readLoans(records, assets);
+    }
+
     public Inventory getInventory() {
         return inventory;
     }
@@ -101,14 +108,19 @@ public class LabLogStore {
     /** Parses a nonnegative record count from the snapshot header. */
     private static int count(Properties records, String key) {
         int count = Integer.parseInt(required(records, key));
-        if (count < 0) {
-            throw new IllegalArgumentException("Negative record count.");
+        if (count < 0 || count > 100000) {
+            throw new IllegalArgumentException("Record count must be between 0 and 100000.");
         }
         return count;
     }
 
     /** Writes a complete temporary snapshot and replaces the previous file only after success. */
     public void save() throws IOException {
+        write(toProperties());
+    }
+
+    /** Reuses the established equipment and loan schema inside a complete snapshot. */
+    Properties toProperties() {
         Properties records = new Properties();
         records.setProperty("format", "1");
         records.setProperty("equipment.count", Integer.toString(inventory.getEquipmentUnits().size()));
@@ -132,6 +144,11 @@ public class LabLogStore {
             records.setProperty(key + "returned", loan.isActive() ? "" : loan.getReturnDate().toString());
             records.setProperty(key + "faults", loan.getReturnFaults());
         }
+        return records;
+    }
+
+    /** Atomically saves proposed records before the caller changes live data. */
+    void write(Properties records) throws IOException {
         Files.createDirectories(file.getParent());
         Path temporary = Files.createTempFile(file.getParent(), "lablog-", ".tmp");
         try {
