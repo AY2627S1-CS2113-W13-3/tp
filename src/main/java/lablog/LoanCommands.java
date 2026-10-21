@@ -20,6 +20,7 @@ public class LoanCommands {
     private final Inventory inventory;
     private final LoanBook loans;
     private final Clock clock;
+    private final BorrowerBook borrowers;
 
     /**
      * Connects loan issuing to shared records and a clock that tests can fix.
@@ -29,16 +30,22 @@ public class LoanCommands {
      * @param clock clock and time zone used for the loan date
      */
     public LoanCommands(Inventory inventory, LoanBook loans, Clock clock) {
+        this(inventory, loans, clock, null);
+    }
+
+    /** Enables registered-borrower validation when a shared borrower book is supplied. */
+    public LoanCommands(Inventory inventory, LoanBook loans, Clock clock, BorrowerBook borrowers) {
         this.inventory = Objects.requireNonNull(inventory);
         this.loans = Objects.requireNonNull(loans);
         this.clock = Objects.requireNonNull(clock);
+        this.borrowers = borrowers;
     }
 
     /**
      * Issues one loan dated today, after every check has passed.
      *
-     * <p>Borrower identifiers are accepted as given. The main console does not hold borrower
-     * records yet, so they cannot be checked here; that belongs with #10 and #11.
+     * <p>The main console supplies a shared borrower book and requires registered borrowers.
+     * The three-argument constructor remains available for standalone callers managing their own validation.
      *
      * @param input complete loan command
      * @return confirmation naming the unit, the borrower, and the due date
@@ -63,6 +70,9 @@ public class LoanCommands {
         Map<String, String> fields = readFields(arguments, matcher);
         Equipment unit = findEquipment(assetId);
         String borrowerId = readBorrowerId(fields.get("b"));
+        if (borrowers != null) {
+            borrowers.getBorrower(borrowerId);
+        }
         LocalDate dueDate = readDueDate(fields.get("d"), today);
         rejectUnavailable(assetId);
         loans.addLoan(new Loan(assetId, borrowerId, today, dueDate));

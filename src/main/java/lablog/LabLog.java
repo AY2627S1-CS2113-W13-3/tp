@@ -1,7 +1,10 @@
 package lablog;
 
 import java.io.PrintStream;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.function.Supplier;
@@ -11,13 +14,20 @@ import java.util.logging.Logger;
  * Main entry point for the LabLog command-line application.
  */
 public class LabLog {
+    /** Records prompt validation and incomplete registration without storing user input. */
     private static final Logger LOGGER = Logger.getLogger(LabLog.class.getName());
-
     private final Inventory inventory;
     private final HistoryCommands history;
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final HelpCommands help = new HelpCommands();
+    /** Present only for persistent CLI sessions; injected test sessions remain in memory. */
+    private LabLogStore store;
+    private final BorrowerCommands borrowerCommands;
+    private final EquipmentAddCommands equipmentAdd;
+    private final HistoryRecordCommands historyRecords;
+    private final ActiveLoanCommands activeLoans;
+    private final EquipmentListCommands equipmentList;
 
 
 
@@ -46,10 +56,28 @@ public class LabLog {
      * @param clock clock used to date returns
      */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory, Clock clock) {
+        this(inventory, loans, otherHistory, clock, new BorrowerBook());
+    }
+
+    /** Connects both command groups to the same equipment, loans, and borrower records. */
+    public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory,
+            Clock clock, BorrowerBook borrowers) {
         this.inventory = inventory;
-        this.history = new HistoryCommands(inventory, loans, otherHistory);
+        this.equipmentAdd = new EquipmentAddCommands(inventory);
+        this.historyRecords = new HistoryRecordCommands(inventory);
+        this.activeLoans = new ActiveLoanCommands(loans, clock);
+        this.history = new HistoryCommands(inventory, loans, () -> {
+            List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
+            entries.addAll(historyRecords.getEntries());
+            return entries;
+        });
+        this.equipmentList = new EquipmentListCommands(inventory, loans);
         this.returns = new ReturnCommands(inventory, loans, clock);
-        this.loanCommands = new LoanCommands(inventory, loans, clock);
+        this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers);
+        this.borrowerCommands = new BorrowerCommands(borrowers, loans,
+                assetId -> inventory.getEquipmentUnits().stream()
+                        .filter(unit -> unit.getAssetId().equals(assetId)).map(Equipment::getName)
+                        .findFirst().orElse(null), clock);
     }
 
     /**
@@ -58,7 +86,42 @@ public class LabLog {
      * @param args command-line arguments
      */
     public static void main(String[] args) {
-        new LabLog().run();
+        if (args.length > 1) {
+            System.err.println("Use: java -jar lablog.jar [DATA_FILE]");
+            return;
+        }
+        try {
+            load(Path.of(args.length == 1 ? args[0] : "data/lablog.properties")).run();
+        } catch (IOException exception) {
+            System.err.println("Error: Cannot load LabLog data. " + exception.getMessage());
+        }
+    }
+
+    /** Creates a persistent session only after all saved records load successfully. */
+    public static LabLog load(Path file) throws IOException {
+        LabLogStore store = new LabLogStore(file);
+        Path borrowerFile = file.toAbsolutePath().resolveSibling("borrowers.properties");
+        BorrowerBook borrowers = new BorrowerBook(borrowerFile);
+        LabLog application = new LabLog(store.getInventory(), store.getLoans(), List::of,
+                Clock.systemDefaultZone(), borrowers);
+        application.store = store;
+        return application;
+    }
+
+    /** Saves before displaying success; failure ends the session to avoid further unsaved work. */
+    private boolean saveChanges(PrintStream output) {
+        if (store == null) {
+            return true;
+        }
+        try {
+            store.save();
+            return true;
+        } catch (IOException exception) {
+            LOGGER.warning("Cannot save LabLog records; stopping the session");
+            output.println("Error: Changes could not be saved. " + exception.getMessage());
+            output.println("Session stopped. Previous saved data is unchanged; retry after fixing file access.");
+            return false;
+        }
     }
 
     /**
@@ -71,7 +134,8 @@ public class LabLog {
     }
 
     /**
-     * Accepts an asset ID to register or a help, loan, list, history, return, or exit command.
+     * Accepts an explicit add, help, loan, history or return command, or exit at the
+     * initial prompt.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
      * @param scanner input owned by the caller
@@ -80,9 +144,9 @@ public class LabLog {
     public void run(Scanner scanner, PrintStream output) {
         output.println("Welcome to LabLog!");
         output.println("Manage your laboratory equipment and loans here.");
+        output.println(help.execute("help"));
         while (true) {
-            output.println("Enter asset ID, help [COMMAND], loan ASSET_ID b/BORROWER_ID d/DUE_DATE, "
-                    + "list, history ASSET_ID, return ASSET_ID [faults/DESCRIPTION], or exit:");
+            output.print("lablog> ");
             if (!scanner.hasNextLine()) {
                 return;
             }
@@ -99,54 +163,87 @@ public class LabLog {
                 }
                 continue;
             }
+            if (List.of("reservation", "fault", "maintenance").contains(command)) {
+                try {
+                    output.println(historyRecords.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("active-loans")) {
+                try {
+                    output.println(activeLoans.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
             if (command.equals("list")) {
-                if (!input.equals("list")) {
-                    output.println("Error: Use: list");
-                } else {
-                    listEquipment(output);
+                try {
+                    output.println(equipmentList.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
                 }
                 continue;
             }
             if (command.equals("history") || command.equals("return") || command.equals("loan")) {
                 try {
-                    output.println(executeRecordCommand(command, input));
+                    String result = executeRecordCommand(command, input);
+                    if (!command.equals("history") && !saveChanges(output)) {
+                        return;
+                    }
+                    output.println(result);
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
                 continue;
             }
             if (List.of("loans", "add-borrower").contains(command)) {
-                output.println("Error: " + command
-                        + " is not available in this console. Use help for command details.");
+                try {
+                    output.println(borrowerCommands.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                } catch (IOException exception) {
+                    output.println("Error: Cannot save borrower data. " + exception.getMessage());
+                    output.println("No changes saved.");
+                }
                 continue;
             }
-            if (input.isEmpty() || input.chars().anyMatch(Character::isWhitespace)) {
-                output.println("Error: Enter a single asset ID or use help for commands.");
+            if (!command.equals("add")) {
+                LOGGER.fine("Rejected unknown command");
+                output.println("Error: Unknown command. Use help for commands.");
                 continue;
             }
-            Equipment equipment = readEquipment(input, scanner, output);
-            if (equipment == null) {
-                output.println("Equipment not added: incomplete input.");
-                return;
+            String[] addParts = input.split("\\s+", 3);
+            try {
+                String result;
+                if (addParts.length == 2) {
+                    String assetId = addParts[1];
+                    if (inventory.containsAssetId(assetId)) {
+                        output.println("Error: Equipment " + assetId + " already exists.");
+                        continue;
+                    }
+                    Equipment equipment = readEquipment(assetId, scanner, output);
+                    if (equipment == null) {
+                        LOGGER.fine("Discarded incomplete equipment registration at end of input");
+                        output.println("Equipment not added: incomplete input.");
+                        return;
+                    }
+                    inventory.addEquipment(equipment);
+                    result = "Equipment added to inventory.";
+                } else {
+                    result = equipmentAdd.execute(input);
+                }
+                if (!saveChanges(output)) {
+                    return;
+                }
+                output.println(result);
+            } catch (RegistrationCancelledException exception) {
+                output.println("Equipment registration cancelled.");
+            } catch (IllegalArgumentException exception) {
+                output.println("Error: " + exception.getMessage());
             }
-            inventory.addEquipment(equipment);
-            LOGGER.info(() -> "Registered equipment with asset ID " + equipment.getAssetId());
-            output.println("Equipment added to inventory.");
-        }
-    }
-
-    /** Displays every equipment unit currently registered in the inventory. */
-    private void listEquipment(PrintStream output) {
-        List<Equipment> equipmentUnits = inventory.getEquipmentUnits();
-        if (equipmentUnits.isEmpty()) {
-            output.println("No equipment registered.");
-            return;
-        }
-        output.println("Asset ID | Name | Category | Model | Location");
-        for (Equipment equipment : equipmentUnits) {
-            output.println(equipment.getAssetId() + " | " + equipment.getName() + " | "
-                    + equipment.getCategory() + " | " + equipment.getModel() + " | "
-                    + equipment.getLocation());
         }
     }
 
@@ -158,6 +255,8 @@ public class LabLog {
      * @return text to display
      */
     private String executeRecordCommand(String command, String input) {
+        // Only the record-command branch in run should call this helper.
+        assert List.of("history", "return", "loan").contains(command) : "Unexpected record command";
         switch (command) {
         case "history":
             return history.execute(input);
@@ -179,15 +278,25 @@ public class LabLog {
      * @return equipment unit created from the input, or null if input ends prematurely
      */
     private Equipment readEquipment(String assetId, Scanner scanner, PrintStream output) {
+        // The initial prompt must validate the identifier before requesting equipment details.
+        assert assetId != null && !assetId.isEmpty()
+                && assetId.chars().noneMatch(Character::isWhitespace) : "Expected a validated asset ID";
         String[] prompts = {"name", "category", "model", "location"};
         String[] details = new String[prompts.length];
         for (int i = 0; i < prompts.length; i++) {
-            output.println("Enter " + prompts[i] + ":");
+            output.println("Enter " + prompts[i] + ": (type cancel to abort)");
             if (!scanner.hasNextLine()) {
                 return null;
             }
             details[i] = scanner.nextLine();
+            if (details[i].strip().equals("cancel")) {
+                throw new RegistrationCancelledException();
+            }
         }
         return new Equipment(assetId, details[0], details[1], details[2], details[3]);
+    }
+
+    /** Separates an explicit cancellation from EOF, which closes the console. */
+    private static class RegistrationCancelledException extends RuntimeException {
     }
 }

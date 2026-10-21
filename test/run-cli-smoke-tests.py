@@ -9,7 +9,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 JAR = ROOT / "build/libs/lablog.jar"
-GREETING = "LabLog borrower console. Use add-borrower or loans. Send EOF to exit.\n"
+GREETING = "LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.\n"
 
 
 class CliSmokeTests(unittest.TestCase):
@@ -27,6 +27,9 @@ class CliSmokeTests(unittest.TestCase):
 
     def run_java(self, arguments, user_input):
         """Runs one session and checks its exit status and error stream."""
+        if len(arguments) == 2 and arguments[0] == "-jar":
+            with tempfile.TemporaryDirectory(prefix="main-smoke-", dir=ROOT / "build") as directory:
+                return self.run_java([*arguments, str(Path(directory) / "lablog.properties")], user_input)
         result = subprocess.run(
             ["java", *arguments], input=user_input, capture_output=True,
             text=True, cwd=ROOT, timeout=20,
@@ -39,7 +42,8 @@ class CliSmokeTests(unittest.TestCase):
         return self.run_java(["-cp", str(JAR), "lablog.BorrowerCli", str(file)], user_input)
 
     def test_main_help_examples_and_recovery(self):
-        commands = ("help", "loan", "return", "history", "add-borrower", "loans", "exit")
+        commands = ("help", "add", "list", "active-loans", "loan", "return", "history",
+                    "add-borrower", "loans", "exit")
         user_input = "help\nhelp unknown\nhelp loan extra\n"
         user_input += "".join("help " + command + "\n" for command in commands) + "exit\n"
         output = self.run_java(["-jar", str(JAR)], user_input)
@@ -54,17 +58,35 @@ class CliSmokeTests(unittest.TestCase):
         output = self.run_java(["-jar", str(JAR)],
             "loan OSC-001 b/A0123456X d/2026-09-18\nloans A0123456X\n"
             "add-borrower A0123456X\n\nOSC 001\n"
-            "OSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nreturn OSC-001\nexit\n")
-        self.assertEqual(3, output.count("is not available in this console"))
-        self.assertEqual(2, output.count("Error: Enter a single asset ID"))
+            "add OSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nreturn OSC-001\nexit\n")
+        self.assertNotIn("is not available in this console", output)
+        self.assertIn("Error: Borrower A0123456X was not found.", output)
+        self.assertIn("Error: Equipment OSC-001 was not found.", output)
+        self.assertEqual(2, output.count("Error: Unknown command. Use help"))
         self.assertEqual(1, output.count("Equipment added to inventory."))
         self.assertIn("No history found for OSC-001 - Scope.", output)
         self.assertIn("Error: Equipment OSC-001 is not currently on loan.", output)
 
     def test_main_incomplete_registration(self):
-        output = self.run_java(["-jar", str(JAR)], "OSC-001\nScope\n")
+        output = self.run_java(["-jar", str(JAR)], "add OSC-001\nScope\n")
         self.assertIn("Equipment not added: incomplete input.", output)
         self.assertNotIn("Equipment added to inventory.", output)
+
+    def test_main_equipment_loans_and_returns_survive_restart(self):
+        with tempfile.TemporaryDirectory(prefix="restart-smoke-", dir=ROOT / "build") as directory:
+            file = Path(directory) / "lablog.properties"
+            args = ["-jar", str(JAR), str(file)]
+            output = self.run_java(args,
+                "add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\n"
+                "add OSC-001\nScope\nElectronics\nS1\nLab\n"
+                "loan OSC-001 b/A0123456X d/2099-01-01\nexit\n")
+            self.assertIn("Loaned OSC-001", output)
+            output = self.run_java(args, "history OSC-001\nreturn OSC-001 faults/cracked screen\nexit\n")
+            self.assertIn("A0123456X", output)
+            self.assertIn("cracked screen", output)
+            output = self.run_java(args, "history OSC-001\nreturn OSC-001\nexit\n")
+            self.assertIn("cracked screen", output)
+            self.assertIn("not currently on loan", output)
 
     def test_borrower_exact_output_and_restart(self):
         with tempfile.TemporaryDirectory(prefix="cli-smoke-", dir=ROOT / "build") as directory:

@@ -10,16 +10,32 @@ executable JAR. See `build.gradle` for dependency versions.
 
 ### Entry points and shared records
 
-`LabLog` is the Gradle application entry point. It holds an `Inventory` and
-routes help, loan, history, and return commands to their handlers. Other valid
-single tokens begin equipment registration; blank or multi-token input is
-rejected. Borrower-console commands (`loans`, `add-borrower`) are rejected before
-registration so their arguments cannot become equipment details.
+The production main entry point loads `LabLogStore` from `data/lablog.properties`
+or the optional command-line file path. It stores equipment and complete loan
+history in one versioned UTF-8 properties snapshot. Save to a temporary file
+in the destination directory, then atomically replace the snapshot before
+printing success. Unsupported atomic replacement is reported as a save failure;
+there is no non-atomic fallback. Save failure stops the session to avoid further
+unsaved operations. Borrower data is stored separately in a sibling
+`borrowers.properties` file. Injected constructors remain in memory for unit tests.
+
+Loading rejects missing required fields, invalid dates, duplicate IDs, unknown
+equipment references, and multiple active loans per unit. A corrupt file is not
+overwritten. This store assumes one application process owns a data file;
+concurrent writers are not supported.
+
+`LabLog` is the Gradle application entry point. It routes explicit equipment
+registration, listing, active loans, history notes, help, loan, history, return,
+and borrower commands to their handlers. The prompted and single-line equipment
+registration forms both validate before storing. Borrower commands share the
+main console's inventory and loan book. The CLI loads borrowers from the sibling
+data file; in-memory constructors remain available for tests.
 
 `BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
 and an initially empty `LoanBook`. `BorrowerCommands` handles registration,
-loan listings, and help. See [borrower integration notes](BorrowerImplementation.md)
-for connecting it to shared application records.
+loan listings, and help. The main application wires those handlers to shared
+books; [borrower implementation notes](BorrowerImplementation.md) document the
+standalone console and original integration increment.
 
 `Equipment`, `Borrower`, and `Loan` model individual records. `Inventory`,
 `BorrowerBook`, and `LoanBook` store collections. `LoanBook.findActiveLoan`
@@ -34,8 +50,7 @@ storing a record; any other issuing path must repeat them.
 `HelpCommands` contains shared guidance for both consoles and has no record
 store dependencies. `help` returns a concise list; `help COMMAND` returns
 syntax, fields, and explained examples. Invalid names and extra arguments
-produce recoverable errors. The loan example notes that borrower IDs are not
-checked against borrower records yet.
+produce recoverable errors. The loan guidance requires borrower registration.
 
 `HelpCommandsTest` checks parsing, examples against the real handlers, console
 integration, and unchanged records/files when viewing help. `LabLogTest` checks
@@ -56,8 +71,9 @@ on `Equipment`, so one place decides which units are out. The refusal names the
 current borrower and due date, which is why the lookup returns the loan itself
 rather than a boolean.
 
-Borrower identifiers are accepted as given. `LabLog` holds no `BorrowerBook`, so
-checking them belongs with the borrower-console integration.
+`LabLog` supplies its shared `BorrowerBook` to `LoanCommands`, which rejects
+unregistered borrowers before recording a loan. The three-argument handler
+constructor remains available to standalone callers with their own validation.
 
 `LoanCommandsTest` covers the accepted command, prefix order, due dates at and
 before today, malformed dates, missing and repeated fields, unknown equipment,
@@ -65,50 +81,207 @@ the refusal for a unit already out, and lending again after a return.
 
 ### Equipment returns
 
-`ReturnCommands` receives the shared inventory, loan book, and a `Clock`.
-`return ASSET_ID [faults/DESCRIPTION]` finds exactly one active loan for the unit
-and calls `Loan.markReturned(LocalDate.now(clock), faults)`. The loan validates
-the date, fault text, and active state before assigning either return field.
-The original one-argument method remains available and records no reported faults.
+#### Implementation
 
-`LabLog` supplies `Clock.systemDefaultZone()` normally and accepts an explicit
-clock for tests. Return handling shares the same loan book with history; no copied
-return records are created. Fault descriptions appear on returned loan history
-entries, and the existing borrower handler excludes the now-inactive loan.
-There is no automatic fault-record creation, availability change, or persistence.
+`ReturnCommands` records returns using the shared `Inventory`, `LoanBook`, and
+an injected `Clock`. It updates the existing `Loan` rather than removing it,
+so the same record remains available to equipment history and borrower listings.
 
-`ReturnCommandsTest` covers local-date boundaries, optional faults, invalid input,
-repeat returns, multiple active loans, date validation, historical loans, borrower
-listing updates, and the return/history console flow.
+The command format is:
+
+```text
+return ASSET_ID [faults/DESCRIPTION]
+```
+
+The main operations are:
+
+* `ReturnCommands#execute(input)` validates the command and finds exactly one
+  matching active loan.
+* `Loan#markReturned(returnDate, faults)` validates the active state, return date,
+  and fault text before assigning either return field. The one-argument overload
+  records a return without reported faults.
+* `Loan#isActive()` reports whether the return date is absent. Recording a return
+  makes the loan inactive without changing a separate equipment status field.
+
+`LabLog` normally supplies `Clock.systemDefaultZone()`. Tests can inject a fixed
+clock to control today's local date and verify time-zone boundaries.
+
+#### Example usage scenario
+
+Assume `OSC-001` is registered and has exactly one active loan whose loan date
+is no later than today.
+
+1. The user enters `return OSC-001 faults/Damaged cable`.
+2. `LabLog` dispatches the command to `ReturnCommands#execute`. The handler
+   validates the syntax and optional fault description, then checks the inventory
+   for the exact asset ID.
+3. The handler reads `LoanBook#getLoans()` and filters for matching active loans.
+   It proceeds only when exactly one is found.
+4. The handler obtains `LocalDate.now(clock)` and calls
+   `Loan#markReturned(today, faults)`. The loan validates all return details before
+   recording the date and fault description.
+5. The handler returns confirmation text. In a persistent CLI session, `LabLog`
+   saves the updated records before displaying success. If saving fails, the
+   session stops and the previous saved snapshot remains unchanged; the in-memory
+   loan has already been updated. Injected in-memory sessions do not save.
+6. A subsequent history request shows the return date and reported faults on the
+   original loan entry. Active-loan and borrower-loan listings exclude that loan.
+
+The following sequence diagram shows the successful return path. Individual
+accessor calls are omitted for readability.
+
+![Sequence diagram for returning equipment](images/ReturnEquipment.png)
+
+Editable diagram source: [ReturnEquipment.puml](diagrams/ReturnEquipment.puml).
+
+#### Invalid commands and exceptional cases
+
+| Condition | Behaviour |
+| --- | --- |
+| Missing asset ID or unsupported arguments | Reject the command with usage guidance. |
+| Empty or repeated `faults/` field | Request one non-empty fault description. |
+| Equipment does not exist | Report that the equipment was not found. |
+| No matching active loan | Report that the equipment is not currently on loan. |
+| Multiple matching active loans | Ask the user to resolve the inconsistent loan records. |
+| Return date precedes the loan date | Reject the return without changing its fields. |
+| Fault text contains control characters | Reject the return without changing its fields. |
+
+`LabLog` catches validation exceptions and displays an error while allowing the
+user to continue. A repeated return is rejected when no active loan remains.
+Validation failures preserve existing loan details; this differs from a save
+failure after a valid return has already updated memory.
+
+#### Design considerations
+
+**Aspect: How returns are stored**
+
+* **Current choice: Update the existing loan.** Borrowing and return details stay
+  together, and history and active-loan listings read the same records. This
+  represents one return per loan rather than a detailed sequence of return events.
+* **Alternative: Store separate return records.** This could support a richer
+  event history, but requires links and consistency checks between loans and
+  returns.
+
+**Aspect: How the return date is obtained**
+
+* **Current choice: Inject a `Clock`.** This makes date-dependent tests repeatable,
+  including tests around local-date boundaries, at the cost of an extra dependency.
+* **Alternative: Read the system date directly.** This needs less configuration,
+  but makes date-dependent tests harder to control.
+
+Reported faults are stored as text on the loan. They do not create a separate
+fault-history note or clear existing equipment faults. The production application
+persists loan and return details through `LabLogStore`.
+
+#### Testing
+
+`ReturnCommandsTest` covers optional faults, local-date boundaries, malformed
+commands, repeated returns, multiple active loans, invalid return dates, historical
+loans, borrower-listing updates, and the return/history console flow.
 
 ### Equipment history
 
-`HistoryCommands.execute("history ASSET_ID")` validates the command, checks
-equipment existence in the shared `Inventory`, and reads the shared `LoanBook`.
-It includes returned loans and builds fresh descriptions on every request, so a
-later return is visible without updating a separate history store.
+#### Implementation
 
-Reservation, fault, and maintenance models are not yet implemented. Their owners
-can supply `HistoryEntry` snapshots through a `Supplier<List<HistoryEntry>>`.
-The supplier should read the current source records on every call, include their
-status and relevant end dates in the description, and retain closed/cancelled
-records when they belong in history. It must return a non-null list and must not
-include duplicate loan entries. Entries may cover multiple assets; the handler
-filters by exact asset ID and sorts a new list without changing the source order.
+`HistoryCommands` reads the shared `Inventory` and `LoanBook`, then constructs fresh
+history entries on every request. Both active and returned loans are included.
 
-Use loan date, reservation start date, fault report date, and maintenance date
-as the entry dates. Entries are sorted oldest first, then by enum type order and
-description. This is a record summary rather than a permanent event audit trail.
+The command format is:
 
-Pass the shared records to
-`new LabLog(inventory, loanBook, () -> currentHistoryEntries)` or construct
-`HistoryCommands` directly for a future shared dispatcher. The default application
-uses an empty source until the remaining features are connected. No persistence
-or reservation/fault/maintenance creation commands are introduced by this feature.
+```text
+history ASSET_ID
+```
 
-`HistoryCommandsTest` covers all four types, asset filtering, returned loans,
-fresh source updates, date ordering, invalid input, empty/unknown equipment, and
-the actual application prompt with injected shared data.
+The main operations and records are:
+
+* `HistoryCommands#execute(input)` validates the command, locates the equipment,
+  and formats the result.
+* The private `HistoryCommands#getHistory(assetId)` collects, filters, and sorts
+  entries without modifying the source records or their ordering.
+* `HistoryEntry` holds an asset ID, date, type, and description for display.
+* `Supplier<List<HistoryEntry>>` supplies current entries from other features.
+
+Returned-loan descriptions include the return date and reported faults, or state
+that no faults were reported on return. Asset IDs are matched exactly and
+case-sensitively.
+
+#### Example usage scenario
+
+Assume `OSC-001` has a loan that has been returned with the fault description
+`Damaged cable`.
+
+1. The user enters `history OSC-001`.
+2. `LabLog` dispatches the command to `HistoryCommands#execute`. The handler
+   validates the syntax and locates the equipment in `Inventory`.
+3. The handler reads the shared loan book and creates an entry for each matching
+   loan. Each entry uses the loan date and reflects the loan's current state,
+   including the return date and fault description.
+4. The handler calls the additional-history supplier and includes entries with
+   the same asset ID. In `LabLog`, this supplier combines caller-supplied entries
+   with session notes from `HistoryRecordCommands`.
+5. The handler sorts the combined entries by date, oldest first. Ties are broken
+   by enum type order (`LOAN`, `RESERVATION`, `FAULT`, `MAINTENANCE`), then by
+   description.
+6. The application displays the equipment ID and name, the `Date | Type | Details`
+   rows, and the record count. No save is triggered by viewing history.
+
+The following sequence diagram shows a history request for registered equipment.
+Individual field accessors are omitted for readability.
+
+![Sequence diagram for viewing equipment history](images/EquipmentHistory.png)
+
+Editable diagram source: [EquipmentHistory.puml](diagrams/EquipmentHistory.puml).
+
+A malformed command is rejected with usage guidance. Unknown equipment produces
+an error before history is collected. Registered equipment with no matching
+records produces `No history found for ASSET_ID - NAME.` instead.
+
+#### Integration with other features
+
+`HistoryRecordCommands` creates reservation, fault, and maintenance notes. Other
+features can also supply snapshots through `Supplier<List<HistoryEntry>>`. The
+supplier must return a non-null list and must not duplicate loans already read
+from `LoanBook`. It should read current records on every call, include relevant
+status and end dates in descriptions, and retain closed or cancelled records when
+appropriate. Entries may cover multiple assets; the handler filters them.
+
+Use the loan date, reservation start date, fault report date, or maintenance date
+as the entry date. Returning equipment changes the original loan entry's
+description; it does not add a separate entry dated on the return day.
+
+Shared records can be passed through
+`new LabLog(inventory, loanBook, () -> currentHistoryEntries)`, or directly to
+`HistoryCommands`. The application combines supplied entries with session notes.
+These notes do not affect equipment availability and are not persisted, whereas
+loan and return records are persisted in production CLI sessions.
+
+#### Design considerations
+
+**Aspect: When history is constructed**
+
+* **Current choice: Build entries on each request.** Returns and source updates
+  appear immediately without synchronising a separate cache. Each request scans
+  the source records and sorts matching entries.
+* **Alternative: Cache the combined history.** This could reduce repeated work,
+  but every relevant record change would need to update or invalidate the cache.
+
+**Aspect: How other features contribute history**
+
+* **Current choice: Accept supplied `HistoryEntry` snapshots.** The handler can
+  display other features' records without depending on their internal models.
+  Suppliers must follow the entry contract and avoid duplicate loan entries.
+* **Alternative: Read each feature's model directly.** This gives direct access
+  to its details, but adds dependencies whenever new record types are introduced.
+
+History summarises current records; it is not an immutable audit trail of every
+change. Rebuilding entries makes updated details visible, but does not preserve
+previous versions of those details.
+
+#### Testing
+
+`HistoryCommandsTest` covers all four entry types, asset filtering, returned
+loans, fresh source updates, date ordering and tie-breaking, malformed input,
+empty and unknown equipment, and console integration with shared records.
 
 ## Product scope
 ### Target user profile
@@ -119,8 +292,8 @@ student borrowers through a text interface.
 ### Value proposition
 
 Keep equipment identity, borrower contacts, and loan history accessible from
-the command line. The current handlers support parts of this workflow; the
-shared loan-issuing workflow remains unfinished.
+the command line. The main console shares records across registration, lending,
+returns, and lookups.
 
 ## User Stories
 
@@ -137,12 +310,11 @@ Build and run with Java 25. Keep help read-only and reject invalid borrower and
 return commands before changing records. Save borrower additions atomically
 before updating memory. These behaviors are covered by automated tests.
 
-Current limitations: equipment registration does not validate detail fields or
-reject duplicate asset IDs; equipment, loans, and return details are not persisted;
-the consoles are not unified; the loan command does not check the borrower
-against registered borrowers; reservation, fault, and maintenance record creation
-are not implemented. Passing tests does not imply these planned features are
-complete.
+Current limitations: the standalone borrower console has its own initially
+empty loan book; reservation, fault, and maintenance history notes are held only
+for the session; and concurrent writers to the same data files are unsupported.
+Return fault descriptions are stored in loan history and do not create a
+separate fault note.
 
 ## Glossary
 
@@ -152,6 +324,29 @@ complete.
 * **History entry:** a display snapshot of a record, not an immutable event log.
 
 ## Instructions for manual testing
+
+### Assertions and diagnostic logging
+
+`LabLog` uses Java `assert` statements to check internal assumptions: only
+supported record commands reach its dispatch helper, and equipment detail
+collection receives an already validated asset ID. User input errors still use
+normal validation, which works even when assertions are disabled.
+
+`HelpCommands` and `LabLog` use `java.util.logging` at `FINE` level to trace help
+requests, rejected input, and incomplete registration. Logs omit raw input and
+borrower details. Enable assertions and console diagnostics from the repository
+root after building the JAR:
+
+```powershell
+java -ea -Djava.util.logging.config.file=config/logging.properties -jar build/libs/lablog.jar
+```
+
+Enter `help`, `help unknown`, a blank line, and `exit` to see diagnostics on
+standard error alongside the usual console output. Without the logging option,
+the default Java logging configuration hides `FINE` messages. Gradle's test task
+enables assertions by default.
+
+### Automated and manual checks
 
 From the repository root with Java 25:
 
@@ -166,8 +361,10 @@ output: `pwsh -File test/run-borrower-ui-tests.ps1`. See the
 [console test plan](../test/ui-test-plan.md) and
 [verification report](../test/verification-report.md).
 
-For a manual main-console check, run `java -jar build/libs/lablog.jar`, enter
-`help`, `help return`, then register `OSC-001` with four detail lines. Check
-`history OSC-001`, `return OSC-001`, and `exit`. In this fresh session, history
-is empty and return reports that the unit is not on loan. Automated integration
-tests supply active loans to verify successful return and history updates.
+For a manual main-console check, run `java -jar build/libs/lablog.jar` with a
+disposable data-file path, register equipment with `add`, register a borrower
+with `add-borrower`, then issue a loan. Check `active-loans`, `loans
+BORROWER_ID`, `return ASSET_ID`, and `history ASSET_ID`. Restart with the same
+data path to confirm equipment, loans, returns, and borrowers reload. Use a
+separate disposable directory because borrower data is stored beside the
+LabLog data file.
