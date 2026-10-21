@@ -77,6 +77,13 @@ location, and availability for each registered unit. A unit is on loan when it
 has an active loan; returning it makes it available in the next listing.
 An empty inventory reports `No equipment registered.` No records are changed.
 
+### Finding one unit: `find`
+
+Enter `find ASSET_ID` to show one registered unit's name, category, model,
+location, and current availability. For example, `find OSC-001` performs an
+exact, case-sensitive lookup. Unknown IDs produce an error, and the lookup does
+not change equipment or loan records.
+
 ### Recording equipment history notes
 
 Use `reservation ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION`, `fault` with the same
@@ -141,7 +148,7 @@ Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives 
 The main console checks borrower IDs against registered borrowers before lending.
 ```
 
-Detailed help covers `add`, history-note commands, `active-loans`, `list`,
+Detailed help covers `add`, history-note commands, `active-loans`, `list`, `find`,
 `loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
 commands belonging to the main or borrower console; viewing help does not make
 a command available in the other console.

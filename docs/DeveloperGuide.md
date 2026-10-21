@@ -369,6 +369,15 @@ data path to confirm equipment, loans, returns, and borrowers reload. Use a
 separate disposable directory because borrower data is stored beside the
 LabLog data file.
 
+## Exact equipment lookup (issue #67)
+
+EquipmentFindCommands resolves one case-sensitive asset ID from the shared
+inventory and reports descriptive fields with availability derived from active
+loans. The lookup is read-only and returns a clear error for unknown IDs.
+
+EquipmentFindCommandsTest covers details, availability, invalid syntax,
+unknown IDs, and unchanged equipment and loan records.
+
 ## Borrower contact editing (issue #89)
 
 BorrowerCommands parses optional edit fields and constructs a validated immutable
