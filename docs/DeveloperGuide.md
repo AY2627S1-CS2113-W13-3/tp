@@ -411,3 +411,17 @@ SnapshotImportTest checks valid replacement, visibility through existing
 handlers, restart, updated contacts, legacy migration and a failed destination
 replacement. An unsupported atomic move fails safely; no non-atomic fallback
 is attempted. Use one main-console process per data file.
+
+## Import envelope validation (issue #92)
+
+ApplicationSnapshot.readProperties rejects duplicate properties through a
+Properties subclass instead of accepting the parser's usual last-value-wins
+behavior. It checks regular-file status and the 10 MiB input limit. Decode
+compares the accepted schema's keys against all supplied keys, rejecting
+unrecognized data and count mismatches. Domain validation remains shared with
+the export codec.
+
+SnapshotValidationTest supplies malformed versions, counts, contact fields,
+dates, references, duplicate IDs/keys, unknown fields, unsupported audit data,
+invalid UTF-8 and oversized input. Dispatcher-level cases verify saved content
+and active-loan listings remain unchanged after each invalid import.

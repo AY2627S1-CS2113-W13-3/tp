@@ -302,3 +302,15 @@ That old borrower file is retained, but is no longer read after migration.
 The standalone borrower console continues to use its own borrower file; it no
 longer edits the main console's contacts after migration. Use edit-borrower in
 the main console for those records.
+
+## Invalid import protection (US63)
+
+Imports reject unsupported versions, missing or unknown fields, duplicate
+property keys or equipment/borrower IDs, broken references, impossible dates,
+multiple active loans for one unit, and invalid contact details. Files must be
+valid UTF-8 regular files no larger than 10 MiB. Counts are bounded at 100,000
+records per section. Audit records are unsupported in format 2.
+
+Any validation or save failure reports an error and preserves current live and
+saved records. Fix the reported problem and submit the import again. Unknown
+fields are rejected so a newer feature's data cannot be silently discarded.

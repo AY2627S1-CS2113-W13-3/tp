@@ -48,9 +48,12 @@ public class ApplicationSnapshot {
         return notes;
     }
 
-    /** Reads the UTF-8 properties envelope before domain validation. */
+    /** Reads UTF-8 properties, rejecting repeated keys and files exceeding the supported size. */
     static Properties readProperties(Path file) throws IOException {
-        Properties records = new Properties();
+        if (!Files.isRegularFile(file) || Files.size(file) > MAX_BYTES) {
+            throw new IOException("Expected a regular snapshot file no larger than 10 MiB.");
+        }
+        Properties records = new UniqueProperties();
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             records.load(reader);
         } catch (IllegalArgumentException exception) {
@@ -64,7 +67,7 @@ public class ApplicationSnapshot {
         return decode(readProperties(file));
     }
 
-    /** Validates supported records and their references independently of live data. */
+    /** Validates all records and references, refusing unknown fields instead of losing their data. */
     static ApplicationSnapshot decode(Properties records) throws IOException {
         try {
             if (!"2".equals(required(records, "format"))) {
@@ -107,6 +110,9 @@ public class ApplicationSnapshot {
             }
             ApplicationSnapshot result = new ApplicationSnapshot(base.getInventory().getEquipmentUnits(), borrowers,
                     base.getLoans().getLoans(), notes);
+            if (!result.encode().stringPropertyNames().equals(records.stringPropertyNames())) {
+                throw new IllegalArgumentException("Unknown snapshot fields or mismatched record counts.");
+            }
             return result;
         } catch (IllegalArgumentException | DateTimeException exception) {
             throw new IOException("Invalid snapshot: " + exception.getMessage(), exception);
@@ -189,4 +195,14 @@ public class ApplicationSnapshot {
         return count;
     }
 
+    /** Properties normally overwrites repeated keys; imports reject that ambiguity. */
+    private static class UniqueProperties extends Properties {
+        @Override
+        public synchronized Object put(Object key, Object value) {
+            if (containsKey(key)) {
+                throw new IllegalArgumentException("Duplicate field: " + key);
+            }
+            return super.put(key, value);
+        }
+    }
 }
