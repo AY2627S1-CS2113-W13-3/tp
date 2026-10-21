@@ -379,3 +379,17 @@ main application later save proposed contacts with its complete snapshot.
 
 BorrowerEditTest covers partial/reordered edits, name-length boundaries,
 unchanged loan objects, restart persistence, invalid fields, and failed saves.
+
+## Versioned export schema (issue #90)
+
+ApplicationSnapshot captures the supported object graph and uses LabLogStore's
+equipment/loan serializer. UTF-8 properties format 2 adds borrower.count and
+note.count with indexed fields. audit.count is explicitly zero until an audit
+domain schema exists. The codec validates references and dates before writing
+a temporary file and atomically replacing its destination. The export command
+requires a new file and protects the active data paths.
+
+Integration contract for domain owners: add full serialization, validation and
+round-trip tests for new reservation/fault/audit models, then bump the version.
+Do not serialize HistoryEntry display text as a substitute for full domain data.
+Import CLI integration follows in issue #91; envelope hardening is issue #92.

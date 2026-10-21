@@ -273,3 +273,16 @@ Supply at least one non-empty field; prefixes may occur once each, in any order.
 Omitted values stay unchanged. Existing name, phone and email validation applies.
 The borrower ID and loan references remain stable. Invalid input or a failed save
 leaves the original contacts unchanged.
+
+## Export application data (US61)
+
+Use export FILE in the main console, for example export backups/lablog.properties.
+FILE must not already exist. Paths containing spaces may be enclosed in double
+quotes. Export does not change current records. Store backups securely because
+they include borrower contact details.
+
+Format 2 contains equipment, borrowers, full loan and return details, and the
+currently supported reservation, fault and maintenance notes. Rich reservation
+and fault models and audit records are not yet implemented on develop. Their
+owners must agree a new schema before those records can be transferred; they
+are not represented by inventing data or treating display notes as full records.

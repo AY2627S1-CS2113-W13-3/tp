@@ -59,4 +59,9 @@ public class LoanBook {
     public List<Loan> getLoans() {
         return List.copyOf(loans);
     }
+    /** Installs records that have already passed complete validation and persistence. */
+    void replaceAll(List<Loan> replacement) {
+        loans.clear();
+        loans.addAll(replacement);
+    }
 }
