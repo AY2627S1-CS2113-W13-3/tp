@@ -18,6 +18,13 @@ import java.util.Properties;
 public class BorrowerBook {
     private final Map<String, Borrower> borrowers = new LinkedHashMap<>();
     private final Path file;
+    private Saver saver;
+
+    /** Persists proposed borrowers together with the main application's other records. */
+    @FunctionalInterface
+    interface Saver {
+        void save(List<Borrower> proposed) throws IOException;
+    }
 
     /**
      * Creates an in-memory book for callers that manage their own persistence.
@@ -52,6 +59,37 @@ public class BorrowerBook {
         }
     }
 
+    /** Selects whole-application persistence for the main console. */
+    void setSaver(Saver saver) {
+        this.saver = saver;
+    }
+
+    /** Installs validated records after a successful whole-application import. */
+    void replaceAll(List<Borrower> replacement) {
+        borrowers.clear();
+        for (Borrower borrower : replacement) {
+            borrowers.put(borrower.getBorrowerId(), borrower);
+        }
+    }
+
+    /** Saves a validated edit before replacing the immutable borrower, keeping its ID stable. */
+    public void updateBorrower(Borrower borrower) throws IOException {
+        getBorrower(borrower.getBorrowerId());
+        Map<String, Borrower> updated = new LinkedHashMap<>(borrowers);
+        updated.put(borrower.getBorrowerId(), borrower);
+        persist(updated);
+        borrowers.put(borrower.getBorrowerId(), borrower);
+    }
+
+    /** Chooses standalone or whole-application persistence without changing live records. */
+    private void persist(Map<String, Borrower> updated) throws IOException {
+        if (saver != null) {
+            saver.save(List.copyOf(updated.values()));
+        } else if (file != null) {
+            save(updated);
+        }
+    }
+
     /**
      * Adds a borrower after saving the proposed state, leaving memory unchanged if saving fails.
      *
@@ -67,9 +105,7 @@ public class BorrowerBook {
         }
         Map<String, Borrower> updated = new LinkedHashMap<>(borrowers);
         updated.put(id, borrower);
-        if (file != null) {
-            save(updated);
-        }
+        persist(updated);
         borrowers.put(id, borrower);
     }
 

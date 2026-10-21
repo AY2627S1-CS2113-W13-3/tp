@@ -16,6 +16,7 @@ public class HelpCommands {
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
             + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (both consoles).\n"
+            + "edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL] - Edit contacts (both consoles).\n"
             + "loans BORROWER_ID - View active loans (both consoles).\n"
             + "exit - Close the main console.\n"
             + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
@@ -47,6 +48,12 @@ public class HelpCommands {
         }
         LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
+        case "edit-borrower":
+            return "Edit a registered borrower's contacts; the ID and loan references stay unchanged.\n"
+                    + "Format: edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL]\n"
+                    + "Example: edit-borrower A0123456X p/92345678\n"
+                    + "Fields: Supply at least one field, once each. Omitted values remain unchanged.\n"
+                    + "The same validation as add-borrower applies. Failed edits change nothing.";
         case "add":
             return "Register equipment explicitly.\nFormat: add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION\n"
                     + "Example: add OSC-001 n/Oscilloscope c/Electronics m/S1 l/Lab 1\n"

@@ -57,6 +57,8 @@ public class BorrowerCommands {
             return new HelpCommands().execute(input);
         case "add-borrower":
             return addBorrower(arguments);
+        case "edit-borrower":
+            return editBorrower(arguments);
         case "loans":
             return listLoans(arguments);
         default:
@@ -90,6 +92,36 @@ public class BorrowerCommands {
         borrowers.addBorrower(borrower);
         return "Added borrower " + id + ": " + borrower.getName() + ".\nPhone: "
                 + borrower.getPhone() + " | Email: " + borrower.getEmail();
+    }
+
+    /** Validates optional contact fields together, preserving omitted fields and the borrower ID. */
+    private String editBorrower(String arguments) throws IOException {
+        String usage = "Use: edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL]";
+        Matcher matcher = PREFIX.matcher(arguments);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException(usage + ". Supply at least one field.");
+        }
+        String id = arguments.substring(0, matcher.start()).strip();
+        Borrower current = borrowers.getBorrower(id);
+        Map<String, String> fields = new HashMap<>();
+        do {
+            String prefix = matcher.group(1);
+            int start = matcher.end();
+            boolean next = matcher.find();
+            String value = arguments.substring(start, next ? matcher.start() : arguments.length()).strip();
+            if (!List.of("n", "p", "e").contains(prefix) || value.isEmpty() || fields.containsKey(prefix)) {
+                throw new IllegalArgumentException("Repeated, empty or unknown field. " + usage);
+            }
+            fields.put(prefix, value);
+            if (!next) {
+                break;
+            }
+        } while (true);
+        Borrower updated = new Borrower(id, fields.getOrDefault("n", current.getName()),
+                fields.getOrDefault("p", current.getPhone()), fields.getOrDefault("e", current.getEmail()));
+        borrowers.updateBorrower(updated);
+        return "Updated borrower " + id + ": " + updated.getName() + ".\nPhone: "
+                + updated.getPhone() + " | Email: " + updated.getEmail();
     }
 
     /**

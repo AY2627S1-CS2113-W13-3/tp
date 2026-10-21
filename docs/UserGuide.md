@@ -264,3 +264,12 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 
 Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
 to add a dated history note in the main console.
+
+## Edit borrower contacts (US21)
+
+Use edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL] in either console.
+For example, edit-borrower A0123456X p/92345678 e/new@u.nus.edu.
+Supply at least one non-empty field; prefixes may occur once each, in any order.
+Omitted values stay unchanged. Existing name, phone and email validation applies.
+The borrower ID and loan references remain stable. Invalid input or a failed save
+leaves the original contacts unchanged.

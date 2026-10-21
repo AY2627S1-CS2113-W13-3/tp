@@ -199,7 +199,7 @@ public class LabLog {
                 }
                 continue;
             }
-            if (List.of("loans", "add-borrower").contains(command)) {
+            if (List.of("loans", "add-borrower", "edit-borrower").contains(command)) {
                 try {
                     output.println(borrowerCommands.execute(input));
                 } catch (IllegalArgumentException exception) {
