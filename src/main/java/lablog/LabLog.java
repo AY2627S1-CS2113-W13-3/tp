@@ -30,6 +30,7 @@ public class LabLog {
     private final Supplier<List<HistoryEntry>> otherHistory;
     private final BorrowerCommands borrowerCommands;
     private final EquipmentAddCommands equipmentAdd;
+    private final EquipmentCopyCommands equipmentCopy;
     private final HistoryRecordCommands historyRecords;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
@@ -72,6 +73,7 @@ public class LabLog {
         this.loans = loans;
         this.otherHistory = otherHistory;
         this.equipmentAdd = new EquipmentAddCommands(inventory);
+        this.equipmentCopy = new EquipmentCopyCommands(inventory);
         this.historyRecords = new HistoryRecordCommands(inventory);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
@@ -165,7 +167,7 @@ public class LabLog {
     }
 
     /**
-     * Accepts an explicit add, help, loan, history or return command, or exit at the
+     * Accepts equipment add/copy, help, loan, history or return commands, or exit at the
      * initial prompt.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
@@ -246,6 +248,18 @@ public class LabLog {
                 } catch (IOException exception) {
                     output.println("Error: Cannot save borrower data. " + exception.getMessage());
                     output.println("No changes saved.");
+                }
+                continue;
+            }
+            if (command.equals("copy")) {
+                try {
+                    String result = equipmentCopy.execute(input);
+                    if (!saveChanges(output)) {
+                        return;
+                    }
+                    output.println(result);
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
                 }
                 continue;
             }

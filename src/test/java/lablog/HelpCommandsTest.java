@@ -28,7 +28,7 @@ class HelpCommandsTest {
         String summary = help.execute("help");
         assertEquals(summary, help.execute("  help\t "));
         assertFalse(summary.contains("Example:"));
-        for (String command : List.of("help", "loan", "return", "list", "history", "add-borrower", "loans",
+        for (String command : List.of("help", "loan", "return", "list", "history", "copy", "add-borrower", "loans",
                 "exit")) {
             assertTrue(summary.contains(command));
             String detail = help.execute("help " + command);
@@ -36,6 +36,27 @@ class HelpCommandsTest {
             assertTrue(detail.contains("Example: " + command));
             assertTrue(detail.contains("Fields:"));
         }
+    }
+
+    @Test
+    void execute_copyHelpExplainsUniqueIdAndRecordBehavior() {
+        String detail = help.execute("help copy");
+        assertTrue(detail.contains("Format: copy SOURCE_ASSET_ID NEW_ASSET_ID"));
+        assertTrue(detail.contains("The new ID must be unique."));
+        assertTrue(detail.contains("Loans and history are not copied"));
+    }
+
+    @Test
+    void run_copyHelpExampleWorksAfterRegistration() {
+        String example = help.execute("help copy").lines()
+                .filter(line -> line.startsWith("Example: ")).findFirst().orElseThrow().substring(9);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        new LabLog().run(new Scanner("add OSC-001 n/Scope c/Electronics m/S1 l/Lab A\n"
+                + example + "\nlist\nexit\n"), new PrintStream(output));
+
+        assertTrue(output.toString().contains("Copied OSC-001 to OSC-002."));
+        assertTrue(output.toString().contains("OSC-002 | Scope | Electronics | S1 | Lab A | Available"));
     }
 
     @Test

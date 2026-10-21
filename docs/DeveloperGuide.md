@@ -24,8 +24,8 @@ equipment references, and multiple active loans per unit. A corrupt file is not
 overwritten. This store assumes one application process owns a data file;
 concurrent writers are not supported.
 
-`LabLog` is the Gradle application entry point. It routes explicit equipment
-registration, listing, active loans, history notes, help, loan, history, return,
+`LabLog` is the Gradle application entry point. It routes equipment registration
+and copying, listing, active loans, history notes, help, loan, history, return,
 and borrower commands to their handlers. The prompted and single-line equipment
 registration forms both validate before storing. Borrower commands share the
 main console's inventory and loan book. The CLI loads borrowers from the sibling
@@ -44,6 +44,18 @@ loan exists. These are lookup helpers, not an enforcement mechanism:
 `addLoan` still permits duplicate active loans, and the loan constructor does
 not validate identifiers or dates. `LoanCommands` applies those checks before
 storing a record; any other issuing path must repeat them.
+
+### Copying equipment
+
+`EquipmentCopyCommands` finds the source by its exact asset ID, rejects unknown
+sources and IDs already in `Inventory`, then creates a new `Equipment` with the
+source's descriptive fields and the requested ID. It receives only the shared
+inventory, so it cannot copy loan or history records. `LabLog` saves a successful
+copy through its existing snapshot store before reporting success.
+
+`EquipmentCopyCommandsTest` covers copied fields, unique-ID and source checks,
+the unchanged source, persistence, and keeping the original loan and history
+records attached to the original ID.
 
 ### Help and command examples
 
