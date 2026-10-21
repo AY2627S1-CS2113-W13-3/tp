@@ -369,6 +369,17 @@ data path to confirm equipment, loans, returns, and borrowers reload. Use a
 separate disposable directory because borrower data is stored beside the
 LabLog data file.
 
+## Equipment detail editing (issue #62)
+
+EquipmentEditCommands parses optional name, category, model, and location fields
+and constructs a fully validated immutable Equipment record. Inventory replaces
+the record at its existing position while retaining the same asset ID, so loan
+and history references remain valid. LabLog saves the updated equipment through
+the existing snapshot store after the command succeeds.
+
+EquipmentEditCommandsTest covers partial edits, field ordering, validation,
+stable asset references, and persistence after restart.
+
 ## Borrower contact editing (issue #89)
 
 BorrowerCommands parses optional edit fields and constructs a validated immutable
