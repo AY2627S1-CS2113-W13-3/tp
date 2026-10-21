@@ -368,3 +368,14 @@ BORROWER_ID`, `return ASSET_ID`, and `history ASSET_ID`. Restart with the same
 data path to confirm equipment, loans, returns, and borrowers reload. Use a
 separate disposable directory because borrower data is stored beside the
 LabLog data file.
+
+## Borrower contact editing (issue #89)
+
+BorrowerCommands parses optional edit fields and constructs a validated immutable
+Borrower. BorrowerBook.updateBorrower requires an existing ID and persists a
+proposed map before publishing the replacement. Loans refer to IDs, so edits do
+not require rewriting loan records. The package-level Saver boundary lets the
+main application later save proposed contacts with its complete snapshot.
+
+BorrowerEditTest covers partial/reordered edits, name-length boundaries,
+unchanged loan objects, restart persistence, invalid fields, and failed saves.
