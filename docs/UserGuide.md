@@ -314,3 +314,14 @@ records per section. Audit records are unsupported in format 2.
 Any validation or save failure reports an error and preserves current live and
 saved records. Fix the reported problem and submit the import again. Unknown
 fields are rejected so a newer feature's data cannot be silently discarded.
+
+
+### Unknown snapshot fields
+
+Format 2 is a closed schema: an unrecognized property is rejected, even if all
+required fields are valid. This includes extra record fields and indexed fields
+outside the declared counts. For example, equipment.0.serialNumber produces
+"Invalid snapshot: Unknown snapshot field: equipment.0.serialNumber."
+The source and current saved records remain unchanged. Unsupported fields are
+never accepted and then discarded by re-exporting. Use a compatible application
+version when a file contains data from a newer feature.

@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeSet;
 
 /** Complete transfer snapshot, validated independently of the running application's records. */
 public class ApplicationSnapshot {
@@ -67,7 +68,15 @@ public class ApplicationSnapshot {
         return decode(readProperties(file));
     }
 
-    /** Validates all records and references, refusing unknown fields instead of losing their data. */
+    /**
+     * Decodes the closed format-2 schema before publishing a snapshot.
+     * Unknown top-level, record and out-of-range indexed fields are rejected so
+     * re-serialization cannot silently discard data owned by an unsupported feature.
+     *
+     * @param records complete properties read from the source file
+     * @return snapshot containing only validated, supported records
+     * @throws IOException if any required field, value, reference or property name is invalid
+     */
     static ApplicationSnapshot decode(Properties records) throws IOException {
         try {
             if (!"2".equals(required(records, "format"))) {
@@ -110,8 +119,11 @@ public class ApplicationSnapshot {
             }
             ApplicationSnapshot result = new ApplicationSnapshot(base.getInventory().getEquipmentUnits(), borrowers,
                     base.getLoans().getLoans(), notes);
-            if (!result.encode().stringPropertyNames().equals(records.stringPropertyNames())) {
-                throw new IllegalArgumentException("Unknown snapshot fields or mismatched record counts.");
+            // Derive accepted keys from the export schema to keep read and write support in agreement.
+            Set<String> unknownFields = new TreeSet<>(records.stringPropertyNames());
+            unknownFields.removeAll(result.encode().stringPropertyNames());
+            if (!unknownFields.isEmpty()) {
+                throw new IllegalArgumentException("Unknown snapshot field: " + unknownFields.iterator().next() + ".");
             }
             return result;
         } catch (IllegalArgumentException | DateTimeException exception) {

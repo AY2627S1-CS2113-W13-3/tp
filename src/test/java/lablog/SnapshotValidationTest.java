@@ -19,7 +19,7 @@ import java.util.Scanner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Exercises complete round trips, invalid imports, migration and failed-save atomicity. */
+/** Verifies invalid snapshots are rejected without changing source, destination or live records. */
 class SnapshotValidationTest {
     /** Includes Unicode, returned and active loans, and every supported note type. */
     private ApplicationSnapshot sample() {
@@ -97,6 +97,33 @@ class SnapshotValidationTest {
             assertEquals(saved, Files.readString(data));
         }
         assertThrows(IOException.class, () -> ApplicationSnapshot.read(directory.resolve("missing")));
+    }
+
+    @Test
+    void decode_unknownProperties_rejectsBeforeReserialization(@TempDir Path directory) throws Exception {
+        Path source = directory.resolve("unsupported.properties");
+        Path destination = directory.resolve("existing-export.properties");
+        sample().write(destination);
+        String saved = Files.readString(destination);
+        for (String key : List.of("future.flag", "equipment.0.serialNumber", "borrower.0.department",
+                "loan.0.status", "note.0.owner", "audit.0.message", "equipment.1.id")) {
+            Properties records = sample().toProperties();
+            records.setProperty(key, "must not be silently discarded");
+            try (Writer writer = Files.newBufferedWriter(source)) {
+                records.store(writer, "unsupported format-2 field");
+            }
+            String original = Files.readString(source);
+            IOException decoded = assertThrows(IOException.class, () -> ApplicationSnapshot.decode(records));
+            assertEquals("Invalid snapshot: Unknown snapshot field: " + key + ".", decoded.getMessage());
+
+            // This used to succeed and overwrite the destination after silently dropping the extra property.
+            IOException reserialized = assertThrows(IOException.class,
+                    () -> ApplicationSnapshot.read(source).write(destination));
+            assertEquals(decoded.getMessage(), reserialized.getMessage());
+            assertEquals(original, Files.readString(source));
+            assertEquals(saved, Files.readString(destination));
+            assertEquals("must not be silently discarded", records.getProperty(key));
+        }
     }
 
     @Test
