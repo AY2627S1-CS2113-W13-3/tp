@@ -10,7 +10,7 @@ public class HelpCommands {
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
-            + "list - List registered equipment and availability (main console).\n"
+            + "list [sort/FIELD] - List equipment, optionally sorted by a field (main console).\n"
             + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
@@ -113,10 +113,12 @@ public class HelpCommands {
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
         case "list":
             return "List registered equipment and current availability (main console).\n"
-                    + "Format: list\nExample: list\n"
+                    + "Format: list [sort/FIELD]\nExample: list sort/name\n"
                     + "  Show asset IDs, names, categories, models, locations, and availability.\n"
                     + "Availability is derived from active loans; returned units are available.\n"
-                    + "Fields: None.";
+                    + "Supported sort fields: asset-id, name, category, model, location, availability.\n"
+                    + "Sorting is ascending and case-insensitive; ties use asset ID, then exact ID case.\n"
+                    + "Sorting does not change inventory order. Fields: sort/FIELD selects one supported field.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"

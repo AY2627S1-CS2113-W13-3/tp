@@ -73,9 +73,14 @@ registration and is available after restart.
 ### Listing equipment: `list`
 
 Enter `list` in the main console to show asset ID, name, category, model,
-location, and availability for each registered unit. A unit is on loan when it
-has an active loan; returning it makes it available in the next listing.
-An empty inventory reports `No equipment registered.` No records are changed.
+location, and availability for each registered unit. Add `sort/FIELD` to sort
+the results in ascending order by `asset-id`, `name`, `category`, `model`,
+`location`, or `availability`; for example, `list sort/name`. Comparisons are
+case-insensitive. Equal values are ordered by asset ID, with exact ID case as a
+final tie-breaker. Sorting only reorders the displayed snapshot; it does not
+change inventory order. A unit is on loan when it has an active loan; returning
+it makes it available in the next listing. An empty inventory reports
+`No equipment registered.` No records are changed.
 
 ### Recording equipment history notes
 

@@ -45,6 +45,18 @@ loan exists. These are lookup helpers, not an enforcement mechanism:
 not validate identifiers or dates. `LoanCommands` applies those checks before
 storing a record; any other issuing path must repeat them.
 
+### Equipment listing
+
+`EquipmentListCommands` formats asset ID, name, category, model, location, and
+availability for every registered unit. Availability is derived from active
+loans. `list` retains registration order; `list sort/FIELD` accepts `asset-id`,
+`name`, `category`, `model`, `location`, or `availability`. Comparisons are
+ascending and case-insensitive, with asset ID and then exact ID case as
+deterministic tie-breakers. The handler sorts a copy of the immutable inventory
+snapshot, so listing never changes registration order or stored records.
+Unsupported fields and malformed options produce a recoverable usage error.
+An empty inventory reports `No equipment registered.`
+
 ### Help and command examples
 
 `HelpCommands` contains shared guidance for both consoles and has no record
