@@ -1,7 +1,9 @@
 package lablog;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Stores equipment units managed by LabLog.
@@ -54,6 +56,24 @@ public class Inventory {
             }
         }
         throw new IllegalArgumentException("Equipment " + replacement.getAssetId() + " not found.");
+    }
+
+    /** Validates an entire location batch before replacing any selected equipment records. */
+    public void updateLocations(List<String> assetIds, String location) {
+        if (assetIds == null || assetIds.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one equipment asset ID.");
+        }
+        Set<String> selectedIds = new HashSet<>();
+        List<Equipment> replacements = new ArrayList<>();
+        for (String assetId : assetIds) {
+            if (assetId == null || assetId.isBlank() || !selectedIds.add(assetId)) {
+                throw new IllegalArgumentException("Asset IDs must be non-empty and unique.");
+            }
+            Equipment current = getEquipment(assetId);
+            replacements.add(new Equipment(assetId, current.getName(), current.getCategory(),
+                    current.getModel(), location));
+        }
+        replacements.forEach(this::updateEquipment);
     }
 
     /**

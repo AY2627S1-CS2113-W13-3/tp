@@ -13,6 +13,7 @@ public class HelpCommands {
             + "list - List registered equipment and availability (main console).\n"
             + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
             + "Edit equipment details (main console).\n"
+            + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
             + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
@@ -77,6 +78,14 @@ public class HelpCommands {
                     + "Fields: Supply at least one field, once each. Omitted values remain unchanged.\n"
                     + "The asset ID stays unchanged so loans and history keep their equipment reference.\n"
                     + "Equipment validation applies to all values; failed edits change nothing.";
+        case "move-equipment":
+            return "Move selected equipment units to one storage location.\n"
+                    + "Format: move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION\n"
+                    + "Example: move-equipment OSC-001,MIC-002 l/Lab 3\n"
+                    + "Fields: Select one or more distinct registered asset IDs and one non-empty location.\n"
+                    + "All IDs and the location are validated before any unit changes; "
+                    + "an invalid batch changes nothing.\n"
+                    + "The completed batch is saved to the LabLog data file.";
         case "reservation":
         case "fault":
         case "maintenance":
