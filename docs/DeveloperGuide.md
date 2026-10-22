@@ -718,3 +718,18 @@ legacy notes remain notes. History derives reservation entries from records.
 ReservationTest covers invalid and reordered fields, period boundaries, failed
 saves, reload/export/import, schema corruption and legacy compatibility. US35
 adds the shared conflict policy without changing the interval contract.
+
+## Shared conflict policy (issue #79)
+
+BookingAvailability.conflict/requireAvailable is the shared public boundary for
+reservations, loans, future renewal handlers and interval queries. All intervals
+are inclusive. A renewal caller passes its original Loan as ignoredLoan and the
+proposed full loan period; an edit passes only its own reservation ID. Other
+records are still checked. Main-console LoanCommands is wired to this policy.
+The existing standalone constructors retain their no-reservation behavior.
+
+Restore validates reservation references, IDs and pairwise booking overlaps.
+It does not reject persisted bookings merely because a loan later becomes overdue
+or a fault is subsequently reported: those are current operational conflicts,
+not evidence that historical saved records are corrupt. BookingConflictTest
+covers shared endpoints, exclusion rules, returns, overdue loans and lending.

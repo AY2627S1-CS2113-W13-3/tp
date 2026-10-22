@@ -88,7 +88,7 @@ public class LabLog {
         this.borrowers = borrowers;
         this.loans = loans;
         this.otherHistory = otherHistory;
-        this.reservations = new ReservationBook(inventory, borrowers, clock);
+        this.reservations = new ReservationBook(inventory, borrowers, loans, faults, clock);
         this.reservationCommands = new ReservationCommands(reservations);
         this.equipmentAdd = new EquipmentAddCommands(inventory);
         this.equipmentCopy = new EquipmentCopyCommands(inventory);
@@ -105,7 +105,8 @@ public class LabLog {
         this.equipmentList = new EquipmentListCommands(inventory, loans, faults);
         this.equipmentFind = new EquipmentFindCommands(inventory, loans, faults);
         this.returns = new ReturnCommands(inventory, loans, clock);
-        this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers, faults);
+        this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers, faults,
+                reservations.getAvailability());
         this.borrowerCommands = new BorrowerCommands(borrowers, loans,
                 assetId -> inventory.getEquipmentUnits().stream()
                         .filter(unit -> unit.getAssetId().equals(assetId)).map(Equipment::getName)

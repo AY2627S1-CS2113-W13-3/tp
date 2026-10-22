@@ -22,6 +22,7 @@ public class LoanCommands {
     private final Clock clock;
     private final BorrowerBook borrowers;
     private final FaultBook faults;
+    private final BookingAvailability availability;
 
     /**
      * Connects loan issuing to shared records and a clock that tests can fix.
@@ -41,11 +42,18 @@ public class LoanCommands {
 
     /** Checks the shared fault book before lending equipment with a severe report. */
     public LoanCommands(Inventory inventory, LoanBook loans, Clock clock, BorrowerBook borrowers, FaultBook faults) {
+        this(inventory, loans, clock, borrowers, faults, null);
+    }
+
+    /** Applies the same reservation interval policy used by booking and renewal consumers. */
+    public LoanCommands(Inventory inventory, LoanBook loans, Clock clock, BorrowerBook borrowers, FaultBook faults,
+            BookingAvailability availability) {
         this.inventory = Objects.requireNonNull(inventory);
         this.loans = Objects.requireNonNull(loans);
         this.clock = Objects.requireNonNull(clock);
         this.borrowers = borrowers;
         this.faults = Objects.requireNonNull(faults);
+        this.availability = availability;
     }
 
     /**
@@ -82,6 +90,9 @@ public class LoanCommands {
         }
         LocalDate dueDate = readDueDate(fields.get("d"), today);
         rejectUnavailable(assetId);
+        if (availability != null) {
+            availability.requireAvailable(assetId, new DateWindow(today, dueDate), null, null);
+        }
         loans.addLoan(new Loan(assetId, borrowerId, today, dueDate));
         return "Loaned " + assetId + " (" + unit.getName() + ") to " + borrowerId
                 + " on " + today + ". Due " + dueDate + ".";
