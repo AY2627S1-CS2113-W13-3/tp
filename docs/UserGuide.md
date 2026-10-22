@@ -106,12 +106,24 @@ non-empty location. LabLog validates the full selection and destination before
 changing any unit, so an invalid ID or location leaves the whole batch
 unchanged. A successful batch is saved to the configured LabLog data file.
 
-### Listing equipment: `list`
+### Listing and filtering equipment: `list`
 
 Enter `list` in the main console to show asset ID, name, category, model,
-location, and availability for each registered unit. A unit is on loan when it
-has an active loan; returning it makes it available in the next listing.
-An empty inventory reports `No equipment registered.` No records are changed.
+location, and availability for each registered unit. Add any combination of
+category, location, and status filters:
+
+```text
+list [category/VALUE] [location/VALUE] [status/available|on-loan]
+```
+
+For example, `list category/Electronics location/Lab A status/available` shows
+electronics stored in Lab A that are not currently on loan. Category and
+location values match exactly, ignoring case; when combined, all supplied
+filters must match. Status is `on-loan` when a unit has an active loan and
+`available` otherwise. Reservation and fault history notes do not change loan
+availability. Results stay in registration order and filtering changes no
+records. An empty inventory reports `No equipment registered.` A filter with no
+matches reports `No equipment matches the supplied filters.`
 
 ### Finding one unit: `find`
 

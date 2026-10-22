@@ -39,6 +39,15 @@ class HelpCommandsTest {
     }
 
     @Test
+    void execute_listHelp_documentsFiltersAndAvailabilityRules() {
+        String detail = help.execute("help list");
+        assertTrue(detail.contains("Format: list [category/VALUE] [location/VALUE] [status/available|on-loan]"));
+        assertTrue(detail.contains("Example: list category/Electronics location/Lab A status/available"));
+        assertTrue(detail.contains("Match category and location exactly, ignoring case; combine any filters."));
+        assertTrue(detail.contains("reservation and fault notes do not change it"));
+    }
+
+    @Test
     void execute_copyHelpExplainsUniqueIdAndRecordBehavior() {
         String detail = help.execute("help copy");
         assertTrue(detail.contains("Format: copy SOURCE_ASSET_ID NEW_ASSET_ID"));
