@@ -296,7 +296,7 @@ public class LabLog {
                 }
                 continue;
             }
-            if (command.equals("reserve") || command.equals("reservations")) {
+            if (List.of("reserve", "reservations", "edit-reservation").contains(command)) {
                 try {
                     output.println(reservationCommands.execute(input));
                 } catch (IllegalArgumentException | IOException exception) {

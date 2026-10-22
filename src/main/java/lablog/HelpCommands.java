@@ -9,6 +9,7 @@ public class HelpCommands {
     private static final String USAGE = "Use: help [COMMAND]";
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "reserve ASSET_ID b/BORROWER_ID from/START to/END - Create a confirmed reservation.\n"
+            + "edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END] - Edit a booking.\n"
             + "reservations - List confirmed reservations and their IDs.\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
@@ -100,6 +101,12 @@ public class HelpCommands {
                     + "Dates are inclusive; start is today or later.\n"
                     + "Reservations persist and appear in history. Legacy notes are not bookings.\n"
                     + "Overlapping loans/bookings and unresolved severe faults are rejected. Endpoints are inclusive.";
+        case "edit-reservation":
+            return "Edit a saved booking, keeping its ID and equipment unchanged.\n"
+                    + "Format: edit-reservation RESERVATION_ID [b/BORROWER_ID] [from/START] [to/END]\n"
+                    + "Example: edit-reservation R-123 to/2099-01-05\n"
+                    + "Fields: Supply at least one field, once each; omitted values stay unchanged.\n"
+                    + "Conflicts exclude only this booking. Invalid input or failed saves preserve the original.";
         case "reservations":
             return "List saved bookings with IDs, units, users and inclusive periods.\n"
                     + "Format: reservations\nExample: reservations\nFields: None.";

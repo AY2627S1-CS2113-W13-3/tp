@@ -733,3 +733,12 @@ It does not reject persisted bookings merely because a loan later becomes overdu
 or a fault is subsequently reported: those are current operational conflicts,
 not evidence that historical saved records are corrupt. BookingConflictTest
 covers shared endpoints, exclusion rules, returns, overdue loans and lending.
+
+## Editing reservations (issue #80)
+
+ReservationBook.edit creates a replacement immutable record and excludes only
+its original ID from BookingAvailability. It validates all proposed fields and
+references before calling the existing snapshot saver, then replaces one item.
+This keeps old snapshots unchanged and prevents partial edits on validation or
+I/O failure. No schema change is needed. ReservationEditTest covers partial edits,
+self-exclusion, conflicts, date boundaries, failed persistence and restart.

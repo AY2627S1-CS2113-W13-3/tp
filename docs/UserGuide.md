@@ -536,3 +536,13 @@ Unresolved severe faults block reservations and lending for every period because
 there is no known repair completion date. Errors identify the conflicting booking
 or loan. The same rule applies even for the same borrower: cancel a reservation
 before issuing its loan. Legacy notes are not booking constraints.
+
+## Edit a reservation (US36)
+
+Use `edit-reservation RESERVATION_ID [b/BORROWER_ID] [from/START] [to/END]`.
+Find IDs with `reservations`. Supply at least one field, once each, in any order.
+Omitted fields stay unchanged; the unit and reservation ID remain stable.
+The intended borrower must be registered. Changed start dates cannot be past;
+an unchanged start may be past for an ongoing booking, but the new end must be
+today or later. The full proposed period is checked against all other bookings,
+loans and severe faults. A rejected edit or failed save leaves the original intact.
