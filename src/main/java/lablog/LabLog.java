@@ -33,6 +33,7 @@ public class LabLog {
     private final EquipmentEditCommands equipmentEdit;
     private final HistoryRecordCommands historyRecords;
     private final FaultBook faults;
+    private final RepairCommands repairs;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
@@ -77,6 +78,7 @@ public class LabLog {
     private LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory,
             Clock clock, BorrowerBook borrowers, FaultBook faults) {
         this.faults = faults;
+        this.repairs = new RepairCommands(faults, clock);
         this.inventory = inventory;
         this.borrowers = borrowers;
         this.loans = loans;
@@ -215,10 +217,10 @@ public class LabLog {
                 }
                 continue;
             }
-            if (List.of("reservation", "fault", "maintenance").contains(command)) {
+            if (List.of("reservation", "fault", "maintenance", "repair").contains(command)) {
                 try {
-                    String result = historyRecords.execute(input);
-                    if (command.equals("fault") && !saveChanges(output)) {
+                    String result = command.equals("repair") ? repairs.execute(input) : historyRecords.execute(input);
+                    if ((command.equals("fault") || command.equals("repair")) && !saveChanges(output)) {
                         return;
                     }
                     output.println(result);

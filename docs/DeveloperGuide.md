@@ -403,14 +403,14 @@ unchanged loan objects, restart persistence, invalid fields, and failed saves.
 ## Versioned export schema (issue #90)
 
 ApplicationSnapshot captures the supported object graph and uses LabLogStore's
-equipment/loan serializer. UTF-8 properties format 4 retains borrower.count and
+equipment/loan serializer. UTF-8 properties format 5 retains borrower.count and
 note.count with indexed fields. audit.count is explicitly zero until an audit
 domain schema exists. The codec validates references and dates before writing
 a temporary file and atomically replacing its destination. The export command
 requires a new file and protects the active data paths.
 
 Integration contract for domain owners: add full serialization, validation and
-round-trip tests for new reservation/repair/audit models, then bump the version.
+round-trip tests for new reservation/audit models, then bump the version.
 Do not serialize HistoryEntry display text as a substitute for full domain data.
 Import CLI integration follows in issue #91; envelope hardening is issue #92.
 
@@ -421,7 +421,7 @@ Import CLI integration follows in issue #91; envelope hardening is issue #92.
 Reports use UUID-based `F-...` IDs to avoid a separate persistent counter.
 `getFaults()` returns an immutable snapshot for future overview consumers;
 `Fault.toHistoryEntry()` includes the ID without storing duplicated history text.
-Issue #86 adds severity and lending restrictions below; repair transitions remain separate.
+Issues #86 and #87 add severity, lending restrictions and repair transitions below.
 
 `HistoryRecordCommands` retains the existing fault command syntax and date rules
 (including past and future dates). `LabLog` shares the store's fault book and saves
@@ -450,22 +450,61 @@ or misplaced field prefixes are rejected before any record is inserted.
 
 The agreed lending rule blocks equipment with a severe fault. `FaultBook`
 provides an immutable `getUnresolvedSevereFaults()` snapshot for US58 and
-`blocksLending(assetId)` for loan validation and availability displays. All
-reports are currently unresolved; #87 must extend the query to exclude repaired
-faults. Severity blocks immediately, independent of the report date. Existing
+`blocksLending(assetId)` for loan validation and availability displays. Resolved
+faults are excluded from this query. Severity blocks immediately, independent of the report date. Existing
 loans and returns remain valid; a return does not resolve a fault.
 
 `LabLog` supplies the same fault book to reporting, loan, list and find handlers.
 `LoanCommands` rejects severe faults before adding a loan. Listings show `On loan`
 for active loans, otherwise `Unavailable: severe fault` for affected units.
-Overview presentation and repair commands are not implemented by this change.
+Overview presentation is not implemented by this change; repairs are described below.
 
 Live and export format 4 adds required `fault.N.severity` enum names. Live
 formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
 migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
-unknown severity in format 4 is corruption, not a migration default. The next
-save/export writes format 4. Older app versions cannot read format 4.
+unknown severity in format 4 or later is corruption, not a migration default.
+The current writer uses format 5 as described below.
 
 `FaultSeverityTest` covers all levels, description validation, immutable overview
 results, affected-unit isolation, date boundaries, reports during active loans,
 return behavior, restart/export preservation, migration and malformed severity.
+
+## Fault repairs and resolution (issue #87)
+
+`RepairCommands` accepts `repair FAULT_ID d/YYYY-MM-DD desc/DETAILS`. Its injected
+clock checks that the date is not in the future in the application's local time
+zone. `Fault.resolve` rejects repeat resolution, a date before the report, or
+empty/multiline details. It returns a new immutable `Fault`, preserving the report
+ID, equipment ID, report date, description and severity. `FaultBook.resolve`
+replaces the matching record only after validation succeeds; existing snapshots
+retain their original values. Unknown IDs never change the book.
+
+Resolution state is derived from the optional resolution date; an unresolved
+record has no date and empty repair details. A resolved record requires both.
+There is one terminal unresolved-to-resolved transition. Reopening, editing a
+repair and multiple repair attempts against the same fault are outside scope.
+
+`Fault.toHistoryEntries()` returns the unchanged report entry and, after
+resolution, a separate `MAINTENANCE` entry on the repair date, linked by fault ID.
+`HistoryRecordCommands` supplies these entries to the existing chronological
+history display. The overview query excludes resolved severe faults, so loan,
+list and find handlers see updated availability immediately without cached state.
+Other unresolved severe faults and active loans continue to prevent lending.
+
+`LabLog` saves a repair before printing success. Save failure stops the session
+under the existing persistence policy, leaving the prior saved state unchanged.
+Live/export format 5 adds required `fault.N.resolved` and `fault.N.repair` fields;
+both are empty for unresolved reports. Resolved records store an ISO date and
+non-empty single-line details. Decoding rejects missing fields, partial repairs,
+invalid dates and resolution dates before the report. Current-date validation
+belongs to the command, not loading, so saved history is independent of the clock.
+Live formats 1, 3 and 4 and export formats 2, 3 and 4 remain readable. Older fault
+records become unresolved without losing their existing fields. Export stores
+domain fields only, avoiding duplicate report/repair notes. Older versions of
+the application cannot read format 5.
+
+`RepairCommandsTest` covers successful and same-day repairs, immutable original
+reports, rejected inputs and transitions, local-date boundaries, multiple severe
+faults, active loans, chronology, restart/export, migration, corrupt repairs and
+failed saves. Existing equipment-editing tests also verify integration with the
+current develop branch.

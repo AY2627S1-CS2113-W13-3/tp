@@ -11,6 +11,7 @@ public class HelpCommands {
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
             + "fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS - Report a persistent equipment fault.\n"
+            + "repair FAULT_ID d/DATE desc/DETAILS - Record a repair and resolve one fault.\n"
             + "list - List registered equipment and availability (main console).\n"
             + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
             + "Edit equipment details (main console).\n"
@@ -63,7 +64,7 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 4 includes fault severity and current history notes.\n"
+                    + "Snapshot format 5 includes fault severity, repairs and current history notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected.";
         case "add":
@@ -88,7 +89,16 @@ public class HelpCommands {
                     + "Severity: minor, moderate, or severe (case-insensitive); omission means unspecified.\n"
                     + "Put s/ before desc/; repeated fields are rejected.\n"
                     + "Severe faults block new loans immediately, even for future report dates.\n"
-                    + "Returns remain allowed and do not clear faults. Repair commands are not yet included.";
+                    + "Returns remain allowed and do not clear faults. Use repair to resolve an identified fault.";
+        case "repair":
+            return "Record a completed repair and resolve one unresolved fault.\n"
+                    + "Format: repair FAULT_ID d/YYYY-MM-DD desc/DETAILS\n"
+                    + "Example: repair F-123 d/2026-10-22 desc/Replaced cracked screen\n"
+                    + "Replace F-123 with the fault ID shown by fault reporting or equipment history.\n"
+                    + "The date must be on or after the report and no later than today in the local time zone.\n"
+                    + "Details must be non-empty and single-line; supply each field once in the shown order.\n"
+                    + "Unknown IDs and already resolved faults are rejected without changes.\n"
+                    + "History retains the report and a dated repair entry. Other severe faults still block loans.";
         case "reservation":
         case "maintenance":
             return "Record a dated equipment history note.\nFormat: " + parts[1]

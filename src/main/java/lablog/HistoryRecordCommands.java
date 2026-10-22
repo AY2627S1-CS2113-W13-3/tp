@@ -81,7 +81,7 @@ public class HistoryRecordCommands {
     /** Supplies an immutable snapshot to the combined history display. */
     public List<HistoryEntry> getEntries() {
         List<HistoryEntry> combined = new ArrayList<>(entries);
-        faults.getFaults().stream().map(Fault::toHistoryEntry).forEach(combined::add);
+        faults.getFaults().stream().flatMap(fault -> fault.toHistoryEntries().stream()).forEach(combined::add);
         return List.copyOf(combined);
     }
 }
