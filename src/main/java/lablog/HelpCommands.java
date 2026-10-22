@@ -9,7 +9,8 @@ public class HelpCommands {
     private static final String USAGE = "Use: help [COMMAND]";
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
-            + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
+            + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
+            + "fault ASSET_ID d/DATE desc/DETAILS - Report a persistent equipment fault.\n"
             + "list - List registered equipment and availability (main console).\n"
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans - List all active loans and overdue status (main console).\n"
@@ -60,7 +61,7 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 2 supports current reservation, fault and maintenance notes.\n"
+                    + "Snapshot format 3 includes structured faults and current history notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected.";
         case "add":
@@ -69,8 +70,14 @@ public class HelpCommands {
                     + "  Register a unit with all four required fields, in any order.\n"
                     + "Example: add OSC-001\n  Start the four-prompt registration wizard instead.\n"
                     + "Unknown commands and bare asset IDs are rejected; use add to begin registration.";
-        case "reservation":
         case "fault":
+            return "Report a fault for registered equipment.\n"
+                    + "Format: fault ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION\n"
+                    + "Example: fault OSC-001 d/2026-10-14 desc/Cracked screen\n"
+                    + "Use a real date and a non-empty single-line description. Dates may be past or future.\n"
+                    + "The fault ID is shown on success and in history; reports survive restarts and exports.\n"
+                    + "Reports do not change lending availability. Severity and repair commands are not included.";
+        case "reservation":
         case "maintenance":
             return "Record a dated equipment history note.\nFormat: " + parts[1]
                     + " ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION\nExample: " + parts[1]

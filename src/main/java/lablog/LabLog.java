@@ -31,6 +31,7 @@ public class LabLog {
     private final BorrowerCommands borrowerCommands;
     private final EquipmentAddCommands equipmentAdd;
     private final HistoryRecordCommands historyRecords;
+    private final FaultBook faults;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
@@ -68,12 +69,19 @@ public class LabLog {
     /** Connects both command groups to the same equipment, loans, and borrower records. */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory,
             Clock clock, BorrowerBook borrowers) {
+        this(inventory, loans, otherHistory, clock, borrowers, new FaultBook(inventory));
+    }
+
+    /** Shares the store's fault book so commands, history and saves see the same reports. */
+    private LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory,
+            Clock clock, BorrowerBook borrowers, FaultBook faults) {
+        this.faults = faults;
         this.inventory = inventory;
         this.borrowers = borrowers;
         this.loans = loans;
         this.otherHistory = otherHistory;
         this.equipmentAdd = new EquipmentAddCommands(inventory);
-        this.historyRecords = new HistoryRecordCommands(inventory);
+        this.historyRecords = new HistoryRecordCommands(inventory, faults);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
             List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
@@ -113,7 +121,7 @@ public class LabLog {
         Path borrowerFile = file.toAbsolutePath().resolveSibling("borrowers.properties");
         BorrowerBook borrowers = new BorrowerBook(borrowerFile);
         LabLog application = new LabLog(store.getInventory(), store.getLoans(), List::of,
-                Clock.systemDefaultZone(), borrowers);
+                Clock.systemDefaultZone(), borrowers, store.getFaults());
         application.store = store;
         application.dataFile = file.toAbsolutePath().normalize();
         return application;
@@ -135,8 +143,9 @@ public class LabLog {
                     + " Choose a new file.");
         }
         List<HistoryEntry> notes = new ArrayList<>(otherHistory.get());
-        notes.addAll(historyRecords.getEntries());
-        new ApplicationSnapshot(inventory.getEquipmentUnits(), borrowers.getBorrowers(), loans.getLoans(), notes)
+        notes.addAll(historyRecords.getNotes());
+        new ApplicationSnapshot(inventory.getEquipmentUnits(), borrowers.getBorrowers(), loans.getLoans(), notes,
+                faults.getFaults())
                 .write(path);
         return "Exported application data to " + path + ".";
     }
@@ -206,7 +215,11 @@ public class LabLog {
             }
             if (List.of("reservation", "fault", "maintenance").contains(command)) {
                 try {
-                    output.println(historyRecords.execute(input));
+                    String result = historyRecords.execute(input);
+                    if (command.equals("fault") && !saveChanges(output)) {
+                        return;
+                    }
+                    output.println(result);
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }

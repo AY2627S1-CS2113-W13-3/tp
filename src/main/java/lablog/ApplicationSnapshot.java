@@ -22,14 +22,26 @@ public class ApplicationSnapshot {
     private final List<Borrower> borrowers;
     private final List<Loan> loans;
     private final List<HistoryEntry> notes;
+    private final List<Fault> faults;
 
     /** Captures supported records; serialization validates the complete graph again. */
     public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
             List<Loan> loans, List<HistoryEntry> notes) {
+        this(equipment, borrowers, loans, notes, List.of());
+    }
+
+    /** Captures structured fault records separately from display-only history notes. */
+    public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
+            List<Loan> loans, List<HistoryEntry> notes, List<Fault> faults) {
+        this.faults = List.copyOf(faults);
         this.equipment = List.copyOf(equipment);
         this.borrowers = List.copyOf(borrowers);
         this.loans = List.copyOf(loans);
         this.notes = List.copyOf(notes);
+    }
+
+    public List<Fault> getFaults() {
+        return faults;
     }
 
     public List<Equipment> getEquipment() {
@@ -59,7 +71,7 @@ public class ApplicationSnapshot {
         return records;
     }
 
-    /** Reads transfer format 2; legacy two-file data is handled only by the application loader. */
+    /** Reads transfer formats 2 and 3; legacy two-file data is handled only by the application loader. */
     public static ApplicationSnapshot read(Path file) throws IOException {
         return decode(readProperties(file));
     }
@@ -67,8 +79,8 @@ public class ApplicationSnapshot {
     /** Validates supported records and their references independently of live data. */
     static ApplicationSnapshot decode(Properties records) throws IOException {
         try {
-            if (!"2".equals(required(records, "format"))) {
-                throw new IllegalArgumentException("Unsupported snapshot format; expected 2.");
+            if (!Set.of("2", "3").contains(required(records, "format"))) {
+                throw new IllegalArgumentException("Unsupported snapshot format; expected 2 or 3.");
             }
             LabLogStore base = new LabLogStore(records);
             List<Borrower> borrowers = new ArrayList<>();
@@ -106,7 +118,7 @@ public class ApplicationSnapshot {
                 throw new IllegalArgumentException("Audit records are not supported by this schema version.");
             }
             ApplicationSnapshot result = new ApplicationSnapshot(base.getInventory().getEquipmentUnits(), borrowers,
-                    base.getLoans().getLoans(), notes);
+                    base.getLoans().getLoans(), notes, base.getFaults().getFaults());
             return result;
         } catch (IllegalArgumentException | DateTimeException exception) {
             throw new IOException("Invalid snapshot: " + exception.getMessage(), exception);
@@ -121,8 +133,9 @@ public class ApplicationSnapshot {
         LabLogStore base = new LabLogStore(empty);
         base.getInventory().replaceAll(equipment);
         base.getLoans().replaceAll(loans);
+        faults.forEach(base.getFaults()::add);
         Properties records = base.toProperties();
-        records.setProperty("format", "2");
+        records.setProperty("format", "3");
         records.setProperty("borrower.count", Integer.toString(borrowers.size()));
         records.setProperty("note.count", Integer.toString(notes.size()));
         records.setProperty("audit.count", "0");
@@ -160,7 +173,7 @@ public class ApplicationSnapshot {
         Path temporary = Files.createTempFile(file.getParent(), "snapshot-", ".tmp");
         try {
             try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
-                records.store(writer, "LabLog complete snapshot, format 2");
+                records.store(writer, "LabLog complete snapshot, format 3");
             }
             if (Files.size(temporary) > MAX_BYTES) {
                 throw new IOException("Snapshot exceeds the supported 10 MiB size limit.");

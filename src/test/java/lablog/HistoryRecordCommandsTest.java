@@ -1,6 +1,5 @@
 package lablog;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,7 +24,7 @@ class HistoryRecordCommandsTest {
         }
         assertTrue(commands.getEntries().isEmpty());
         commands.execute("fault OSC-001 d/2026-10-14 desc/Cracked screen");
-        assertEquals("Cracked screen", commands.getEntries().get(0).getDescription());
+        assertTrue(commands.getEntries().get(0).getDescription().endsWith(": Cracked screen"));
     }
 
     @Test

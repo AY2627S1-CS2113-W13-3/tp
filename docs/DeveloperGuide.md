@@ -238,10 +238,10 @@ records produces `No history found for ASSET_ID - NAME.` instead.
 
 #### Integration with other features
 
-`HistoryRecordCommands` creates reservation, fault, and maintenance notes. Other
+`HistoryRecordCommands` creates structured faults and reservation/maintenance notes. Other
 features can also supply snapshots through `Supplier<List<HistoryEntry>>`. The
 supplier must return a non-null list and must not duplicate loans already read
-from `LoanBook`. It should read current records on every call, include relevant
+from `LoanBook` or faults already read from `FaultBook`. It should read current records on every call, include relevant
 status and end dates in descriptions, and retain closed or cancelled records when
 appropriate. Entries may cover multiple assets; the handler filters them.
 
@@ -311,7 +311,7 @@ return commands before changing records. Save borrower additions atomically
 before updating memory. These behaviors are covered by automated tests.
 
 Current limitations: the standalone borrower console has its own initially
-empty loan book; reservation, fault, and maintenance history notes are held only
+empty loan book; reservation and maintenance history notes are held only
 for the session; and concurrent writers to the same data files are unsupported.
 Return fault descriptions are stored in loan history and do not create a
 separate fault note.
@@ -392,13 +392,39 @@ unchanged loan objects, restart persistence, invalid fields, and failed saves.
 ## Versioned export schema (issue #90)
 
 ApplicationSnapshot captures the supported object graph and uses LabLogStore's
-equipment/loan serializer. UTF-8 properties format 2 adds borrower.count and
+equipment/loan serializer. UTF-8 properties format 3 retains borrower.count and
 note.count with indexed fields. audit.count is explicitly zero until an audit
 domain schema exists. The codec validates references and dates before writing
 a temporary file and atomically replacing its destination. The export command
 requires a new file and protects the active data paths.
 
 Integration contract for domain owners: add full serialization, validation and
-round-trip tests for new reservation/fault/audit models, then bump the version.
+round-trip tests for new reservation/repair/severity/audit models, then bump the version.
 Do not serialize HistoryEntry display text as a substitute for full domain data.
 Import CLI integration follows in issue #91; envelope hardening is issue #92.
+
+## Structured fault reports (issue #85)
+
+`Fault` holds an immutable ID, registered asset ID, report date and description.
+`FaultBook` owns the records and checks equipment references and duplicate IDs.
+Reports use UUID-based `F-...` IDs to avoid a separate persistent counter.
+`getFaults()` returns an immutable snapshot for future overview consumers;
+`Fault.toHistoryEntry()` includes the ID without storing duplicated history text.
+Severity, repair transitions and availability changes are outside this feature.
+
+`HistoryRecordCommands` retains the existing fault command syntax and date rules
+(including past and future dates). `LabLog` shares the store's fault book and saves
+before printing success. A save failure stops the session using the existing
+failure policy; the previous saved data remains unchanged.
+
+Live data format 3 adds `fault.count` and indexed `fault.N.id`, `asset`, `date`
+and `description` fields. Format 1 live files load with an empty fault book and
+upgrade on the next save. Borrowers retain their existing separate live file.
+Export format 3 includes the same fault fields alongside borrowers and notes.
+The export reader also accepts format 2, retaining legacy fault notes as notes;
+no import command or automatic conversion of exported notes is introduced here.
+Derived fault history is excluded from exported notes to prevent duplication.
+
+`FaultReportingTest` covers multiple reports, date boundaries, invalid input,
+immutable views, stable IDs across restart/export, broken saved references,
+duplicate IDs, legacy loading, and failed-save behavior.
