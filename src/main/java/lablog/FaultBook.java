@@ -49,12 +49,23 @@ public class FaultBook {
         faults.addAll(validated.getFaults());
     }
 
-    /**
-     * Supplies the overview's severe reports. All current reports are unresolved;
-     * the repair feature must extend this filter when resolution becomes available.
-     */
+    /** Replaces exactly one unresolved fault after validating all repair details. */
+    public Fault resolve(String faultId, LocalDate date, String details) {
+        for (int index = 0; index < faults.size(); index++) {
+            Fault fault = faults.get(index);
+            if (fault.getId().equals(faultId)) {
+                Fault resolved = fault.resolve(date, details);
+                faults.set(index, resolved);
+                return resolved;
+            }
+        }
+        throw new IllegalArgumentException("Fault " + faultId + " was not found.");
+    }
+
+    /** Supplies only unresolved severe reports to the operational overview. */
     public List<Fault> getUnresolvedSevereFaults() {
-        return faults.stream().filter(fault -> fault.getSeverity() == Fault.Severity.SEVERE).toList();
+        return faults.stream().filter(fault -> fault.getSeverity() == Fault.Severity.SEVERE && !fault.isResolved())
+                .toList();
     }
 
     /** Severe reports block new lending immediately, regardless of their recorded date. */

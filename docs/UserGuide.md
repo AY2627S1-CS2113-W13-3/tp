@@ -144,7 +144,7 @@ or prevent loans. Reservation and maintenance notes are lost when the session en
 Fault reports receive a unique `F-...` ID shown on success and in history. They
 are saved across restarts and included in exports. Multiple reports for the same
 equipment are allowed, each with its own ID. Past and future dates are accepted,
-as with the original dated notes. Repair commands are not yet included.
+as with the original dated notes. Use `repair` to resolve an identified fault.
 
 ### Recording fault severity and description
 
@@ -169,10 +169,38 @@ avoid silently accepting misplaced or repeated fields. Invalid input creates no
 report. Confirmation and history include the severity, which survives restarts
 and exports. Older fault records without a severity remain unspecified.
 
-All current fault reports are unresolved. Severe faults block new loans
+New fault reports are unresolved. Unresolved severe faults block new loans
 immediately, including reports with future dates. Existing loans remain active
 and can be returned, but returning a unit does not clear its severe faults.
-Fault resolution belongs to the separate repair feature (#87).
+Use the repair command below to resolve a fault after completing its repair.
+
+### Recording repairs and resolving faults: `repair`
+
+Enter `repair FAULT_ID d/YYYY-MM-DD desc/DETAILS` in the main console. For example:
+
+```text
+repair F-123 d/2026-10-22 desc/Replaced cracked screen
+```
+
+Replace `F-123` with the actual fault ID from the report confirmation or
+`history ASSET_ID`. The ID identifies a single fault, not the equipment unit.
+The repair date must be a real date on or after the report date and no later
+than today in the application's local time zone. Same-day repairs are accepted.
+Repair details must be non-empty and single-line. Put `d/` before `desc/` and
+supply each field once; standalone `d/` and `desc/` prefixes inside the details
+are rejected as repeated fields.
+
+Unknown IDs, already resolved faults, invalid dates and invalid details leave
+records unchanged. Successful repairs retain the original report and add a
+dated `MAINTENANCE` history entry naming the resolved fault and repair details.
+Both entries survive restarts and exports. Repairs cannot be undone or repeated;
+report a new fault if a repaired problem occurs again.
+
+Resolving the last unresolved severe fault removes that equipment's fault-based
+lending restriction immediately. Other unresolved severe faults still block
+lending, and an active loan still makes the unit unavailable. Repairs do not
+return a loan. If saving fails, the session stops without reporting success;
+the previous saved state remains unchanged.
 
 ### Listing all active loans: `active-loans`
 
@@ -370,6 +398,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 
 | `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
 | `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
+| `repair FAULT_ID d/DATE desc/DETAILS` | Main | Resolve a fault and retain its repair history |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
 | `exit` | Main | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
