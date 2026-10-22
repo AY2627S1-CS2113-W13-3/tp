@@ -40,6 +40,8 @@ public class LabLog {
     private final ReservationBook reservations;
     private final ReservationCommands reservationCommands;
     private final AvailableEquipmentCommands availableEquipment;
+    private final WaitingRequestBook waiting;
+    private final WaitingRequestCommands waitingCommands;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
@@ -91,6 +93,8 @@ public class LabLog {
         this.otherHistory = otherHistory;
         this.reservations = new ReservationBook(inventory, borrowers, loans, faults, clock);
         this.reservationCommands = new ReservationCommands(reservations);
+        this.waiting = new WaitingRequestBook(inventory, borrowers, faults, reservations.getAvailability(), clock);
+        this.waitingCommands = new WaitingRequestCommands(waiting);
         this.availableEquipment = new AvailableEquipmentCommands(reservations.getAvailability());
         this.equipmentAdd = new EquipmentAddCommands(inventory);
         this.equipmentCopy = new EquipmentCopyCommands(inventory);
@@ -142,6 +146,7 @@ public class LabLog {
         BorrowerBook borrowers = new BorrowerBook();
         List<HistoryEntry> notes = List.of();
         List<Reservation> bookings = List.of();
+        List<WaitingRequest> waitingRequests = List.of();
         Properties records = Files.exists(absolute) ? ApplicationSnapshot.readProperties(absolute) : null;
         if (records != null && ("2".equals(records.getProperty("format"))
                 || records.containsKey("borrower.count"))) {
@@ -153,6 +158,7 @@ public class LabLog {
             borrowers.replaceAll(snapshot.getBorrowers());
             notes = snapshot.getNotes();
             bookings = snapshot.getReservations();
+            waitingRequests = snapshot.getWaitingRequests();
             faults = new FaultBook(inventory);
             faults.replaceAll(snapshot.getFaults());
         } else {
@@ -167,6 +173,9 @@ public class LabLog {
         application.dataFile = absolute;
         application.historyRecords.replaceAll(notes);
         application.reservations.replaceAll(bookings);
+        application.waiting.replaceAll(waitingRequests);
+        application.waiting.setSaver(proposed -> application.snapshot(borrowers.getBorrowers(),
+                application.reservations.getReservations(), proposed).write(absolute));
         application.reservations.setSaver(proposed -> application.snapshot(borrowers.getBorrowers(), proposed)
                 .write(absolute));
         // Persist proposed borrowers in the same atomic file as their equipment and loan references.
@@ -181,10 +190,16 @@ public class LabLog {
 
     /** Saves a proposed booking change before publishing it to the shared book. */
     private ApplicationSnapshot snapshot(List<Borrower> proposedBorrowers, List<Reservation> proposedReservations) {
+        return snapshot(proposedBorrowers, proposedReservations, waiting.getRequests());
+    }
+
+    /** Saves proposed demand without changing confirmed reservations. */
+    private ApplicationSnapshot snapshot(List<Borrower> proposedBorrowers, List<Reservation> proposedReservations,
+            List<WaitingRequest> proposedWaiting) {
         List<HistoryEntry> notes = new ArrayList<>(otherHistory.get());
         notes.addAll(historyRecords.getNotes());
         return new ApplicationSnapshot(inventory.getEquipmentUnits(), proposedBorrowers, loans.getLoans(), notes,
-                faults.getFaults(), proposedReservations);
+                faults.getFaults(), proposedReservations, proposedWaiting);
     }
 
     /** Validates and saves an import before replacing any of the shared live books. */
@@ -202,6 +217,7 @@ public class LabLog {
         historyRecords.replaceAll(replacement.getNotes());
         faults.replaceAll(replacement.getFaults());
         reservations.replaceAll(replacement.getReservations());
+        waiting.replaceAll(replacement.getWaitingRequests());
     }
 
     /** Uses explicit replacement syntax and never overwrites an existing export destination. */
@@ -305,6 +321,15 @@ public class LabLog {
                 } catch (IllegalArgumentException | IOException exception) {
                     output.println("Error: " + exception.getMessage());
                     output.println("Reservations were not changed.");
+                }
+                continue;
+            }
+            if (command.equals("wait-request") || command.equals("waiting-requests")) {
+                try {
+                    output.println(waitingCommands.execute(input));
+                } catch (IllegalArgumentException | IOException exception) {
+                    output.println("Error: " + exception.getMessage());
+                    output.println("Waiting requests were not changed.");
                 }
                 continue;
             }

@@ -12,6 +12,8 @@ public class HelpCommands {
             + "edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END] - Edit a booking.\n"
             + "cancel-reservation RESERVATION_ID reason/TEXT - Cancel a booking and retain its history.\n"
             + "available from/START to/END [category/CATEGORY] - Find units free throughout an interval.\n"
+            + "wait-request b/USER category/CATEGORY from/START to/END - Record unallocated demand.\n"
+            + "waiting-requests - List waiting requests; these do not reserve units.\n"
             + "reservations - List reservations, status and IDs.\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
@@ -74,13 +76,13 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 7 includes fault severity, repairs and current history notes.\n"
+                    + "Snapshot format 8 includes fault severity, repairs and current history notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected for every supported version, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
-                    + "Fields: FILE is a format-2 through 7 snapshot; --replace explicitly requests replacement,\n"
+                    + "Fields: FILE is a format-2 through 8 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"
@@ -95,6 +97,16 @@ public class HelpCommands {
             return "Display a recent command for copying or editing; never execute it automatically.\n"
                     + "Format: recall INDEX\nExample: recall 1\nFields: INDEX comes from commands.\n"
                     + "Copy or edit the displayed command, then submit it explicitly to execute.";
+        case "wait-request":
+            return "Record unallocated demand when all suitable units in a category are booked.\n"
+                    + "Format: wait-request b/USER category/CATEGORY from/START to/END\n"
+                    + "Dates are inclusive ISO dates starting today or later; the borrower must be registered.\n"
+                    + "Example: wait-request b/A0123456X category/Electronics from/2099-01-01 to/2099-01-02\n"
+                    + "Rejects duplicate demand, unknown categories and available capacity. No automatic allocation.";
+        case "waiting-requests":
+            return "Format: waiting-requests"
+                    + "\nList saved demand with IDs, users, categories, periods and WAITING status.\n"
+                    + "These are not confirmed reservations and remain waiting when capacity becomes available.";
         case "reserve":
             return "Create a structured booking for a registered unit and borrower.\n"
                     + "Format: reserve ASSET_ID b/BORROWER_ID from/YYYY-MM-DD to/YYYY-MM-DD\n"

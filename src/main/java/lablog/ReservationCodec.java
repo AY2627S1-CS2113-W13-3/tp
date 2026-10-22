@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-/** Stores complete booking fields in snapshot format 6, keeping display notes separate. */
+/** Stores complete booking fields in snapshot formats 6 and later, keeping display notes separate. */
 final class ReservationCodec {
     private ReservationCodec() {
     }
@@ -19,9 +19,9 @@ final class ReservationCodec {
         List<Reservation> result = new ArrayList<>();
         for (int index = 0; index < count; index++) {
             String key = "reservation." + index + ".";
-            String cancelled = "7".equals(records.getProperty("format"))
+            String cancelled = !"6".equals(records.getProperty("format"))
                     ? required(records, key + "cancelled") : "";
-            String reason = "7".equals(records.getProperty("format")) ? required(records, key + "reason") : "";
+            String reason = !"6".equals(records.getProperty("format")) ? required(records, key + "reason") : "";
             result.add(new Reservation(required(records, key + "id"), required(records, key + "asset"),
                     required(records, key + "borrower"),
                     DateWindow.parse(required(records, key + "from"), required(records, key + "to")),

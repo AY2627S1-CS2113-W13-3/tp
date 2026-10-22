@@ -26,6 +26,7 @@ public class ApplicationSnapshot {
     private final List<HistoryEntry> notes;
     private final List<Fault> faults;
     private final List<Reservation> reservations;
+    private final List<WaitingRequest> waiting;
 
     /** Captures supported records; serialization validates the complete graph again. */
     public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
@@ -42,12 +43,24 @@ public class ApplicationSnapshot {
     /** Captures confirmed reservations alongside every previously supported record type. */
     public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
             List<Loan> loans, List<HistoryEntry> notes, List<Fault> faults, List<Reservation> reservations) {
+        this(equipment, borrowers, loans, notes, faults, reservations, List.of());
+    }
+
+    /** Captures waiting demand separately from bookings, preserving both in one atomic snapshot. */
+    public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
+            List<Loan> loans, List<HistoryEntry> notes, List<Fault> faults, List<Reservation> reservations,
+            List<WaitingRequest> waiting) {
+        this.waiting = List.copyOf(waiting);
         this.reservations = List.copyOf(reservations);
         this.faults = List.copyOf(faults);
         this.equipment = List.copyOf(equipment);
         this.borrowers = List.copyOf(borrowers);
         this.loans = List.copyOf(loans);
         this.notes = List.copyOf(notes);
+    }
+
+    public List<WaitingRequest> getWaitingRequests() {
+        return waiting;
     }
 
     public List<Reservation> getReservations() {
@@ -90,7 +103,7 @@ public class ApplicationSnapshot {
         return parsed;
     }
 
-    /** Reads transfer formats 2 through 7; legacy two-file data is handled only by the application loader. */
+    /** Reads transfer formats 2 through 8; legacy two-file data is handled only by the application loader. */
     public static ApplicationSnapshot read(Path file) throws IOException {
         return decode(readProperties(file));
     }
@@ -106,8 +119,8 @@ public class ApplicationSnapshot {
      */
     static ApplicationSnapshot decode(Properties records) throws IOException {
         try {
-            if (!Set.of("2", "3", "4", "5", "6", "7").contains(required(records, "format"))) {
-                throw new IllegalArgumentException("Unsupported snapshot format; expected 2, 3, 4, 5, 6 or 7.");
+            if (!Set.of("2", "3", "4", "5", "6", "7", "8").contains(required(records, "format"))) {
+                throw new IllegalArgumentException("Unsupported snapshot format; expected 2, 3, 4, 5, 6, 7 or 8.");
             }
             LabLogStore base = new LabLogStore(records);
             List<Borrower> borrowers = new ArrayList<>();
@@ -148,11 +161,15 @@ public class ApplicationSnapshot {
             borrowerBook.replaceAll(borrowers);
             ReservationBook bookingBook = new ReservationBook(base.getInventory(), borrowerBook,
                     Clock.systemDefaultZone());
-            if (Set.of("6", "7").contains(records.getProperty("format"))) {
+            if (Set.of("6", "7", "8").contains(records.getProperty("format"))) {
                 bookingBook.replaceAll(ReservationCodec.read(records));
             }
+            List<WaitingRequest> waiting = records.getProperty("format").equals("8")
+                    ? WaitingRequestCodec.read(records) : List.of();
+            WaitingRequestBook.validate(waiting, borrowerBook);
             ApplicationSnapshot result = new ApplicationSnapshot(base.getInventory().getEquipmentUnits(), borrowers,
-                    base.getLoans().getLoans(), notes, base.getFaults().getFaults(), bookingBook.getReservations());
+                    base.getLoans().getLoans(), notes, base.getFaults().getFaults(),
+                    bookingBook.getReservations(), waiting);
             // Derive accepted keys from the export schema to keep read and write support in agreement.
             Set<String> unknownFields = new TreeSet<>(records.stringPropertyNames());
             unknownFields.removeAll(result.acceptedFields(records.getProperty("format")));
@@ -174,17 +191,20 @@ public class ApplicationSnapshot {
             if (format.equals("3")) {
                 accepted.removeIf(key -> key.startsWith("fault.") && key.endsWith(".severity"));
             }
-            if (!Set.of("5", "6", "7").contains(format)) {
+            if (!Set.of("5", "6", "7", "8").contains(format)) {
                 accepted.removeIf(key -> key.startsWith("fault.")
                         && (key.endsWith(".resolved") || key.endsWith(".repair")));
             }
         }
-        if (!Set.of("6", "7").contains(format)) {
+        if (!Set.of("6", "7", "8").contains(format)) {
             accepted.removeIf(key -> key.startsWith("reservation."));
         }
         if (format.equals("6")) {
             accepted.removeIf(key -> key.startsWith("reservation.")
                     && (key.endsWith(".cancelled") || key.endsWith(".reason")));
+        }
+        if (!format.equals("8")) {
+            accepted.removeIf(key -> key.startsWith("waiting."));
         }
         return accepted;
     }
@@ -199,7 +219,8 @@ public class ApplicationSnapshot {
         base.getLoans().replaceAll(loans);
         faults.forEach(base.getFaults()::add);
         Properties records = base.toProperties();
-        records.setProperty("format", "7");
+        records.setProperty("format", "8");
+        WaitingRequestCodec.write(records, waiting);
         ReservationCodec.write(records, reservations);
         records.setProperty("borrower.count", Integer.toString(borrowers.size()));
         records.setProperty("note.count", Integer.toString(notes.size()));
@@ -238,7 +259,7 @@ public class ApplicationSnapshot {
         Path temporary = Files.createTempFile(file.getParent(), "snapshot-", ".tmp");
         try {
             try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
-                records.store(writer, "LabLog complete snapshot, format 7");
+                records.store(writer, "LabLog complete snapshot, format 8");
             }
             if (Files.size(temporary) > MAX_BYTES) {
                 throw new IOException("Snapshot exceeds the supported 10 MiB size limit.");

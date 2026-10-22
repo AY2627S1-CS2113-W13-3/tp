@@ -444,8 +444,8 @@ For example: import backups/lablog.properties --replace. Paths may contain space
 and may be enclosed in double quotes. A successful import takes effect immediately
 and survives restart. Missing --replace or invalid records cause an error.
 
-The main console now saves one format-6 file containing equipment, borrowers,
-loans, returns, structured faults, repairs and history notes. It also loads legacy equipment/loan data with
+The main console now saves one format-8 file containing equipment, borrowers,
+loans, returns, structured faults, repairs, history notes, reservations and waiting requests. It also loads legacy equipment/loan data with
 the sibling borrowers.properties and migrates on the next successful save.
 That old borrower file is retained, but is no longer read after migration.
 The standalone borrower console continues to use its own borrower file; it no
@@ -506,7 +506,7 @@ and a shared endpoint is occupied by both periods. Start dates cannot be before
 today. `reservations` lists stable reservation IDs; `history ASSET_ID` shows the
 period and intended borrower. Invalid input or a failed save changes no bookings.
 
-These are structured records in snapshot format 6, preserved by restart, export
+These are structured records introduced in snapshot format 6, preserved by restart, export
 and replacement import. Older formats load with no bookings. The existing
 `reservation ... d/DATE desc/TEXT` command remains a history note and cannot
 reserve a unit. Overlapping reservations and loans are rejected.
@@ -553,3 +553,27 @@ ordered by asset ID. Every listed unit is free for the entire interval under the
 same loan, reservation and severe-fault rules used by booking. Cancelled bookings
 are ignored. This is a read-only query, not a reservation or a guarantee against
 later changes. Invalid queries are rejected even when inventory is empty.
+
+
+## Record waiting demand (US39)
+
+Use `wait-request b/A0123456X category/Lab Electronics from/2099-01-01 to/2099-01-02`
+when every operationally suitable unit in that category is booked for at least
+part of the requested interval. Categories match exactly ignoring case and can
+contain spaces. The borrower must be registered. Dates use YYYY-MM-DD, include
+both endpoints, allow a same-day request and must start today or later.
+
+`waiting-requests` lists IDs, users, categories, periods and WAITING status.
+These requests do not reserve a unit, change loans, or block availability.
+They remain waiting if capacity becomes available; there is no automatic
+allocation or conversion. Check `available` and explicitly create a reservation
+when appropriate. Resolving/removing waiting requests is outside this version.
+
+Missing or repeated fields, invalid dates, an unknown borrower, duplicate demand
+(same user, category and dates), unknown categories and available capacity are
+rejected without changes. A category containing only severely faulty units is
+not considered fully booked: it has no operationally suitable units.
+
+Format 8 saves waiting requests separately from reservations and preserves both
+through restart, export and import. Formats 2 through 7 remain readable with an
+empty waiting list. Validation or save failure leaves previous records intact.

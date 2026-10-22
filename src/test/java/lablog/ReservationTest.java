@@ -122,6 +122,7 @@ class ReservationTest {
         Properties legacy = new ApplicationSnapshot(List.of(), List.of(), List.of(), List.of()).toProperties();
         legacy.setProperty("format", "5");
         legacy.remove("reservation.count");
+        legacy.remove("waiting.count");
         assertTrue(ApplicationSnapshot.decode(legacy).getReservations().isEmpty());
         String saved = Files.readString(live);
         Files.delete(live);
