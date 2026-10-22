@@ -3,6 +3,8 @@ package lablog;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.List;
+import java.util.Comparator;
 
 /** Shared interval conflict rules for booking, lending, renewal and availability queries. */
 public class BookingAvailability {
@@ -54,6 +56,20 @@ public class BookingAvailability {
             }
         }
         return Optional.empty();
+    }
+
+    /** Returns an immutable, deterministic snapshot of units free throughout the requested future period. */
+    public List<Equipment> availableUnits(DateWindow window, String category) {
+        window.requireNotPast(LocalDate.now(clock));
+        if (category != null && (category.isBlank() || category.chars().anyMatch(Character::isISOControl))) {
+            throw new IllegalArgumentException("Supply a non-empty single-line category.");
+        }
+        return inventory.getEquipmentUnits().stream()
+                .filter(unit -> category == null || unit.getCategory().equalsIgnoreCase(category))
+                .filter(unit -> conflict(unit.getAssetId(), window, null, null).isEmpty())
+                .sorted(Comparator.comparing(Equipment::getAssetId, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(Equipment::getAssetId))
+                .toList();
     }
 
     /** Rejects a new or edited transaction before its caller saves or publishes any change. */
