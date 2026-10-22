@@ -21,10 +21,17 @@ public class EquipmentListCommands {
 
     private final Inventory inventory;
     private final LoanBook loans;
+    private final FaultBook faults;
 
     public EquipmentListCommands(Inventory inventory, LoanBook loans) {
+        this(inventory, loans, new FaultBook(inventory));
+    }
+
+    /** Shares the fault book used by lending, repair and snapshot replacement. */
+    public EquipmentListCommands(Inventory inventory, LoanBook loans, FaultBook faults) {
         this.inventory = inventory;
         this.loans = loans;
+        this.faults = faults;
     }
 
     /**
@@ -110,7 +117,7 @@ public class EquipmentListCommands {
         String status = options.get("status");
         return (category == null || unit.getCategory().equalsIgnoreCase(category))
                 && (location == null || unit.getLocation().equalsIgnoreCase(location))
-                && (status == null || status.equals(loans.hasActiveLoan(unit.getAssetId()) ? "on-loan" : "available"));
+                && (status == null || status.equals(statusOf(unit)));
     }
 
     /** Builds an ascending, case-insensitive comparator with asset ID as the stable tie-breaker. */
@@ -132,6 +139,12 @@ public class EquipmentListCommands {
 
     /** Returns the same availability label displayed in each equipment row. */
     private String availabilityOf(Equipment unit) {
-        return loans.hasActiveLoan(unit.getAssetId()) ? "On loan" : "Available";
+        return loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
+                : faults.blocksLending(unit.getAssetId()) ? "Unavailable: severe fault" : "Available";
+    }
+    /** Keeps filters consistent with lending restrictions and displayed availability. */
+    private String statusOf(Equipment unit) {
+        return loans.hasActiveLoan(unit.getAssetId()) ? "on-loan"
+                : faults.blocksLending(unit.getAssetId()) ? "unavailable" : "available";
     }
 }

@@ -33,7 +33,7 @@ Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or C
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
-The main console saves equipment, loans, return dates, and reported return faults
+The main console saves equipment, loans, return dates, return faults and structured fault reports
 in `data/lablog.properties` after each successful change. It reloads them on
 startup. To select another file, run
 `java -jar build/libs/lablog.jar PATH/TO/lablog.properties`.
@@ -120,9 +120,9 @@ For example, `list category/Electronics location/Lab A status/available` shows
 electronics stored in Lab A that are not currently on loan. Category and
 location values match exactly, ignoring case; when combined, all supplied
 filters must match. Status is `on-loan` when a unit has an active loan and
-`available` otherwise. Reservation and fault history notes do not change loan
-availability. Results stay in registration order unless sorting is requested.
-
+`available` only when it has neither an active loan nor an unresolved severe
+fault. Severe faults display `Unavailable: severe fault` and are excluded from
+`status/available` results. Reservation and legacy fault notes do not block loans.
 Add `sort/FIELD` to sort the matching units in ascending order by `asset-id`,
 `name`, `category`, `model`, `location`, or `availability`. For example,
 `list sort/name` sorts all units, while
@@ -150,7 +150,67 @@ fields, or `maintenance` with the same fields. For example:
 The equipment must already be registered. Dates must be real calendar dates,
 and descriptions must be non-empty and single-line. View recorded notes using
 `history ASSET_ID`. Notes describe events only: they do not reserve availability
-or prevent loans, and are lost when the session ends.
+or prevent loans. Reservation and maintenance notes are saved in the snapshot.
+Fault reports receive a unique `F-...` ID shown on success and in history. They
+are saved across restarts and included in exports. Multiple reports for the same
+equipment are allowed, each with its own ID. Past and future dates are accepted,
+as with the original dated notes. Use `repair` to resolve an identified fault.
+
+### Recording fault severity and description
+
+Use `fault ASSET_ID d/YYYY-MM-DD [s/SEVERITY] desc/DESCRIPTION`, for example:
+
+```text
+fault OSC-001 d/2026-10-22 s/severe desc/Cracked screen
+```
+
+The optional severity goes between the date and description. Values ignore case:
+
+| Severity | Meaning | Blocks new loans? |
+| --- | --- | --- |
+| `minor` | Small defect that does not prevent use | No |
+| `moderate` | Significant defect needing attention | No |
+| `severe` | Serious defect that makes equipment unsuitable for lending | Yes |
+| Omitted | Not assessed; displayed as `unspecified` | No |
+
+Descriptions must be non-empty and on one line. Supply each field only once;
+standalone `s/`, `d/`, and `desc/` prefixes inside descriptions are rejected to
+avoid silently accepting misplaced or repeated fields. Invalid input creates no
+report. Confirmation and history include the severity, which survives restarts
+and exports. Older fault records without a severity remain unspecified.
+
+New fault reports are unresolved. Unresolved severe faults block new loans
+immediately, including reports with future dates. Existing loans remain active
+and can be returned, but returning a unit does not clear its severe faults.
+Use the repair command below to resolve a fault after completing its repair.
+
+### Recording repairs and resolving faults: `repair`
+
+Enter `repair FAULT_ID d/YYYY-MM-DD desc/DETAILS` in the main console. For example:
+
+```text
+repair F-123 d/2026-10-22 desc/Replaced cracked screen
+```
+
+Replace `F-123` with the actual fault ID from the report confirmation or
+`history ASSET_ID`. The ID identifies a single fault, not the equipment unit.
+The repair date must be a real date on or after the report date and no later
+than today in the application's local time zone. Same-day repairs are accepted.
+Repair details must be non-empty and single-line. Put `d/` before `desc/` and
+supply each field once; standalone `d/` and `desc/` prefixes inside the details
+are rejected as repeated fields.
+
+Unknown IDs, already resolved faults, invalid dates and invalid details leave
+records unchanged. Successful repairs retain the original report and add a
+dated `MAINTENANCE` history entry naming the resolved fault and repair details.
+Both entries survive restarts and exports. Repairs cannot be undone or repeated;
+report a new fault if a repaired problem occurs again.
+
+Resolving the last unresolved severe fault removes that equipment's fault-based
+lending restriction immediately. Other unresolved severe faults still block
+lending, and an active loan still makes the unit unavailable. Repairs do not
+return a loan. If saving fails, the session stops without reporting success;
+the previous saved state remains unchanged.
 
 ### Listing all active loans: `active-loans`
 
@@ -249,7 +309,8 @@ The equipment must be registered and must not already be out. Unknown equipment,
 malformed or past due dates, and missing, repeated, or unknown prefixes are
 rejected without recording anything. A unit that someone still has is refused with
 a message naming the current borrower and due date, so the same unit cannot be
-lent twice; once it is returned it can be lent again.
+lent twice. Unresolved severe faults also prevent new loans, including after a
+return. Minor, moderate and unspecified faults do not block lending.
 
 Borrower IDs must already exist in the shared borrower book. The main console
 rejects unknown borrower IDs. Equipment and loan history are saved in the
@@ -258,12 +319,30 @@ configured LabLog file; borrower records are saved in the sibling
 
 ### Recording a return: `return`
 
-At the initial prompt, enter `return ASSET_ID [faults/DESCRIPTION]`:
+At the initial prompt, use either format:
 
 ```text
-return OSC-001
-return OSC-002 faults/cracked screen
+return ASSET_ID [faults/DESCRIPTION]
+return ASSET_ID ASSET_ID ...
 ```
+
+For example, return two units together, then return a third with reported damage:
+
+```text
+return OSC-001 OSC-002
+return OSC-003 faults/cracked screen
+```
+
+Separate asset IDs with spaces to return multiple units in one operation.
+Each ID must appear only once, identify registered equipment, and have exactly
+one active loan. All selected loans are checked before any are changed. If
+any selection or return date is invalid, the entire batch is rejected.
+
+Batch returns record no new faults. To report damage, return the affected
+unit individually using `faults/DESCRIPTION`. Supplying `faults/` with multiple
+asset IDs is rejected without changing any loan. All units in a successful
+batch receive the same return date. Their loan records remain available in
+history and are saved together with the LabLog data.
 
 The return date is today's date according to the computer's clock and local time
 zone. Omit `faults/` if the unit is returned in its original condition with no new
@@ -300,8 +379,8 @@ Unknown equipment produces an error; registered equipment with no supplied recor
 produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
 The application combines loan history with notes recorded through `reservation`,
-`fault`, and `maintenance`. These notes last for the session and are not saved
-across restarts.
+`fault`, and `maintenance`. Fault records survive restarts; reservation and
+maintenance notes last only for the session.
 
 ## FAQ
 
@@ -323,14 +402,17 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `active-loans` | Main | List all active loans |
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
-| `reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
-| `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
+| `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
+| `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
+| `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a dated history note |
+| `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
+| `repair FAULT_ID d/DATE desc/DETAILS` | Main | Resolve a fault and retain its repair history |
 | `exit` | Main | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
 | `loans BORROWER_ID` | Both | List a registered borrower's active loans |
 
 Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
-to add a dated history note in the main console.
+to record a dated event in the main console. Fault reports are persistent records.
 
 ## Edit borrower contacts (US21)
 
@@ -348,8 +430,69 @@ FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
 they include borrower contact details.
 
-Format 2 contains equipment, borrowers, full loan and return details, and the
-currently supported reservation, fault and maintenance notes. Rich reservation
-and fault models and audit records are not yet implemented on develop. Their
-owners must agree a new schema before those records can be transferred; they
-are not represented by inventing data or treating display notes as full records.
+Format 5 contains equipment, borrowers, complete loans and returns, history
+notes, and structured faults with severity, resolution dates and repair details.
+Formats 2, 3 and 4 remain readable. Legacy fault notes remain notes; format-3
+faults have unspecified severity, and older faults load as unresolved.
+Reservation domain records and audit records require future schema extensions.
+
+## Import application data (US62)
+
+Use import FILE --replace in the main console. This replaces all current records,
+rather than merging them. Export a backup first if the current records are needed.
+For example: import backups/lablog.properties --replace. Paths may contain spaces
+and may be enclosed in double quotes. A successful import takes effect immediately
+and survives restart. Missing --replace or invalid records cause an error.
+
+The main console now saves one format-5 file containing equipment, borrowers,
+loans, returns, structured faults, repairs and history notes. It also loads legacy equipment/loan data with
+the sibling borrowers.properties and migrates on the next successful save.
+That old borrower file is retained, but is no longer read after migration.
+The standalone borrower console continues to use its own borrower file; it no
+longer edits the main console's contacts after migration. Use edit-borrower in
+the main console for those records.
+
+## Invalid import protection (US63)
+
+Imports reject unsupported versions, missing or unknown fields, duplicate
+property keys or equipment/borrower IDs, broken references, impossible dates,
+multiple active loans for one unit, and invalid contact details. Files must be
+valid UTF-8 regular files no larger than 10 MiB. Counts are bounded at 100,000
+records per section. Audit records are unsupported in the current schema.
+
+Any validation or save failure reports an error and preserves current live and
+saved records. Fix the reported problem and submit the import again. Unknown
+fields are rejected so a newer feature's data cannot be silently discarded.
+
+
+### Unknown snapshot fields
+
+Each supported version has a closed schema: an unrecognized property is rejected, even if all
+required fields are valid. This includes extra record fields and indexed fields
+outside the declared counts. For example, equipment.0.serialNumber produces
+"Invalid snapshot: Unknown snapshot field: equipment.0.serialNumber."
+The source and current saved records remain unchanged. Unsupported fields are
+never accepted and then discarded by re-exporting. Use a compatible application
+version when a file contains data from a newer feature.
+
+## Recall and adapt commands (US64)
+
+Use commands to list the last 20 submitted lines, oldest first, then recall INDEX
+to display one. For example, recall 1 displays the oldest retained command.
+Recall never executes a command. Copy the displayed line, edit it if needed,
+and submit it as a new command to execute it.
+
+History is scoped to this console session and is not saved or exported.
+It includes invalid commands, but excludes blank input, exit, commands, recall,
+and answers to equipment-registration prompts. Indices shift when the oldest
+line is discarded. Both consoles support this feature. Recent input may contain
+contact details, so avoid displaying it when sharing your screen.
+
+### Sorting filtered equipment
+
+Use `list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]`.
+Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
+`name`, `category`, `model`, `location`, and `availability`. For example,
+`list category/Electronics sort/name` sorts only matching units. Comparisons
+are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
+Sorting a copied snapshot preserves the stored registration order.

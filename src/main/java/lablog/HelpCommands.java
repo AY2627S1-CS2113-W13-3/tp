@@ -9,8 +9,10 @@ public class HelpCommands {
     private static final String USAGE = "Use: help [COMMAND]";
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
-            + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
-            + "list [filters] [sort/FIELD] - Filter equipment and optionally sort results (main console).\n"
+            + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
+            + "fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS - Report a persistent equipment fault.\n"
+            + "repair FAULT_ID d/DATE desc/DETAILS - Record a repair and resolve one fault.\n"
+            + "list [filters] [sort/FIELD] - Filter and sort equipment (main console).\n"
             + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
             + "Edit equipment details (main console).\n"
             + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
@@ -18,10 +20,13 @@ public class HelpCommands {
             + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
+            + "return ASSET_ID ASSET_ID ... - Return multiple units (no faults/, main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
             + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (both consoles).\n"
             + "edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL] - Edit contacts (both consoles).\n"
             + "export FILE - Export a complete snapshot to a new file (main console).\n"
+            + "import FILE --replace - Replace all records from a validated snapshot (main console).\n"
+            + "commands | recall INDEX - View recent input without executing it (both consoles).\n"
             + "loans BORROWER_ID - View active loans (both consoles).\n"
             + "exit - Close the main console.\n"
             + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
@@ -64,9 +69,27 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 2 supports current reservation, fault and maintenance notes.\n"
+                    + "Snapshot format 5 includes fault severity, repairs and current history notes.\n"
                     + "Future domain records and audit data require a schema update; "
-                    + "unsupported fields are rejected.";
+                    + "unsupported fields are rejected for every supported version, rather than silently dropped.";
+        case "import":
+            return "Replace all current records after complete snapshot validation.\n"
+                    + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
+                    + "Fields: FILE is a format-2, 3, 4 or 5 snapshot; --replace explicitly requests replacement,\n"
+                    + "not merging.\n"
+                    + "Invalid data or a failed save leaves live and saved records unchanged. "
+                    + "Export first for a backup.\n"
+                    + "Unknown snapshot properties are rejected; the error names the unsupported field.";
+
+        case "commands":
+            return "Show the last 20 submitted command lines in this console session.\n"
+                    + "Format: commands\nExample: commands\nFields: None. Oldest retained line is index 1.\n"
+                    + "Includes invalid input; excludes blank lines, exit, commands, recall and wizard answers.\n"
+                    + "History is kept only in memory and may include contact details.";
+        case "recall":
+            return "Display a recent command for copying or editing; never execute it automatically.\n"
+                    + "Format: recall INDEX\nExample: recall 1\nFields: INDEX comes from commands.\n"
+                    + "Copy or edit the displayed command, then submit it explicitly to execute.";
         case "add":
             return "Register equipment explicitly.\nFormat: add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION\n"
                     + "Example: add OSC-001 n/Oscilloscope c/Electronics m/S1 l/Lab 1\n"
@@ -96,14 +119,32 @@ public class HelpCommands {
                     + "All IDs and the location are validated before any unit changes; "
                     + "an invalid batch changes nothing.\n"
                     + "The completed batch is saved to the LabLog data file.";
-        case "reservation":
         case "fault":
+            return "Report a fault for registered equipment.\n"
+                    + "Format: fault ASSET_ID d/YYYY-MM-DD [s/SEVERITY] desc/DESCRIPTION\n"
+                    + "Example: fault OSC-001 d/2026-10-14 s/severe desc/Cracked screen\n"
+                    + "Use a real date and a non-empty single-line description. Dates may be past or future.\n"
+                    + "The fault ID is shown on success and in history; reports survive restarts and exports.\n"
+                    + "Severity: minor, moderate, or severe (case-insensitive); omission means unspecified.\n"
+                    + "Put s/ before desc/; repeated fields are rejected.\n"
+                    + "Severe faults block new loans immediately, even for future report dates.\n"
+                    + "Returns remain allowed and do not clear faults. Use repair to resolve an identified fault.";
+        case "repair":
+            return "Record a completed repair and resolve one unresolved fault.\n"
+                    + "Format: repair FAULT_ID d/YYYY-MM-DD desc/DETAILS\n"
+                    + "Example: repair F-123 d/2026-10-22 desc/Replaced cracked screen\n"
+                    + "Replace F-123 with the fault ID shown by fault reporting or equipment history.\n"
+                    + "The date must be on or after the report and no later than today in the local time zone.\n"
+                    + "Details must be non-empty and single-line; supply each field once in the shown order.\n"
+                    + "Unknown IDs and already resolved faults are rejected without changes.\n"
+                    + "History retains the report and a dated repair entry. Other severe faults still block loans.";
+        case "reservation":
         case "maintenance":
             return "Record a dated equipment history note.\nFormat: " + parts[1]
                     + " ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION\nExample: " + parts[1]
                     + " OSC-001 d/2026-10-14 desc/Inspection scheduled\n"
                     + "  Add a note for registered equipment; view it with history OSC-001.\n"
-                    + "Notes do not change loan availability and are held only for this session.";
+                    + "Notes do not change loan availability and are saved in the main application snapshot.";
         case "active-loans":
             return "List active loans across all borrowers.\nFormat: active-loans\nExample: active-loans\n"
                     + "  Show asset ID, borrower ID, due date, and overdue status in due-date order.\n"
@@ -128,23 +169,29 @@ public class HelpCommands {
                     + "d/ gives the due date in YYYY-MM-DD format.\n"
                     + "Register the borrower with add-borrower before issuing a loan.";
         case "return":
-            return "Record an equipment return on today's date (main console).\n"
-                    + "Format: return ASSET_ID [faults/DESCRIPTION]\n"
+            return "Return one or more equipment units on today's date (main console).\n"
+                    + "Format: return ASSET_ID [faults/DESCRIPTION] (single unit)\n"
+                    + "Batch format: return ASSET_ID ASSET_ID ...\n"
                     + "Example: return OSC-001 faults/cracked screen\n"
-                    + "  Return the unit and record a cracked screen on its loan.\n"
+                    + "  Return one unit and record a cracked screen on its loan.\n"
                     + "Example: return OSC-001\n"
-                    + "  Return the unit with no new faults reported.\n"
-                    + "Choose one example for a unit that is currently on loan; "
+                    + "  Return one unit with no new faults reported.\n"
+                    + "Example: return OSC-001 OSC-002\n"
+                    + "  Return both units together with no new faults reported.\n"
+                    + "Choose an example for currently loaned equipment; "
                     + "the same loan cannot be returned twice.\n"
-                    + "Fields: ASSET_ID identifies equipment with exactly one active loan; "
-                    + "faults/ optionally records a non-empty, single-line damage description.\n"
+                    + "Fields: Each asset ID must appear once and have exactly one active loan.\n"
+                    + "If any selection or return date is invalid, no selected loan is changed.\n"
+                    + "faults/ accepts a non-empty, single-line description for one unit only.\n"
+                    + "Return units with reported faults individually.\n"
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
         case "list":
             return "List registered equipment and current availability (main console).\n"
                     + "Format: list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]\n"
                     + "Example: list category/Electronics location/Lab A status/available\n"
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
-                    + "  Status is derived from active loans; reservation and fault notes do not change it.\n"
+                    + "  Active loans determine on-loan status; "
+                    + "unresolved severe faults exclude units from available results.\n"
                     + "Example: list sort/name\n  Sort all registered units by name.\n"
                     + "Example: list category/Electronics location/Lab A status/available sort/name\n"
                     + "  Filter first, then sort the matching units. Options may appear in any order, once each.\n"

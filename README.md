@@ -2,7 +2,7 @@
 
 LabLog is a command-line application for laboratory technicians who manage
 loanable electronics equipment. It supports equipment and borrower registration,
-loans and returns, active-loan listings, and equipment history.
+loans, single-unit and batch returns, active-loan listings, and equipment history.
 
 ## Command help
 
@@ -27,7 +27,7 @@ Borrower IDs follow the form `A0123456X`: an uppercase letter, seven digits, and
 
 The standalone borrower console remains available for borrower registration and
 lookup, and starts with its own empty loan book. In the main console, borrower
-records are shared with loan commands and persist beside the LabLog data file.
+records are shared with loan commands and persist in the complete LabLog snapshot.
 
 ## Setting up in IntelliJ IDEA
 
@@ -55,6 +55,13 @@ a borrower with `add-borrower` before using
 `loan OSC-001 b/A0123456X d/2026-10-30` to lend it. Use `history OSC-001` to
 check its history, or `exit` to close.
 
+To return multiple loaned units together, enter `return OSC-001 OSC-002`.
+All selected units must pass validation before any loan is changed; duplicate
+IDs or an invalid selection reject the entire batch. To report damage, return
+the affected unit individually, for example `return OSC-003 faults/cracked screen`.
+Batch returns do not accept `faults/`. See the [User Guide](docs/UserGuide.md)
+for full return rules and examples.
+
 To build and run the executable JAR:
 
 ```powershell
@@ -64,9 +71,10 @@ java -jar build/libs/lablog.jar
 
 The main console supports registration, help, loans, history, active-loan lists,
 returns, and borrower commands, so a fresh session can complete a loan/return
-workflow. Equipment, loans, and return details are saved to
-`data/lablog.properties`; borrower records are saved to
-`data/borrowers.properties`. Both are reloaded on startup. Pass another data-file
+workflow. The main console saves equipment, borrowers, loans, returns, faults, repairs and history
+notes together in `data/lablog.properties` (format 5). Legacy format-1 installations
+load the sibling borrower file and migrate on their next successful save. The
+old borrower file is retained as a backup and ignored after migration. Pass another data-file
 path after the JAR name to use it for equipment and loan records. Use only one
 main-console process per data file.
 
@@ -123,6 +131,10 @@ lend a unit that is already out, active-loan lookup, overdue dates, returns and
 fault descriptions, history ordering, help examples, unchanged records during
 help, and console input recovery. Return/history tests supply shared loan records
 directly, which keeps them independent of the loan command.
+Batch-return tests check successful updates, duplicate selections, rejected fault
+descriptions, and unchanged records when a later selection is invalid. A
+main-console persistence test verifies that both returns and their history remain
+available after reloading the saved data.
 See the [JUnit tutorial](https://se-education.org/guides/tutorials/junit.html) for background.
 
 ### Console tests

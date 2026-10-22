@@ -5,10 +5,17 @@ public class EquipmentFindCommands {
     private static final String USAGE = "Use: find ASSET_ID";
     private final Inventory inventory;
     private final LoanBook loans;
+    private final FaultBook faults;
 
     public EquipmentFindCommands(Inventory inventory, LoanBook loans) {
+        this(inventory, loans, new FaultBook(inventory));
+    }
+
+    /** Uses the same severe-fault rule as loan issuing and equipment listings. */
+    public EquipmentFindCommands(Inventory inventory, LoanBook loans, FaultBook faults) {
         this.inventory = inventory;
         this.loans = loans;
+        this.faults = faults;
     }
 
     /** Returns the selected unit's details without changing equipment or loan records. */
@@ -21,7 +28,8 @@ public class EquipmentFindCommands {
         Equipment equipment = inventory.getEquipmentUnits().stream()
                 .filter(unit -> unit.getAssetId().equals(assetId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Equipment " + assetId + " not found."));
-        String availability = loans.hasActiveLoan(assetId) ? "On loan" : "Available";
+        String availability = loans.hasActiveLoan(assetId) ? "On loan"
+                : faults.blocksLending(assetId) ? "Unavailable: severe fault" : "Available";
         return "Asset ID: " + equipment.getAssetId() + "\n"
                 + "Name: " + equipment.getName() + "\n"
                 + "Category: " + equipment.getCategory() + "\n"

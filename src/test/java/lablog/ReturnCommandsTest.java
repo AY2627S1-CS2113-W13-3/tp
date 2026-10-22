@@ -46,6 +46,113 @@ class ReturnCommandsTest {
     }
 
     @Test
+    void execute_multipleUnits_returnsAllAndKeepsRecords() {
+        setUpLoan();
+        inventory.addEquipment(
+                new Equipment("OSC-002", "Scope 2", "Electronics", "S2", "Lab"));
+        Loan second = new Loan("OSC-002", "A0123456X", TODAY, TODAY.plusDays(1));
+        loans.addLoan(second);
+
+        assertEquals(
+                "Returned OSC-001, OSC-002 on 2026-10-13. No faults reported on return.",
+                commands.execute("return OSC-001 OSC-002"));
+
+        assertFalse(loan.isActive());
+        assertFalse(second.isActive());
+        assertEquals(TODAY, loan.getReturnDate());
+        assertEquals(TODAY, second.getReturnDate());
+        assertEquals("", loan.getReturnFaults());
+        assertEquals("", second.getReturnFaults());
+        assertEquals(List.of(loan, second), loans.getLoans());
+    }
+
+    @Test
+    void execute_laterSelectionHasFutureLoan_changesNeitherLoan() {
+        setUpLoan();
+        inventory.addEquipment(
+                new Equipment("OSC-002", "Scope 2", "Electronics", "S2", "Lab"));
+        Loan future = new Loan(
+                "OSC-002", "A0123456X", TODAY.plusDays(1), TODAY.plusDays(2));
+        loans.addLoan(future);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> commands.execute("return OSC-001 OSC-002"));
+
+        assertTrue(loan.isActive());
+        assertTrue(future.isActive());
+        assertNull(loan.getReturnDate());
+        assertNull(future.getReturnDate());
+        assertEquals("", loan.getReturnFaults());
+        assertEquals("", future.getReturnFaults());
+    }
+
+    @Test
+    void execute_duplicateAssetIds_leavesLoanUnchanged() {
+        setUpLoan();
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> commands.execute("return OSC-001 OSC-001"));
+
+        assertEquals("Duplicate asset ID: OSC-001.", exception.getMessage());
+        assertTrue(loan.isActive());
+        assertNull(loan.getReturnDate());
+        assertEquals("", loan.getReturnFaults());
+    }
+
+    @Test
+    void execute_batchWithFaults_changesNeitherLoan() {
+        setUpLoan();
+        inventory.addEquipment(
+                new Equipment("OSC-002", "Scope 2", "Electronics", "S2", "Lab"));
+        Loan second = new Loan("OSC-002", "A0123456X", TODAY, TODAY.plusDays(1));
+        loans.addLoan(second);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> commands.execute(
+                        "return OSC-001 OSC-002 faults/cracked screen"));
+
+        assertEquals("Return units with reported faults individually.",
+                exception.getMessage());
+        assertTrue(loan.isActive());
+        assertTrue(second.isActive());
+        assertNull(loan.getReturnDate());
+        assertNull(second.getReturnDate());
+        assertEquals("", loan.getReturnFaults());
+        assertEquals("", second.getReturnFaults());
+    }
+
+    @Test
+    void execute_laterSelectionAlreadyReturned_preservesBothRecords() {
+        setUpLoan();
+        inventory.addEquipment(
+                new Equipment("OSC-002", "Scope 2", "Electronics", "S2", "Lab"));
+
+        Loan returned = new Loan(
+                "OSC-002", "A0123456X", TODAY.minusDays(3), TODAY.plusDays(1));
+        LocalDate originalReturnDate = TODAY.minusDays(1);
+        returned.markReturned(originalReturnDate, "Damaged cable");
+        loans.addLoan(returned);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> commands.execute("return OSC-001 OSC-002"));
+
+        assertEquals("Equipment OSC-002 is not currently on loan.",
+                exception.getMessage());
+
+        assertTrue(loan.isActive());
+        assertNull(loan.getReturnDate());
+        assertEquals("", loan.getReturnFaults());
+
+        assertFalse(returned.isActive());
+        assertEquals(originalReturnDate, returned.getReturnDate());
+        assertEquals("Damaged cable", returned.getReturnFaults());
+        assertEquals(List.of(loan, returned), loans.getLoans());
+    }
+
+    @Test
     void execute_faults_updatesHistoryAndBorrowerListing() throws Exception {
         setUpLoan();
         BorrowerBook borrowers = new BorrowerBook();

@@ -117,6 +117,19 @@ class CliSmokeTests(unittest.TestCase):
             self.assertIn("No active loans for A0123456X - Jamie Tan.", output)
             self.assertEqual(saved, file.read_bytes())
 
+    def test_recall_only_displays_until_resubmitted(self):
+        with tempfile.TemporaryDirectory(prefix="recall-smoke-", dir=ROOT / "build") as directory:
+            file = Path(directory) / "lablog.properties"
+            args = ["-jar", str(JAR), str(file)]
+            output = self.run_java(args,
+                "add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\n"
+                "edit-borrower A0123456X n/Updated\nrecall 2\ncommands\nexit\n")
+            self.assertEqual(1, output.count("Updated borrower A0123456X: Updated."))
+            self.assertIn("Recalled (not executed):", output)
+            output = self.run_java(args, "commands\nloans A0123456X\nexit\n")
+            self.assertIn("No recent commands.", output)
+            self.assertIn("A0123456X - Updated", output)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -2,6 +2,7 @@ package lablog;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,6 +45,54 @@ class LabLogStoreTest {
     }
 
     @Test
+    void run_batchReturn_persistsBothReturnsAfterReload(@TempDir Path directory) throws Exception {
+        Path file = directory.resolve("records.properties");
+        LabLogStore store = new LabLogStore(file);
+        LocalDate issued = LocalDate.of(2026, 1, 1);
+
+        for (String assetId : List.of("OSC-001", "OSC-002")) {
+            store.getInventory().addEquipment(
+                    new Equipment(assetId, "Scope", "Electronics", "S1", "Lab"));
+            store.getLoans().addLoan(
+                    new Loan(assetId, "A0123456X", issued, issued.plusDays(7)));
+        }
+        store.save();
+
+        BorrowerBook borrowers = new BorrowerBook(directory.resolve("borrowers.properties"));
+        borrowers.addBorrower(new Borrower("A0123456X", "Jamie", "91234567", "jamie@u.nus.edu"));
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        LabLog.load(file).run(
+                new Scanner("return OSC-001 OSC-002\nexit\n"),
+                new PrintStream(output));
+
+        assertTrue(output.toString().contains("Returned OSC-001, OSC-002 on "));
+
+        LabLogStore reloaded = new LabLogStore(file);
+        List<Loan> savedLoans = reloaded.getLoans().getLoans();
+        assertEquals(2, savedLoans.size());
+        assertEquals(List.of("OSC-001", "OSC-002"),
+                savedLoans.stream().map(Loan::getAssetId).toList());
+
+        HistoryCommands history = new HistoryCommands(
+                reloaded.getInventory(), reloaded.getLoans(), List::of);
+
+        for (Loan savedLoan : savedLoans) {
+            assertFalse(savedLoan.isActive());
+            assertNotNull(savedLoan.getReturnDate());
+            assertEquals("", savedLoan.getReturnFaults());
+            assertEquals(issued, savedLoan.getLoanDate());
+            assertEquals(issued.plusDays(7), savedLoan.getDueDate());
+            assertEquals("A0123456X", savedLoan.getBorrowerId());
+            assertTrue(history.execute("history " + savedLoan.getAssetId())
+                    .contains("returned " + savedLoan.getReturnDate()));
+        }
+
+        assertEquals(savedLoans.get(0).getReturnDate(),
+                savedLoans.get(1).getReturnDate());
+    }
+
+    @Test
     void load_corruptFile_rejectsWithoutOverwriting(@TempDir Path directory) throws Exception {
         Path file = directory.resolve("records.properties");
         for (String invalid : List.of("", "format=2\nequipment.count=0\nloan.count=0",
@@ -55,14 +104,15 @@ class LabLogStoreTest {
     }
 
     @Test
-    void load_persistsBorrowersBesideLabLogData(@TempDir Path directory) throws Exception {
+    void load_persistsBorrowersInCompleteSnapshot(@TempDir Path directory) throws Exception {
         Path file = directory.resolve("records.properties");
         Path borrowerFile = directory.resolve("borrowers.properties");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         LabLog.load(file).run(new Scanner("add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\nexit\n"),
                 new PrintStream(output));
 
-        assertTrue(Files.exists(borrowerFile));
+        assertFalse(Files.exists(borrowerFile));
+        assertEquals("Jamie", ApplicationSnapshot.read(file).getBorrowers().get(0).getName());
         output.reset();
         LabLog.load(file).run(new Scanner("loans A0123456X\nexit\n"), new PrintStream(output));
         assertTrue(output.toString().contains("No active loans for A0123456X - Jamie."));

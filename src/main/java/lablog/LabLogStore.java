@@ -13,11 +13,12 @@ import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
 
-/** Loads and atomically saves equipment and complete loan history as one snapshot. */
+/** Loads and atomically saves equipment, complete loan history and structured fault reports. */
 public class LabLogStore {
     private final Path file;
     private final Inventory inventory = new Inventory();
     private final LoanBook loans = new LoanBook();
+    private final FaultBook faults = new FaultBook(inventory);
 
     /** Loads a snapshot, treating a missing file as a new installation. */
     public LabLogStore(Path file) throws IOException {
@@ -28,11 +29,14 @@ public class LabLogStore {
         Properties records = new Properties();
         try (Reader reader = Files.newBufferedReader(this.file, StandardCharsets.UTF_8)) {
             records.load(reader);
-            if (!required(records, "format").equals("1")) {
+            if (!Set.of("1", "3", "4", "5").contains(required(records, "format"))) {
                 throw new IllegalArgumentException("Unsupported data format.");
             }
             Set<String> assets = readEquipment(records);
             readLoans(records, assets);
+            if (Set.of("3", "4", "5").contains(records.getProperty("format", ""))) {
+                readFaults(records);
+            }
         } catch (IllegalArgumentException | DateTimeException exception) {
             throw new IOException("Invalid LabLog data: " + exception.getMessage(), exception);
         }
@@ -43,6 +47,30 @@ public class LabLogStore {
         file = null;
         Set<String> assets = readEquipment(records);
         readLoans(records, assets);
+        if (Set.of("3", "4", "5").contains(records.getProperty("format", ""))) {
+            readFaults(records);
+        }
+    }
+
+    public FaultBook getFaults() {
+        return faults;
+    }
+
+    /** Reads structured reports with duplicate-ID and equipment-reference validation. */
+    private void readFaults(Properties records) {
+        int count = count(records, "fault.count");
+        for (int index = 0; index < count; index++) {
+            String key = "fault." + index + ".";
+            boolean hasResolution = "5".equals(records.getProperty("format"));
+            String resolved = hasResolution ? required(records, key + "resolved") : "";
+            String repair = hasResolution ? required(records, key + "repair") : "";
+            faults.add(new Fault(required(records, key + "id"), required(records, key + "asset"),
+                    LocalDate.parse(required(records, key + "date")), required(records, key + "description"),
+                    Set.of("4", "5").contains(records.getProperty("format", ""))
+                            ? Fault.Severity.valueOf(required(records, key + "severity"))
+                            : Fault.Severity.UNSPECIFIED,
+                    resolved.isEmpty() ? null : LocalDate.parse(resolved), repair));
+        }
     }
 
     public Inventory getInventory() {
@@ -122,7 +150,7 @@ public class LabLogStore {
     /** Reuses the established equipment and loan schema inside a complete snapshot. */
     Properties toProperties() {
         Properties records = new Properties();
-        records.setProperty("format", "1");
+        records.setProperty("format", "5");
         records.setProperty("equipment.count", Integer.toString(inventory.getEquipmentUnits().size()));
         records.setProperty("loan.count", Integer.toString(loans.getLoans().size()));
         int index = 0;
@@ -143,6 +171,18 @@ public class LabLogStore {
             records.setProperty(key + "due", loan.getDueDate().toString());
             records.setProperty(key + "returned", loan.isActive() ? "" : loan.getReturnDate().toString());
             records.setProperty(key + "faults", loan.getReturnFaults());
+        }
+        records.setProperty("fault.count", Integer.toString(faults.getFaults().size()));
+        index = 0;
+        for (Fault fault : faults.getFaults()) {
+            String key = "fault." + index++ + ".";
+            records.setProperty(key + "id", fault.getId());
+            records.setProperty(key + "asset", fault.getAssetId());
+            records.setProperty(key + "date", fault.getReportDate().toString());
+            records.setProperty(key + "description", fault.getDescription());
+            records.setProperty(key + "severity", fault.getSeverity().name());
+            records.setProperty(key + "resolved", fault.isResolved() ? fault.getResolutionDate().toString() : "");
+            records.setProperty(key + "repair", fault.getRepairDetails());
         }
         return records;
     }
