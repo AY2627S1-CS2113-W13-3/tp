@@ -127,6 +127,7 @@ class FaultReportingTest {
         Properties records = new ApplicationSnapshot(inventory().getEquipmentUnits(), List.of(),
                 List.of(), List.of(note)).toProperties();
         records.setProperty("format", "2");
+        records.remove("reservation.count");
         records.remove("fault.count");
         ApplicationSnapshot snapshot = ApplicationSnapshot.decode(records);
         assertTrue(snapshot.getFaults().isEmpty());

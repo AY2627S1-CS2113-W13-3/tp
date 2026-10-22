@@ -8,6 +8,8 @@ public class HelpCommands {
     private static final Logger LOGGER = Logger.getLogger(HelpCommands.class.getName());
     private static final String USAGE = "Use: help [COMMAND]";
     private static final String SUMMARY = "Common Version 1 commands:\n"
+            + "reserve ASSET_ID b/BORROWER_ID from/START to/END - Create a confirmed reservation.\n"
+            + "reservations - List confirmed reservations and their IDs.\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
             + "fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS - Report a persistent equipment fault.\n"
@@ -69,13 +71,13 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 5 includes fault severity, repairs and current history notes.\n"
+                    + "Snapshot format 6 includes fault severity, repairs and current history notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected for every supported version, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
-                    + "Fields: FILE is a format-2, 3, 4 or 5 snapshot; --replace explicitly requests replacement,\n"
+                    + "Fields: FILE is a format-2, 3, 4, 5 or 6 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"
@@ -90,6 +92,16 @@ public class HelpCommands {
             return "Display a recent command for copying or editing; never execute it automatically.\n"
                     + "Format: recall INDEX\nExample: recall 1\nFields: INDEX comes from commands.\n"
                     + "Copy or edit the displayed command, then submit it explicitly to execute.";
+        case "reserve":
+            return "Create a structured booking for a registered unit and borrower.\n"
+                    + "Format: reserve ASSET_ID b/BORROWER_ID from/YYYY-MM-DD to/YYYY-MM-DD\n"
+                    + "Example: reserve OSC-001 b/A0123456X from/2099-01-01 to/2099-01-02\n"
+                    + "Fields: b/, from/ and to/ occur once in any order. "
+                    + "Dates are inclusive; start is today or later.\n"
+                    + "Reservations persist and appear in history. Legacy reservation notes are not bookings.";
+        case "reservations":
+            return "List saved bookings with IDs, units, users and inclusive periods.\n"
+                    + "Format: reservations\nExample: reservations\nFields: None.";
         case "add":
             return "Register equipment explicitly.\nFormat: add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION\n"
                     + "Example: add OSC-001 n/Oscilloscope c/Electronics m/S1 l/Lab 1\n"

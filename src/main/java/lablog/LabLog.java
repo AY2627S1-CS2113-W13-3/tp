@@ -37,6 +37,8 @@ public class LabLog {
     private final HistoryRecordCommands historyRecords;
     private final FaultBook faults;
     private final RepairCommands repairs;
+    private final ReservationBook reservations;
+    private final ReservationCommands reservationCommands;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
@@ -86,6 +88,8 @@ public class LabLog {
         this.borrowers = borrowers;
         this.loans = loans;
         this.otherHistory = otherHistory;
+        this.reservations = new ReservationBook(inventory, borrowers, clock);
+        this.reservationCommands = new ReservationCommands(reservations);
         this.equipmentAdd = new EquipmentAddCommands(inventory);
         this.equipmentCopy = new EquipmentCopyCommands(inventory);
         this.equipmentEdit = new EquipmentEditCommands(inventory);
@@ -95,6 +99,7 @@ public class LabLog {
         this.history = new HistoryCommands(inventory, loans, () -> {
             List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
             entries.addAll(historyRecords.getEntries());
+            reservations.getReservations().stream().map(Reservation::toHistoryEntry).forEach(entries::add);
             return entries;
         });
         this.equipmentList = new EquipmentListCommands(inventory, loans, faults);
@@ -132,6 +137,7 @@ public class LabLog {
         FaultBook faults;
         BorrowerBook borrowers = new BorrowerBook();
         List<HistoryEntry> notes = List.of();
+        List<Reservation> bookings = List.of();
         Properties records = Files.exists(absolute) ? ApplicationSnapshot.readProperties(absolute) : null;
         if (records != null && ("2".equals(records.getProperty("format"))
                 || records.containsKey("borrower.count"))) {
@@ -142,6 +148,7 @@ public class LabLog {
             loans.replaceAll(snapshot.getLoans());
             borrowers.replaceAll(snapshot.getBorrowers());
             notes = snapshot.getNotes();
+            bookings = snapshot.getReservations();
             faults = new FaultBook(inventory);
             faults.replaceAll(snapshot.getFaults());
         } else {
@@ -155,6 +162,9 @@ public class LabLog {
         LabLog application = new LabLog(inventory, loans, List::of, Clock.systemDefaultZone(), borrowers, faults);
         application.dataFile = absolute;
         application.historyRecords.replaceAll(notes);
+        application.reservations.replaceAll(bookings);
+        application.reservations.setSaver(proposed -> application.snapshot(borrowers.getBorrowers(), proposed)
+                .write(absolute));
         // Persist proposed borrowers in the same atomic file as their equipment and loan references.
         borrowers.setSaver(proposed -> application.snapshot(proposed).write(absolute));
         return application;
@@ -162,10 +172,15 @@ public class LabLog {
 
     /** Captures supported history notes as well as borrowers, equipment and complete loans. */
     private ApplicationSnapshot snapshot(List<Borrower> proposedBorrowers) {
+        return snapshot(proposedBorrowers, reservations.getReservations());
+    }
+
+    /** Saves a proposed booking change before publishing it to the shared book. */
+    private ApplicationSnapshot snapshot(List<Borrower> proposedBorrowers, List<Reservation> proposedReservations) {
         List<HistoryEntry> notes = new ArrayList<>(otherHistory.get());
         notes.addAll(historyRecords.getNotes());
         return new ApplicationSnapshot(inventory.getEquipmentUnits(), proposedBorrowers, loans.getLoans(), notes,
-                faults.getFaults());
+                faults.getFaults(), proposedReservations);
     }
 
     /** Validates and saves an import before replacing any of the shared live books. */
@@ -182,6 +197,7 @@ public class LabLog {
         borrowers.replaceAll(replacement.getBorrowers());
         historyRecords.replaceAll(replacement.getNotes());
         faults.replaceAll(replacement.getFaults());
+        reservations.replaceAll(replacement.getReservations());
     }
 
     /** Uses explicit replacement syntax and never overwrites an existing export destination. */
@@ -276,6 +292,15 @@ public class LabLog {
                 } catch (IOException | IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                     output.println("Current records were not changed.");
+                }
+                continue;
+            }
+            if (command.equals("reserve") || command.equals("reservations")) {
+                try {
+                    output.println(reservationCommands.execute(input));
+                } catch (IllegalArgumentException | IOException exception) {
+                    output.println("Error: " + exception.getMessage());
+                    output.println("Reservations were not changed.");
                 }
                 continue;
             }

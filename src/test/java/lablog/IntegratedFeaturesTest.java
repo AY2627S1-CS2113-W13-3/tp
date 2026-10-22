@@ -87,6 +87,7 @@ class IntegratedFeaturesTest {
     void decode_olderFormats_rejectsFieldsThatWouldBeDiscarded() throws Exception {
         Properties records = sample().toProperties();
         records.setProperty("format", "3");
+        records.remove("reservation.count");
         records.remove("fault.0.resolved");
         records.remove("fault.0.repair");
         assertThrows(IOException.class, () -> ApplicationSnapshot.decode(records));
