@@ -84,6 +84,20 @@ public class Loan {
      * @throws IllegalArgumentException if already returned or the details are invalid
      */
     public void markReturned(LocalDate returnDate, String faults) {
+        validateReturn(returnDate, faults);
+        this.returnFaults = faults.strip();
+        this.returnDate = returnDate;
+    }
+
+    /**
+     * Validates return details without changing this loan.
+     * Batch returns can validate every selected loan before updating any of them.
+     *
+     * @param returnDate proposed return date
+     * @param faults proposed fault description
+     * @throws IllegalArgumentException if the loan or return details are invalid
+     */
+    void validateReturn(LocalDate returnDate, String faults) {
         if (!isActive()) {
             throw new IllegalArgumentException("This loan has already been returned.");
         }
@@ -93,7 +107,5 @@ public class Loan {
         if (faults == null || faults.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("Fault details must be on one line.");
         }
-        this.returnFaults = faults.strip();
-        this.returnDate = returnDate;
     }
 }
