@@ -11,6 +11,10 @@ public class HelpCommands {
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
             + "list [filters] - List equipment by category, location, or status (main console).\n"
+            + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
+            + "Edit equipment details (main console).\n"
+            + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
+            + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
@@ -21,6 +25,7 @@ public class HelpCommands {
             + "loans BORROWER_ID - View active loans (both consoles).\n"
             + "exit - Close the main console.\n"
             + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
+            + "copy SOURCE_ASSET_ID NEW_ASSET_ID - Copy details to a new equipment unit (main console).\n"
             + "Use help COMMAND for syntax, fields, and usage examples.";
 
     /**
@@ -68,6 +73,29 @@ public class HelpCommands {
                     + "  Register a unit with all four required fields, in any order.\n"
                     + "Example: add OSC-001\n  Start the four-prompt registration wizard instead.\n"
                     + "Unknown commands and bare asset IDs are rejected; use add to begin registration.";
+        case "copy":
+            return "Copy descriptive details from a registered unit under a new asset ID.\n"
+                    + "Format: copy SOURCE_ASSET_ID NEW_ASSET_ID\n"
+                    + "Example: copy OSC-001 OSC-002\n"
+                    + "  Copy OSC-001's name, category, model, and location to OSC-002.\n"
+                    + "The source remains unchanged. The new ID must be unique.\n"
+                    + "Loans and history are not copied; the new unit starts without either record.\n"
+                    + "Fields: SOURCE_ASSET_ID must identify a registered unit; NEW_ASSET_ID must not already exist.";
+        case "edit-equipment":
+            return "Edit descriptive details of a registered equipment unit.\n"
+                    + "Format: edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]\n"
+                    + "Example: edit-equipment OSC-001 l/Lab 2 n/Digital oscilloscope\n"
+                    + "Fields: Supply at least one field, once each. Omitted values remain unchanged.\n"
+                    + "The asset ID stays unchanged so loans and history keep their equipment reference.\n"
+                    + "Equipment validation applies to all values; failed edits change nothing.";
+        case "move-equipment":
+            return "Move selected equipment units to one storage location.\n"
+                    + "Format: move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION\n"
+                    + "Example: move-equipment OSC-001,MIC-002 l/Lab 3\n"
+                    + "Fields: Select one or more distinct registered asset IDs and one non-empty location.\n"
+                    + "All IDs and the location are validated before any unit changes; "
+                    + "an invalid batch changes nothing.\n"
+                    + "The completed batch is saved to the LabLog data file.";
         case "reservation":
         case "fault":
         case "maintenance":
@@ -118,6 +146,13 @@ public class HelpCommands {
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Status is derived from active loans; reservation and fault notes do not change it.\n"
                     + "Fields: category/ and location/ match exact values; status/ is available or on-loan.";
+        case "find":
+            return "Show one registered equipment unit by its exact asset ID.\n"
+                    + "Format: find ASSET_ID\n"
+                    + "Example: find OSC-001\n"
+                    + "  Display the unit's name, category, model, location, and current availability.\n"
+                    + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.\n"
+                    + "Unknown IDs produce an error. This lookup does not change records.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"

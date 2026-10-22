@@ -70,6 +70,42 @@ Registration begins only after an explicit `add` command.
 Equipment is saved to the configured LabLog data file after each successful
 registration and is available after restart.
 
+### Copying equipment details: `copy`
+
+Use `copy SOURCE_ASSET_ID NEW_ASSET_ID` to create another unit from a registered
+unit. The new ID must be unique. The copy receives the source's name, category,
+model, and location; the source remains unchanged. Loans and history stay with
+the original ID and are not copied. A successful copy is saved to the configured
+data file.
+
+### Editing equipment details
+
+Use `edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]` to
+change one or more descriptive fields. For example:
+
+```text
+edit-equipment OSC-001 l/Lab 2 n/Digital oscilloscope
+```
+
+Supply each field at most once; values may contain spaces. Omitted fields stay
+unchanged. The asset ID is stable, so loan and history references remain valid.
+Invalid or incomplete edits change nothing. Successful edits are saved to the
+configured LabLog data file.
+
+### Moving several equipment units together
+
+Use `move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION` to move selected units
+to the same location. For example:
+
+```text
+move-equipment OSC-001,MIC-002 l/Lab 3
+```
+
+Select distinct registered asset IDs, separated by commas, and provide one
+non-empty location. LabLog validates the full selection and destination before
+changing any unit, so an invalid ID or location leaves the whole batch
+unchanged. A successful batch is saved to the configured LabLog data file.
+
 ### Listing and filtering equipment: `list`
 
 Enter `list` in the main console to show asset ID, name, category, model,
@@ -88,6 +124,13 @@ filters must match. Status is `on-loan` when a unit has an active loan and
 availability. Results stay in registration order and filtering changes no
 records. An empty inventory reports `No equipment registered.` A filter with no
 matches reports `No equipment matches the supplied filters.`
+
+### Finding one unit: `find`
+
+Enter `find ASSET_ID` to show one registered unit's name, category, model,
+location, and current availability. For example, `find OSC-001` performs an
+exact, case-sensitive lookup. Unknown IDs produce an error, and the lookup does
+not change equipment or loan records.
 
 ### Recording equipment history notes
 
@@ -153,7 +196,8 @@ Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives 
 The main console checks borrower IDs against registered borrowers before lending.
 ```
 
-Detailed help covers `add`, history-note commands, `active-loans`, `list`,
+Detailed help covers `add`, `copy`, `edit-equipment`, `move-equipment`, history-note commands,
+`active-loans`, `list`, `find`,
 `loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
 commands belonging to the main or borrower console; viewing help does not make
 a command available in the other console.
@@ -264,6 +308,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | --- | --- | --- |
 | `help [COMMAND]` | Both | View commands and explained examples |
 | `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
+| `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
 | `list` | Main | List equipment and availability |
 | `active-loans` | Main | List all active loans |
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
