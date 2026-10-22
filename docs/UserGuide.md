@@ -546,3 +546,14 @@ The intended borrower must be registered. Changed start dates cannot be past;
 an unchanged start may be past for an ongoing booking, but the new end must be
 today or later. The full proposed period is checked against all other bookings,
 loans and severe faults. A rejected edit or failed save leaves the original intact.
+
+## Cancel a reservation (US37)
+
+Use `cancel-reservation RESERVATION_ID reason/TEXT`. A non-empty, single-line
+reason is required. Cancellation releases that booking's interval immediately
+but does not alter loans, faults or other bookings. The original user and period
+remain in `reservations` with cancelled status; `history ASSET_ID` also shows
+the cancellation date and reason. Unknown or already-cancelled IDs are errors.
+Cancelled records cannot be edited or reactivated. Failed saves leave the booking
+confirmed. Snapshot format 7 preserves cancellations; format-6 bookings load as
+confirmed, and earlier formats have no structured bookings.

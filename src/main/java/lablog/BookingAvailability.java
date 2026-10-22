@@ -34,7 +34,7 @@ public class BookingAvailability {
             return Optional.of("Equipment " + assetId + " has an unresolved severe fault.");
         }
         for (Reservation item : reservations.getReservations()) {
-            if (!item.id().equals(ignoredReservationId) && item.assetId().equals(assetId)
+            if (!item.isCancelled() && !item.id().equals(ignoredReservationId) && item.assetId().equals(assetId)
                     && item.window().overlaps(window)) {
                 return Optional.of("Conflicts with reservation " + item.id() + " for " + item.borrowerId()
                         + " from " + item.window().start() + " through " + item.window().end() + ".");

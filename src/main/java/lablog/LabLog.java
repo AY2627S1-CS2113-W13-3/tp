@@ -99,7 +99,8 @@ public class LabLog {
         this.history = new HistoryCommands(inventory, loans, () -> {
             List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
             entries.addAll(historyRecords.getEntries());
-            reservations.getReservations().stream().map(Reservation::toHistoryEntry).forEach(entries::add);
+            reservations.getReservations().stream().flatMap(item -> item.toHistoryEntries().stream())
+                    .forEach(entries::add);
             return entries;
         });
         this.equipmentList = new EquipmentListCommands(inventory, loans, faults);
@@ -296,7 +297,7 @@ public class LabLog {
                 }
                 continue;
             }
-            if (List.of("reserve", "reservations", "edit-reservation").contains(command)) {
+            if (List.of("reserve", "reservations", "edit-reservation", "cancel-reservation").contains(command)) {
                 try {
                     output.println(reservationCommands.execute(input));
                 } catch (IllegalArgumentException | IOException exception) {

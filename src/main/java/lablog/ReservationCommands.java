@@ -27,6 +27,11 @@ public class ReservationCommands {
             }
             return output.toString();
         }
+        if (parts.length == 3 && parts[0].equals("cancel-reservation")) {
+            Map<String, String> fields = BookingArguments.fields(parts[2], Set.of("reason"));
+            Reservation cancelled = reservations.cancel(parts[1], fields.get("reason"));
+            return "Cancelled reservation " + cancelled.id() + ".";
+        }
         if (parts.length == 3 && parts[0].equals("edit-reservation")) {
             Map<String, String> fields = BookingArguments.fields(parts[2], Set.of("b", "from", "to"));
             Reservation original = reservations.find(parts[1]);

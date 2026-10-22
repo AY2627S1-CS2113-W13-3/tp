@@ -10,7 +10,8 @@ public class HelpCommands {
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "reserve ASSET_ID b/BORROWER_ID from/START to/END - Create a confirmed reservation.\n"
             + "edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END] - Edit a booking.\n"
-            + "reservations - List confirmed reservations and their IDs.\n"
+            + "cancel-reservation RESERVATION_ID reason/TEXT - Cancel a booking and retain its history.\n"
+            + "reservations - List reservations, status and IDs.\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
             + "fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS - Report a persistent equipment fault.\n"
@@ -72,13 +73,13 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 6 includes fault severity, repairs and current history notes.\n"
+                    + "Snapshot format 7 includes fault severity, repairs and current history notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected for every supported version, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
-                    + "Fields: FILE is a format-2, 3, 4, 5 or 6 snapshot; --replace explicitly requests replacement,\n"
+                    + "Fields: FILE is a format-2 through 7 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"
@@ -107,6 +108,12 @@ public class HelpCommands {
                     + "Example: edit-reservation R-123 to/2099-01-05\n"
                     + "Fields: Supply at least one field, once each; omitted values stay unchanged.\n"
                     + "Conflicts exclude only this booking. Invalid input or failed saves preserve the original.";
+        case "cancel-reservation":
+            return "Cancel one booking and release its constraint without deleting history.\n"
+                    + "Format: cancel-reservation RESERVATION_ID reason/TEXT\n"
+                    + "Example: cancel-reservation R-123 reason/Experiment postponed\n"
+                    + "Fields: reason/ is required once. Unknown IDs and repeated cancellations are rejected.\n"
+                    + "The original period and borrower, cancellation date and reason survive restart and export.";
         case "reservations":
             return "List saved bookings with IDs, units, users and inclusive periods.\n"
                     + "Format: reservations\nExample: reservations\nFields: None.";

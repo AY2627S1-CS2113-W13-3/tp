@@ -65,6 +65,9 @@ public class ReservationBook {
     /** Revalidates an edit excluding only itself, then atomically replaces the immutable record. */
     public Reservation edit(String id, String borrowerId, DateWindow window) throws IOException {
         Reservation original = find(id);
+        if (original.isCancelled()) {
+            throw new IllegalArgumentException("Cannot edit a cancelled reservation.");
+        }
         LocalDate today = LocalDate.now(clock);
         if (!window.start().equals(original.window().start())) {
             window.requireNotPast(today);
@@ -74,6 +77,16 @@ public class ReservationBook {
         }
         Reservation replacement = new Reservation(id, original.assetId(), borrowerId, window);
         availability.requireAvailable(replacement.assetId(), window, id, null);
+        List<Reservation> proposed = new ArrayList<>(reservations);
+        proposed.set(proposed.indexOf(original), replacement);
+        save(proposed);
+        return replacement;
+    }
+
+    /** Releases the booking constraint only after the cancellation has been saved. */
+    public Reservation cancel(String id, String reason) throws IOException {
+        Reservation original = find(id);
+        Reservation replacement = original.cancel(LocalDate.now(clock), reason);
         List<Reservation> proposed = new ArrayList<>(reservations);
         proposed.set(proposed.indexOf(original), replacement);
         save(proposed);
@@ -99,7 +112,8 @@ public class ReservationBook {
             borrowers.getBorrower(item.borrowerId());
         }
         Map<String, Reservation> previous = new HashMap<>();
-        for (Reservation item : proposed.stream().sorted(Comparator.comparing(r -> r.window().start())).toList()) {
+        for (Reservation item : proposed.stream().filter(r -> !r.isCancelled())
+                .sorted(Comparator.comparing(r -> r.window().start())).toList()) {
             Reservation earlier = previous.put(item.assetId(), item);
             if (earlier != null && earlier.window().overlaps(item.window())) {
                 throw new IllegalArgumentException("Overlapping reservations: " + earlier.id() + " and " + item.id());
