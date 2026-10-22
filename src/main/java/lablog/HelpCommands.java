@@ -11,6 +11,7 @@ public class HelpCommands {
             + "reserve ASSET_ID b/BORROWER_ID from/START to/END - Create a confirmed reservation.\n"
             + "edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END] - Edit a booking.\n"
             + "cancel-reservation RESERVATION_ID reason/TEXT - Cancel a booking and retain its history.\n"
+            + "available from/START to/END [category/CATEGORY] - Find units free throughout an interval.\n"
             + "reservations - List reservations, status and IDs.\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
@@ -114,6 +115,12 @@ public class HelpCommands {
                     + "Example: cancel-reservation R-123 reason/Experiment postponed\n"
                     + "Fields: reason/ is required once. Unknown IDs and repeated cancellations are rejected.\n"
                     + "The original period and borrower, cancellation date and reason survive restart and export.";
+        case "available":
+            return "Find units free throughout an inclusive date interval without booking them.\n"
+                    + "Format: available from/START to/END [category/CATEGORY]\n"
+                    + "Example: available from/2099-01-01 to/2099-01-02 category/Electronics\n"
+                    + "Fields: from/ and to/ are required once; category/ is optional and matches ignoring case.\n"
+                    + "Start is today or later. Loans, confirmed bookings and unresolved severe faults block results.";
         case "reservations":
             return "List saved bookings with IDs, units, users and inclusive periods.\n"
                     + "Format: reservations\nExample: reservations\nFields: None.";

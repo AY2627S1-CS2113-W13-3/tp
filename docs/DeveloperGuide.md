@@ -729,3 +729,12 @@ Format 7 requires both cancellation fields (empty for confirmed records), while
 format 6 migrates as confirmed. Partial cancellation records are invalid.
 ReservationCancellationTest covers release, isolation, repeats, history,
 restart/import/export, legacy migration and failed persistence.
+
+## Interval availability queries (issue #82)
+
+AvailableEquipmentCommands delegates to BookingAvailability.availableUnits;
+there is no second overlap policy or stored availability flag. It validates the
+interval before reading inventory, filters by optional exact category, and
+returns an immutable asset-ID-ordered snapshot without persistence or mutation.
+AvailabilityCommandsTest covers endpoints, returns, overdue loans, fault repair,
+cancellation, invalid queries on empty data, and the persistent CLI path.

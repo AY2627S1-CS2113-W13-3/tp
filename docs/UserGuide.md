@@ -542,3 +542,14 @@ the cancellation date and reason. Unknown or already-cancelled IDs are errors.
 Cancelled records cannot be edited or reactivated. Failed saves leave the booking
 confirmed. Snapshot format 7 preserves cancellations; format-6 bookings load as
 confirmed, and earlier formats have no structured bookings.
+
+## Find equipment for a period (US38)
+
+Use `available from/START to/END [category/CATEGORY]`, for example
+`available from/2099-01-01 to/2099-01-02 category/Electronics`. The interval is
+inclusive and starts today or later. Options may appear in any order, once each;
+category matches exactly ignoring case and may contain spaces. Results are
+ordered by asset ID. Every listed unit is free for the entire interval under the
+same loan, reservation and severe-fault rules used by booking. Cancelled bookings
+are ignored. This is a read-only query, not a reservation or a guarantee against
+later changes. Invalid queries are rejected even when inventory is empty.

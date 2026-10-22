@@ -39,6 +39,7 @@ public class LabLog {
     private final RepairCommands repairs;
     private final ReservationBook reservations;
     private final ReservationCommands reservationCommands;
+    private final AvailableEquipmentCommands availableEquipment;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
@@ -90,6 +91,7 @@ public class LabLog {
         this.otherHistory = otherHistory;
         this.reservations = new ReservationBook(inventory, borrowers, loans, faults, clock);
         this.reservationCommands = new ReservationCommands(reservations);
+        this.availableEquipment = new AvailableEquipmentCommands(reservations.getAvailability());
         this.equipmentAdd = new EquipmentAddCommands(inventory);
         this.equipmentCopy = new EquipmentCopyCommands(inventory);
         this.equipmentEdit = new EquipmentEditCommands(inventory);
@@ -303,6 +305,14 @@ public class LabLog {
                 } catch (IllegalArgumentException | IOException exception) {
                     output.println("Error: " + exception.getMessage());
                     output.println("Reservations were not changed.");
+                }
+                continue;
+            }
+            if (command.equals("available")) {
+                try {
+                    output.println(availableEquipment.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
                 }
                 continue;
             }
