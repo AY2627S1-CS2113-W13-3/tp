@@ -15,7 +15,7 @@ public class HelpCommands {
             + "Edit equipment details (main console).\n"
             + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
-            + "active-loans - List all active loans and overdue status (main console).\n"
+            + "active-loans [overdue] - List all active loans or only overdue loans (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
@@ -105,9 +105,13 @@ public class HelpCommands {
                     + "  Add a note for registered equipment; view it with history OSC-001.\n"
                     + "Notes do not change loan availability and are held only for this session.";
         case "active-loans":
-            return "List active loans across all borrowers.\nFormat: active-loans\nExample: active-loans\n"
-                    + "  Show asset ID, borrower ID, due date, and overdue status in due-date order.\n"
-                    + "Returned loans are excluded. Loans due today are not overdue.";
+            return "List active loans across all borrowers.\nFormat: active-loans [overdue]\n"
+                    + "Example: active-loans\n  Show every active loan with its overdue status.\n"
+                    + "Example: active-loans overdue\n  Show only active loans due before today's local date.\n"
+                    + "Rows show asset ID, borrower ID, due date, and status, ordered by due date then asset ID.\n"
+                    + "Returned loans are excluded. Loans due today are not overdue.\n"
+                    + "Fields: overdue is an optional, case-sensitive keyword; no other arguments are accepted.\n"
+                    + "An empty overdue-only result reports No overdue loans. The listing does not change records.";
         case "help":
             return "Show common commands or detailed help for one command.\n"
                     + "Format: help [COMMAND]\n"

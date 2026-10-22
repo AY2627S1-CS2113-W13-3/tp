@@ -152,11 +152,26 @@ and descriptions must be non-empty and single-line. View recorded notes using
 `history ASSET_ID`. Notes describe events only: they do not reserve availability
 or prevent loans, and are lost when the session ends.
 
-### Listing all active loans: `active-loans`
+### Listing active or overdue loans: `active-loans`
 
-Enter `active-loans` to show every current loan, ordered by due date. Each row
-includes asset ID, borrower ID, due date, and overdue status. Returned loans are
-excluded; a loan due today is not overdue.
+Format: `active-loans [overdue]`
+
+Enter `active-loans` to show every current loan, or `active-loans overdue` to
+show only active loans whose due date is before today's local date. For example:
+
+```text
+active-loans overdue
+```
+
+Both modes order results by due date, then asset ID when dates match. Each row
+includes asset ID, borrower ID, due date, and overdue status. Returned loans
+are excluded. The overdue-only view also excludes loans due today or later.
+It reports `No overdue loans.` when there are no matches; the full view reports
+`No active loans.` when no loans remain active.
+
+`overdue` is an optional, case-sensitive keyword. Unknown or extra arguments
+produce a usage error. Listing changes no records or files; a returned loan
+disappears from subsequent listings automatically.
 
 ### Registering borrowers: `add-borrower`
 
@@ -320,7 +335,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
 | `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
 | `list` | Main | List equipment and availability |
-| `active-loans` | Main | List all active loans |
+| `active-loans [overdue]` | Main | List all active loans or only overdue loans |
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |

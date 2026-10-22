@@ -119,6 +119,30 @@ constructor remains available to standalone callers with their own validation.
 before today, malformed dates, missing and repeated fields, unknown equipment,
 the refusal for a unit already out, and lending again after a return.
 
+### Active and overdue loan listings (issue #74)
+
+`ActiveLoanCommands` handles `active-loans [overdue]` using the shared `LoanBook`
+and an injected `Clock`. It validates the optional keyword, reads today's local
+date once, and selects active loans from the current snapshot. Overdue-only mode
+also requires `dueDate.isBefore(today)`, excluding loans due today or later.
+Both modes sort by due date and then asset ID for deterministic ties.
+
+The handler computes the view on each invocation rather than storing an overdue
+flag, so date changes and recorded returns are reflected automatically. Stream
+filtering and sorting leave the underlying loan records and their order unchanged;
+the existing read-only CLI dispatch does not save a snapshot. Reloaded loans use
+the same query, so the feature needs no storage-format change.
+
+An optional keyword reuses the existing command and display format, keeping the
+active-loan and overdue-only rules together. Empty results distinguish
+`No active loans.` from `No overdue loans.` Invalid arguments produce
+`Use: active-loans [overdue]` and allow the CLI session to continue.
+
+`ActiveLoanCommandsTest` verifies date boundaries, returned-loan exclusion,
+due-date and asset-ID ordering, time-zone boundaries, live returns, syntax errors,
+CLI recovery, and unchanged persisted records after loading. Help tests execute
+both documented examples against the handler.
+
 ### Equipment returns
 
 #### Implementation

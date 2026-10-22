@@ -39,6 +39,27 @@ class HelpCommandsTest {
     }
 
     @Test
+    void execute_activeLoanHelp_documentsOverdueModeAndBothExamples() {
+        String detail = help.execute("help active-loans");
+        assertTrue(help.execute("help").contains("active-loans [overdue]"));
+        assertTrue(detail.contains("Format: active-loans [overdue]"));
+        assertTrue(detail.contains("Loans due today are not overdue."));
+        assertTrue(detail.contains("ordered by due date then asset ID"));
+        assertTrue(detail.contains("Fields: overdue"));
+        ActiveLoanCommands commands = new ActiveLoanCommands(new LoanBook(), Clock.systemDefaultZone());
+        int count = 0;
+        for (String line : detail.split("\n")) {
+            if (line.startsWith("Example: ")) {
+                String example = line.substring(9);
+                assertEquals(example.endsWith(" overdue") ? "No overdue loans." : "No active loans.",
+                        commands.execute(example));
+                count++;
+            }
+        }
+        assertEquals(2, count);
+    }
+
+    @Test
     void execute_listHelp_documentsFiltersAndAvailabilityRules() {
         String detail = help.execute("help list");
         assertTrue(detail.contains("Format: list [category/VALUE] [location/VALUE]"
