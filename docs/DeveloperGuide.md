@@ -12,7 +12,7 @@ executable JAR. See `build.gradle` for dependency versions.
 
 The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
 or the optional command-line file path. It stores equipment, borrowers, loans,
-notes, structured faults and repairs in one format-5 UTF-8 properties snapshot. Save to a temporary file
+notes, structured faults and repairs in one format-6 UTF-8 properties snapshot. Save to a temporary file
 in the destination directory, then atomically replace the snapshot before
 printing success. Unsupported atomic replacement is reported as a save failure;
 there is no non-atomic fallback. Save failure stops the session to avoid further
@@ -513,7 +513,7 @@ unchanged loan objects, restart persistence, invalid fields, and failed saves.
 ## Versioned export schema (issue #90)
 
 ApplicationSnapshot captures the supported object graph and uses LabLogStore's
-equipment/loan serializer. UTF-8 properties format 5 retains borrower.count and
+equipment/loan serializer. UTF-8 properties format 6 retains borrower.count and
 note.count with indexed fields. audit.count is explicitly zero until an audit
 domain schema exists. The codec validates references and dates before writing
 a temporary file and atomically replacing its destination. The export command
@@ -603,7 +603,7 @@ failure policy; the previous saved data remains unchanged.
 
 Format 3 introduced `fault.count` and indexed `fault.N.id`, `asset`, `date`
 and `description` fields; formats 4 and 5 extend these records below. The current
-writer always saves one complete format-5 snapshot, including borrowers and notes.
+writer always saves one complete format-6 snapshot, including borrowers and notes.
 Legacy split-file installations migrate on save. Imports replace the existing
 shared fault book, so all handlers see replacement faults immediately.
 Derived fault history is excluded from exported notes to prevent duplication.
@@ -635,7 +635,7 @@ Live and export format 4 adds required `fault.N.severity` enum names. Live
 formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
 migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
 unknown severity in format 4 or later is corruption, not a migration default.
-The current writer uses format 5 as described below.
+The current writer uses format 6 as described below.
 
 `FaultSeverityTest` covers all levels, description validation, immutable overview
 results, affected-unit isolation, date boundaries, reports during active loans,
@@ -665,7 +665,7 @@ Other unresolved severe faults and active loans continue to prevent lending.
 
 `LabLog` saves a repair before printing success. Save failure stops the session
 under the existing persistence policy, leaving the prior saved state unchanged.
-Live/export format 5 adds required `fault.N.resolved` and `fault.N.repair` fields;
+Live/export format 6 adds required `fault.N.resolved` and `fault.N.repair` fields;
 both are empty for unresolved reports. Resolved records store an ISO date and
 non-empty single-line details. Decoding rejects missing fields, partial repairs,
 invalid dates and resolution dates before the report. Current-date validation
@@ -673,10 +673,24 @@ belongs to the command, not loading, so saved history is independent of the cloc
 Live formats 1, 3 and 4 and export formats 2, 3 and 4 remain readable. Older fault
 records become unresolved without losing their existing fields. Export stores
 domain fields only, avoiding duplicate report/repair notes. Older versions of
-the application cannot read format 5.
+the application cannot read format 6.
 
 `RepairCommandsTest` covers successful and same-day repairs, immutable original
 reports, rejected inputs and transitions, local-date boundaries, multiple severe
 faults, active loans, chronology, restart/export, migration, corrupt repairs and
 failed saves. Existing equipment-editing tests also verify integration with the
 current develop branch.
+
+## Structured reservations (issue #78)
+
+DateWindow defines inclusive LocalDate intervals. Reservation is immutable and
+references registered equipment and a borrower. ReservationBook validates IDs
+and references, then calls its Saver with a proposed snapshot before publishing
+a change. LabLog keeps the same book instance across imports so handlers remain
+connected. ReservationCodec writes explicit indexed fields under reservation.N;
+format 6 requires reservation.count. Formats 2-5 load with empty bookings, and
+legacy notes remain notes. History derives reservation entries from records.
+
+ReservationTest covers invalid and reordered fields, period boundaries, failed
+saves, reload/export/import, schema corruption and legacy compatibility. US35
+adds the shared conflict policy without changing the interval contract.

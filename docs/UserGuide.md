@@ -430,7 +430,7 @@ FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
 they include borrower contact details.
 
-Format 5 contains equipment, borrowers, complete loans and returns, history
+Format 6 contains equipment, borrowers, complete loans and returns, history
 notes, and structured faults with severity, resolution dates and repair details.
 Formats 2, 3 and 4 remain readable. Legacy fault notes remain notes; format-3
 faults have unspecified severity, and older faults load as unresolved.
@@ -444,7 +444,7 @@ For example: import backups/lablog.properties --replace. Paths may contain space
 and may be enclosed in double quotes. A successful import takes effect immediately
 and survives restart. Missing --replace or invalid records cause an error.
 
-The main console now saves one format-5 file containing equipment, borrowers,
+The main console now saves one format-6 file containing equipment, borrowers,
 loans, returns, structured faults, repairs and history notes. It also loads legacy equipment/loan data with
 the sibling borrowers.properties and migrates on the next successful save.
 That old borrower file is retained, but is no longer read after migration.
@@ -496,3 +496,17 @@ Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
 `list category/Electronics sort/name` sorts only matching units. Comparisons
 are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
 Sorting a copied snapshot preserves the stored registration order.
+
+## Reserve equipment (US34)
+
+Use `reserve ASSET_ID b/BORROWER_ID from/YYYY-MM-DD to/YYYY-MM-DD`.
+Both the equipment and intended borrower must already be registered. Supply each
+field once, in any order. Dates are inclusive: a one-day reservation is valid,
+and a shared endpoint is occupied by both periods. Start dates cannot be before
+today. `reservations` lists stable reservation IDs; `history ASSET_ID` shows the
+period and intended borrower. Invalid input or a failed save changes no bookings.
+
+These are structured records in snapshot format 6, preserved by restart, export
+and replacement import. Older formats load with no bookings. The existing
+`reservation ... d/DATE desc/TEXT` command remains a history note and cannot
+reserve a unit. Overlap enforcement is added by the dependent US35 change.

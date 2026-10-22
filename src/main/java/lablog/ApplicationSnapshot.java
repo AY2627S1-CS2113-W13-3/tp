@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.DateTimeException;
 import java.time.LocalDate;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +25,7 @@ public class ApplicationSnapshot {
     private final List<Loan> loans;
     private final List<HistoryEntry> notes;
     private final List<Fault> faults;
+    private final List<Reservation> reservations;
 
     /** Captures supported records; serialization validates the complete graph again. */
     public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
@@ -34,11 +36,22 @@ public class ApplicationSnapshot {
     /** Captures structured fault records separately from display-only history notes. */
     public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
             List<Loan> loans, List<HistoryEntry> notes, List<Fault> faults) {
+        this(equipment, borrowers, loans, notes, faults, List.of());
+    }
+
+    /** Captures confirmed reservations alongside every previously supported record type. */
+    public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
+            List<Loan> loans, List<HistoryEntry> notes, List<Fault> faults, List<Reservation> reservations) {
+        this.reservations = List.copyOf(reservations);
         this.faults = List.copyOf(faults);
         this.equipment = List.copyOf(equipment);
         this.borrowers = List.copyOf(borrowers);
         this.loans = List.copyOf(loans);
         this.notes = List.copyOf(notes);
+    }
+
+    public List<Reservation> getReservations() {
+        return reservations;
     }
 
     public List<Fault> getFaults() {
@@ -77,7 +90,7 @@ public class ApplicationSnapshot {
         return parsed;
     }
 
-    /** Reads transfer formats 2 through 5; legacy two-file data is handled only by the application loader. */
+    /** Reads transfer formats 2 through 6; legacy two-file data is handled only by the application loader. */
     public static ApplicationSnapshot read(Path file) throws IOException {
         return decode(readProperties(file));
     }
@@ -93,8 +106,8 @@ public class ApplicationSnapshot {
      */
     static ApplicationSnapshot decode(Properties records) throws IOException {
         try {
-            if (!Set.of("2", "3", "4", "5").contains(required(records, "format"))) {
-                throw new IllegalArgumentException("Unsupported snapshot format; expected 2, 3, 4 or 5.");
+            if (!Set.of("2", "3", "4", "5", "6").contains(required(records, "format"))) {
+                throw new IllegalArgumentException("Unsupported snapshot format; expected 2, 3, 4, 5 or 6.");
             }
             LabLogStore base = new LabLogStore(records);
             List<Borrower> borrowers = new ArrayList<>();
@@ -131,8 +144,15 @@ public class ApplicationSnapshot {
             if (count(records, "audit.count") != 0) {
                 throw new IllegalArgumentException("Audit records are not supported by this schema version.");
             }
+            BorrowerBook borrowerBook = new BorrowerBook();
+            borrowerBook.replaceAll(borrowers);
+            ReservationBook bookingBook = new ReservationBook(base.getInventory(), borrowerBook,
+                    Clock.systemDefaultZone());
+            if ("6".equals(records.getProperty("format"))) {
+                bookingBook.replaceAll(ReservationCodec.read(records));
+            }
             ApplicationSnapshot result = new ApplicationSnapshot(base.getInventory().getEquipmentUnits(), borrowers,
-                    base.getLoans().getLoans(), notes, base.getFaults().getFaults());
+                    base.getLoans().getLoans(), notes, base.getFaults().getFaults(), bookingBook.getReservations());
             // Derive accepted keys from the export schema to keep read and write support in agreement.
             Set<String> unknownFields = new TreeSet<>(records.stringPropertyNames());
             unknownFields.removeAll(result.acceptedFields(records.getProperty("format")));
@@ -154,10 +174,13 @@ public class ApplicationSnapshot {
             if (format.equals("3")) {
                 accepted.removeIf(key -> key.startsWith("fault.") && key.endsWith(".severity"));
             }
-            if (!format.equals("5")) {
+            if (!Set.of("5", "6").contains(format)) {
                 accepted.removeIf(key -> key.startsWith("fault.")
                         && (key.endsWith(".resolved") || key.endsWith(".repair")));
             }
+        }
+        if (!format.equals("6")) {
+            accepted.removeIf(key -> key.startsWith("reservation."));
         }
         return accepted;
     }
@@ -172,7 +195,8 @@ public class ApplicationSnapshot {
         base.getLoans().replaceAll(loans);
         faults.forEach(base.getFaults()::add);
         Properties records = base.toProperties();
-        records.setProperty("format", "5");
+        records.setProperty("format", "6");
+        ReservationCodec.write(records, reservations);
         records.setProperty("borrower.count", Integer.toString(borrowers.size()));
         records.setProperty("note.count", Integer.toString(notes.size()));
         records.setProperty("audit.count", "0");
@@ -210,7 +234,7 @@ public class ApplicationSnapshot {
         Path temporary = Files.createTempFile(file.getParent(), "snapshot-", ".tmp");
         try {
             try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
-                records.store(writer, "LabLog complete snapshot, format 5");
+                records.store(writer, "LabLog complete snapshot, format 6");
             }
             if (Files.size(temporary) > MAX_BYTES) {
                 throw new IOException("Snapshot exceeds the supported 10 MiB size limit.");
