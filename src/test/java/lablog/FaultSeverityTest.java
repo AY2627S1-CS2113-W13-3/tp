@@ -157,6 +157,8 @@ class FaultSeverityTest {
         Properties records = store.toProperties();
         records.setProperty("format", "3");
         records.remove("fault.0.severity");
+        records.remove("fault.0.resolved");
+        records.remove("fault.0.repair");
         store.write(records);
         Fault migrated = new LabLogStore(file).getFaults().getFaults().getFirst();
         assertEquals(original.getId(), migrated.getId());

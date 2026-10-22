@@ -71,8 +71,8 @@ java -jar build/libs/lablog.jar
 
 The main console supports registration, help, loans, history, active-loan lists,
 returns, and borrower commands, so a fresh session can complete a loan/return
-workflow. The main console saves equipment, borrowers, loans, returns and history
-notes together in `data/lablog.properties` (format 2). Legacy format-1 installations
+workflow. The main console saves equipment, borrowers, loans, returns, faults, repairs and history
+notes together in `data/lablog.properties` (format 5). Legacy format-1 installations
 load the sibling borrower file and migrate on their next successful save. The
 old borrower file is retained as a backup and ignored after migration. Pass another data-file
 path after the JAR name to use it for equipment and loan records. Use only one

@@ -72,7 +72,9 @@ public class ApplicationSnapshot {
         } catch (IllegalArgumentException exception) {
             throw new IOException("Invalid snapshot: " + exception.getMessage(), exception);
         }
-        return records;
+        Properties parsed = new Properties();
+        parsed.putAll(records);
+        return parsed;
     }
 
     /** Reads transfer formats 2 through 5; legacy two-file data is handled only by the application loader. */
@@ -81,7 +83,7 @@ public class ApplicationSnapshot {
     }
 
     /**
-     * Decodes the closed format-2 schema before publishing a snapshot.
+     * Decodes the closed schema for the declared snapshot version before publishing a snapshot.
      * Unknown top-level, record and out-of-range indexed fields are rejected so
      * re-serialization cannot silently discard data owned by an unsupported feature.
      *
@@ -133,7 +135,7 @@ public class ApplicationSnapshot {
                     base.getLoans().getLoans(), notes, base.getFaults().getFaults());
             // Derive accepted keys from the export schema to keep read and write support in agreement.
             Set<String> unknownFields = new TreeSet<>(records.stringPropertyNames());
-            unknownFields.removeAll(result.encode().stringPropertyNames());
+            unknownFields.removeAll(result.acceptedFields(records.getProperty("format")));
             if (!unknownFields.isEmpty()) {
                 throw new IllegalArgumentException("Unknown snapshot field: " + unknownFields.iterator().next() + ".");
             }
@@ -141,6 +143,23 @@ public class ApplicationSnapshot {
         } catch (IllegalArgumentException | DateTimeException exception) {
             throw new IOException("Invalid snapshot: " + exception.getMessage(), exception);
         }
+    }
+
+    /** Excludes fields introduced after the input version so they cannot be silently discarded. */
+    private Set<String> acceptedFields(String format) {
+        Set<String> accepted = new HashSet<>(encode().stringPropertyNames());
+        if (format.equals("2")) {
+            accepted.removeIf(key -> key.startsWith("fault."));
+        } else {
+            if (format.equals("3")) {
+                accepted.removeIf(key -> key.startsWith("fault.") && key.endsWith(".severity"));
+            }
+            if (!format.equals("5")) {
+                accepted.removeIf(key -> key.startsWith("fault.")
+                        && (key.endsWith(".resolved") || key.endsWith(".repair")));
+            }
+        }
+        return accepted;
     }
 
     /** Serializes actual domain fields and the current reservation, fault and maintenance notes. */

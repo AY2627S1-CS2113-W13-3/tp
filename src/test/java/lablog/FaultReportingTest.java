@@ -113,7 +113,7 @@ class FaultReportingTest {
         assertThrows(IOException.class, () -> new LabLogStore(file));
         valid.setProperty("fault.0.asset", "OSC-001");
         valid.setProperty("fault.count", "2");
-        for (String suffix : List.of("id", "asset", "date", "description")) {
+        for (String suffix : List.of("id", "asset", "date", "description", "severity", "resolved", "repair")) {
             valid.setProperty("fault.1." + suffix, valid.getProperty("fault.0." + suffix));
         }
         legacy.write(valid);

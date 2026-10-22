@@ -11,7 +11,8 @@ import java.util.Set;
 
 /** Lists registered units with availability derived from current loans. */
 public class EquipmentListCommands {
-    private static final String USAGE = "Use: list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]";
+    private static final String USAGE = "Use: list [category/VALUE] [location/VALUE] "
+            + "[status/available|on-loan] [sort/FIELD]";
     private static final Set<String> FILTER_FIELDS = Set.of("category", "location", "status", "sort");
 
     private static final String SUPPORTED_SORT_FIELDS =
@@ -60,8 +61,7 @@ public class EquipmentListCommands {
             result.append("\n").append(unit.getAssetId()).append(" | ").append(unit.getName())
                     .append(" | ").append(unit.getCategory()).append(" | ").append(unit.getModel())
                     .append(" | ").append(unit.getLocation()).append(" | ")
-                    .append(loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
-                            : faults.blocksLending(unit.getAssetId()) ? "Unavailable: severe fault" : "Available");
+                    .append(availabilityOf(unit));
         }
         return result.toString();
     }

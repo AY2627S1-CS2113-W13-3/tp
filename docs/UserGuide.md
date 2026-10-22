@@ -120,8 +120,10 @@ For example, `list category/Electronics location/Lab A status/available` shows
 electronics stored in Lab A that are not currently on loan. Category and
 location values match exactly, ignoring case; when combined, all supplied
 filters must match. Status is `on-loan` when a unit has an active loan and
-`available` otherwise. Reservation and fault history notes do not change loan
-availability. Results stay in registration order and filtering changes no
+`available` only when it has neither an active loan nor an unresolved severe
+fault. Severe faults display `Unavailable: severe fault` and are excluded from
+`status/available` results. Reservation and legacy fault notes do not block loans.
+Results stay in registration order unless sorted, and filtering changes no
 records. An empty inventory reports `No equipment registered.` A filter with no
 matches reports `No equipment matches the supplied filters.`
 
@@ -140,7 +142,7 @@ fields, or `maintenance` with the same fields. For example:
 The equipment must already be registered. Dates must be real calendar dates,
 and descriptions must be non-empty and single-line. View recorded notes using
 `history ASSET_ID`. Notes describe events only: they do not reserve availability
-or prevent loans. Reservation and maintenance notes are lost when the session ends.
+or prevent loans. Reservation and maintenance notes are saved in the snapshot.
 Fault reports receive a unique `F-...` ID shown on success and in history. They
 are saved across restarts and included in exports. Multiple reports for the same
 equipment are allowed, each with its own ID. Past and future dates are accepted,
@@ -392,14 +394,11 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `active-loans` | Main | List all active loans |
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
-| `reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
 | `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
-
-| `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
+| `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a dated history note |
 | `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
 | `repair FAULT_ID d/DATE desc/DETAILS` | Main | Resolve a fault and retain its repair history |
-| `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
 | `exit` | Main | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
 | `loans BORROWER_ID` | Both | List a registered borrower's active loans |
@@ -423,11 +422,11 @@ FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
 they include borrower contact details.
 
-Format 2 contains equipment, borrowers, full loan and return details, and the
-currently supported reservation, fault and maintenance notes. Rich reservation
-and fault models and audit records are not yet implemented on develop. Their
-owners must agree a new schema before those records can be transferred; they
-are not represented by inventing data or treating display notes as full records.
+Format 5 contains equipment, borrowers, complete loans and returns, history
+notes, and structured faults with severity, resolution dates and repair details.
+Formats 2, 3 and 4 remain readable. Legacy fault notes remain notes; format-3
+faults have unspecified severity, and older faults load as unresolved.
+Reservation domain records and audit records require future schema extensions.
 
 ## Import application data (US62)
 
@@ -437,8 +436,8 @@ For example: import backups/lablog.properties --replace. Paths may contain space
 and may be enclosed in double quotes. A successful import takes effect immediately
 and survives restart. Missing --replace or invalid records cause an error.
 
-The main console now saves one format-2 file containing equipment, borrowers,
-loans, returns and history notes. It loads old format-1 equipment/loan data with
+The main console now saves one format-5 file containing equipment, borrowers,
+loans, returns, structured faults, repairs and history notes. It also loads legacy equipment/loan data with
 the sibling borrowers.properties and migrates on the next successful save.
 That old borrower file is retained, but is no longer read after migration.
 The standalone borrower console continues to use its own borrower file; it no
@@ -451,7 +450,7 @@ Imports reject unsupported versions, missing or unknown fields, duplicate
 property keys or equipment/borrower IDs, broken references, impossible dates,
 multiple active loans for one unit, and invalid contact details. Files must be
 valid UTF-8 regular files no larger than 10 MiB. Counts are bounded at 100,000
-records per section. Audit records are unsupported in format 2.
+records per section. Audit records are unsupported in the current schema.
 
 Any validation or save failure reports an error and preserves current live and
 saved records. Fix the reported problem and submit the import again. Unknown
@@ -460,7 +459,7 @@ fields are rejected so a newer feature's data cannot be silently discarded.
 
 ### Unknown snapshot fields
 
-Format 2 is a closed schema: an unrecognized property is rejected, even if all
+Each supported version has a closed schema: an unrecognized property is rejected, even if all
 required fields are valid. This includes extra record fields and indexed fields
 outside the declared counts. For example, equipment.0.serialNumber produces
 "Invalid snapshot: Unknown snapshot field: equipment.0.serialNumber."
@@ -489,9 +488,3 @@ Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
 `list category/Electronics sort/name` sorts only matching units. Comparisons
 are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
 Sorting a copied snapshot preserves the stored registration order.
-
-Format 3 contains equipment, borrowers, full loan and return details, structured
-fault reports, and current history notes. Fault IDs, equipment IDs, dates and
-descriptions are preserved. Older format 2 exports remain readable by the
-snapshot reader; their legacy fault notes remain notes. Reservation domain
-records, severity, repairs and audit records require their own schema extensions.

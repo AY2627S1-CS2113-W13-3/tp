@@ -58,6 +58,9 @@ class LabLogStoreTest {
         }
         store.save();
 
+        BorrowerBook borrowers = new BorrowerBook(directory.resolve("borrowers.properties"));
+        borrowers.addBorrower(new Borrower("A0123456X", "Jamie", "91234567", "jamie@u.nus.edu"));
+
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         LabLog.load(file).run(
                 new Scanner("return OSC-001 OSC-002\nexit\n"),

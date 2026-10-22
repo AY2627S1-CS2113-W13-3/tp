@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Properties;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -88,7 +89,10 @@ class SnapshotImportTest {
         LabLogStore legacy = new LabLogStore(data);
         legacy.getInventory().addEquipment(sample().getEquipment().get(0));
         legacy.getLoans().addLoan(sample().getLoans().get(1));
-        legacy.save();
+        Properties legacyRecords = legacy.toProperties();
+        legacyRecords.setProperty("format", "1");
+        legacyRecords.remove("fault.count");
+        legacy.write(legacyRecords);
         Path borrowerFile = directory.resolve("borrowers.properties");
         BorrowerBook borrowers = new BorrowerBook(borrowerFile);
         borrowers.addBorrower(sample().getBorrowers().get(0));

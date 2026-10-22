@@ -10,14 +10,14 @@ executable JAR. See `build.gradle` for dependency versions.
 
 ### Entry points and shared records
 
-The production main entry point loads `LabLogStore` from `data/lablog.properties`
-or the optional command-line file path. It stores equipment and complete loan
-history in one versioned UTF-8 properties snapshot. Save to a temporary file
+The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
+or the optional command-line file path. It stores equipment, borrowers, loans,
+notes, structured faults and repairs in one format-5 UTF-8 properties snapshot. Save to a temporary file
 in the destination directory, then atomically replace the snapshot before
 printing success. Unsupported atomic replacement is reported as a save failure;
 there is no non-atomic fallback. Save failure stops the session to avoid further
-unsaved operations. Borrower data is stored separately in a sibling
-`borrowers.properties` file. Injected constructors remain in memory for unit tests.
+unsaved operations. Legacy split-file installations load the sibling borrower file
+and migrate on the next save. Injected constructors remain in memory for unit tests.
 
 Loading rejects missing required fields, invalid dates, duplicate IDs, unknown
 equipment references, and multiple active loans per unit. A corrupt file is not
@@ -28,8 +28,8 @@ concurrent writers are not supported.
 and copying, listing, active loans, history notes, help, loan, history, return,
 and borrower commands to their handlers. The prompted and single-line equipment
 registration forms both validate before storing. Borrower commands share the
-main console's inventory and loan book. The CLI loads borrowers from the sibling
-data file; in-memory constructors remain available for tests.
+main console's inventory and loan book. Borrowers are part of the complete
+snapshot; in-memory constructors remain available for tests.
 
 `BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
 and an initially empty `LoanBook`. `BorrowerCommands` handles registration,
@@ -54,11 +54,10 @@ an immutable inventory snapshot, so results preserve registration order and do
 not mutate shared records. Empty inventories and filters with no matches have
 distinct messages; malformed, repeated, and unsupported filters are rejected.
 
-Status follows the availability rule shared by the current loan and history
-interfaces: a unit with an active loan is `on-loan`, and a unit without one is
-`available`. Reservation and fault history entries are display notes and do not
-change availability or prevent lending in this version. The handler reads
-`LoanBook.hasActiveLoan` directly instead of keeping a second status field.
+Status follows the shared availability rule: active loans produce `on-loan`;
+`available` requires neither an active loan nor an unresolved severe fault.
+Display-only reservation and legacy fault notes do not block loans. Filtering,
+sorting and display read the current loan and fault books rather than cached status.
 
 `EquipmentListCommandsTest` covers each filter, case-insensitive field values,
 combined filters, status changes, invalid inputs, no matches, and the fact that
@@ -342,9 +341,9 @@ description; it does not add a separate entry dated on the return day.
 
 Shared records can be passed through
 `new LabLog(inventory, loanBook, () -> currentHistoryEntries)`, or directly to
-`HistoryCommands`. The application combines supplied entries with session notes.
-These notes do not affect equipment availability and are not persisted, whereas
-loan and return records are persisted in production CLI sessions.
+`HistoryCommands`. The application combines supplied entries with saved notes
+and derived fault/repair history. Notes do not affect equipment availability;
+structured unresolved severe faults block new loans.
 
 #### Design considerations
 
@@ -403,8 +402,7 @@ return commands before changing records. Save borrower additions atomically
 before updating memory. These behaviors are covered by automated tests.
 
 Current limitations: the standalone borrower console has its own initially
-empty loan book; reservation and maintenance history notes are held only
-for the session; and concurrent writers to the same data files are unsupported.
+empty loan book; concurrent writers to the same data files are unsupported.
 Return fault descriptions are stored in loan history and do not create a
 separate fault note.
 
@@ -458,7 +456,7 @@ disposable data-file path, register equipment with `add`, register a borrower
 with `add-borrower`, then issue a loan. Check `active-loans`, `loans
 BORROWER_ID`, `return ASSET_ID`, and `history ASSET_ID`. Restart with the same
 data path to confirm equipment, loans, returns, and borrowers reload. Use a
-separate disposable directory because borrower data is stored beside the
+separate disposable directory to isolate legacy borrower files beside the
 LabLog data file.
 
 ## Equipment detail editing (issue #62)
@@ -515,11 +513,11 @@ requires a new file and protects the active data paths.
 Integration contract for domain owners: add full serialization, validation and
 round-trip tests for new reservation/audit models, then bump the version.
 Do not serialize HistoryEntry display text as a substitute for full domain data.
-Import CLI integration follows in issue #91; envelope hardening is issue #92.
+Import and envelope validation use the same codec as export.
 
 ## Import and single-file persistence (issue #91)
 
-LabLog.load reads format 2 into detached books, or loads the legacy two-file
+LabLog.load reads complete formats 2 through 5 into detached books, or loads the legacy two-file
 installation without writing during startup. Main-console mutations persist
 one ApplicationSnapshot. BorrowerBook's Saver writes proposed contacts with
 the other current records before publishing the edit.
@@ -540,7 +538,8 @@ is attempted. Use one main-console process per data file.
 ApplicationSnapshot.readProperties rejects duplicate properties through a
 Properties subclass instead of accepting the parser's usual last-value-wins
 behavior. It checks regular-file status and the 10 MiB input limit. Decode
-derives the accepted key set from the export schema and rejects supplied keys
+derives the accepted key set from the export schema and the declared input version,
+excluding fields introduced by later versions. It rejects supplied keys
 outside it, including out-of-range indices. The error names the first unknown
 key in sorted order. Required-field validation separately rejects missing keys. Domain validation remains shared with
 the export codec.
@@ -553,7 +552,7 @@ and active-loan listings remain unchanged after each invalid import.
 
 The PR #96 follow-up is covered by
 SnapshotValidationTest.decode_unknownProperties_rejectsBeforeReserialization.
-It supplies valid format-2 records plus unknown top-level, per-record and
+It supplies valid snapshot records plus unknown top-level, per-record and
 out-of-range indexed properties. Both direct decode and read-then-write must
 fail before the existing destination can be overwritten; the source, destination
 and input properties are checked for preservation.
@@ -593,12 +592,11 @@ Issues #86 and #87 add severity, lending restrictions and repair transitions bel
 before printing success. A save failure stops the session using the existing
 failure policy; the previous saved data remains unchanged.
 
-Live data format 3 adds `fault.count` and indexed `fault.N.id`, `asset`, `date`
-and `description` fields. Format 1 live files load with an empty fault book and
-upgrade on the next save. Borrowers retain their existing separate live file.
-Export format 3 includes the same fault fields alongside borrowers and notes.
-The export reader also accepts format 2, retaining legacy fault notes as notes;
-no import command or automatic conversion of exported notes is introduced here.
+Format 3 introduced `fault.count` and indexed `fault.N.id`, `asset`, `date`
+and `description` fields; formats 4 and 5 extend these records below. The current
+writer always saves one complete format-5 snapshot, including borrowers and notes.
+Legacy split-file installations migrate on save. Imports replace the existing
+shared fault book, so all handlers see replacement faults immediately.
 Derived fault history is excluded from exported notes to prevent duplication.
 
 `FaultReportingTest` covers multiple reports, date boundaries, invalid input,

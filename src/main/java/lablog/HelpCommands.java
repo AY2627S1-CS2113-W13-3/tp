@@ -71,15 +71,15 @@ public class HelpCommands {
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
                     + "Snapshot format 5 includes fault severity, repairs and current history notes.\n"
                     + "Future domain records and audit data require a schema update; "
-                    + "unsupported fields are rejected when decoding format 2, rather than silently dropped.";
+                    + "unsupported fields are rejected for every supported version, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
-                    + "Fields: FILE is a format-2 snapshot; --replace explicitly requests replacement,\n"
+                    + "Fields: FILE is a format-2, 3, 4 or 5 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"
-                    + "Unknown format-2 properties are rejected; the error names the unsupported field.";
+                    + "Unknown snapshot properties are rejected; the error names the unsupported field.";
 
         case "commands":
             return "Show the last 20 submitted command lines in this console session.\n"
@@ -189,8 +189,10 @@ public class HelpCommands {
             return "List registered equipment and current availability (main console).\n"
                     + "Format: list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]\n"
                     + "Example: list category/Electronics location/Lab A status/available\n"
+                    + "Example: list sort/name\n"
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
-                    + "  Status is derived from active loans; reservation and fault notes do not change it.\n"
+                    + "  Active loans determine on-loan status; "
+                    + "unresolved severe faults exclude units from available results.\n"
                     + "Fields: category/ and location/ match exact values; status/ is available or on-loan.\n"
                     + "Supported sort fields: asset-id, name, category, model, location, availability.\n"
                     + "Sorting is ascending and case-insensitive; ties use asset ID, then exact ID case.\n"
