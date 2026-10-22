@@ -10,7 +10,7 @@ public class HelpCommands {
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
-            + "fault ASSET_ID d/DATE desc/DETAILS - Report a persistent equipment fault.\n"
+            + "fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS - Report a persistent equipment fault.\n"
             + "list - List registered equipment and availability (main console).\n"
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans - List all active loans and overdue status (main console).\n"
@@ -61,7 +61,7 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 3 includes structured faults and current history notes.\n"
+                    + "Snapshot format 4 includes fault severity and current history notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected.";
         case "add":
@@ -72,11 +72,14 @@ public class HelpCommands {
                     + "Unknown commands and bare asset IDs are rejected; use add to begin registration.";
         case "fault":
             return "Report a fault for registered equipment.\n"
-                    + "Format: fault ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION\n"
-                    + "Example: fault OSC-001 d/2026-10-14 desc/Cracked screen\n"
+                    + "Format: fault ASSET_ID d/YYYY-MM-DD [s/SEVERITY] desc/DESCRIPTION\n"
+                    + "Example: fault OSC-001 d/2026-10-14 s/severe desc/Cracked screen\n"
                     + "Use a real date and a non-empty single-line description. Dates may be past or future.\n"
                     + "The fault ID is shown on success and in history; reports survive restarts and exports.\n"
-                    + "Reports do not change lending availability. Severity and repair commands are not included.";
+                    + "Severity: minor, moderate, or severe (case-insensitive); omission means unspecified.\n"
+                    + "Put s/ before desc/; repeated fields are rejected.\n"
+                    + "Severe faults block new loans immediately, even for future report dates.\n"
+                    + "Returns remain allowed and do not clear faults. Repair commands are not yet included.";
         case "reservation":
         case "maintenance":
             return "Record a dated equipment history note.\nFormat: " + parts[1]
@@ -123,7 +126,7 @@ public class HelpCommands {
             return "List registered equipment and current availability (main console).\n"
                     + "Format: list\nExample: list\n"
                     + "  Show asset IDs, names, categories, models, locations, and availability.\n"
-                    + "Availability is derived from active loans; returned units are available.\n"
+                    + "Availability is derived from active loans and severe faults.\n"
                     + "Fields: None.";
         case "find":
             return "Show one registered equipment unit by its exact asset ID.\n"

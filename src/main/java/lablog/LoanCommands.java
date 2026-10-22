@@ -21,6 +21,7 @@ public class LoanCommands {
     private final LoanBook loans;
     private final Clock clock;
     private final BorrowerBook borrowers;
+    private final FaultBook faults;
 
     /**
      * Connects loan issuing to shared records and a clock that tests can fix.
@@ -35,10 +36,16 @@ public class LoanCommands {
 
     /** Enables registered-borrower validation when a shared borrower book is supplied. */
     public LoanCommands(Inventory inventory, LoanBook loans, Clock clock, BorrowerBook borrowers) {
+        this(inventory, loans, clock, borrowers, new FaultBook(inventory));
+    }
+
+    /** Checks the shared fault book before lending equipment with a severe report. */
+    public LoanCommands(Inventory inventory, LoanBook loans, Clock clock, BorrowerBook borrowers, FaultBook faults) {
         this.inventory = Objects.requireNonNull(inventory);
         this.loans = Objects.requireNonNull(loans);
         this.clock = Objects.requireNonNull(clock);
         this.borrowers = borrowers;
+        this.faults = Objects.requireNonNull(faults);
     }
 
     /**
@@ -150,6 +157,10 @@ public class LoanCommands {
      * Warns instead of lending a unit that someone else still has, naming who holds it.
      */
     private void rejectUnavailable(String assetId) {
+        if (faults.blocksLending(assetId)) {
+            throw new IllegalArgumentException("Equipment " + assetId
+                    + " has an unresolved severe fault and cannot be loaned. Use history " + assetId + ".");
+        }
         Optional<Loan> active = loans.findActiveLoan(assetId);
         if (active.isPresent()) {
             Loan loan = active.get();

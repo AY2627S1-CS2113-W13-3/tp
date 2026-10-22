@@ -16,7 +16,12 @@ public class FaultBook {
 
     /** Allocates a stable identifier and validates the entire report before insertion. */
     public Fault report(String assetId, LocalDate date, String description) {
-        Fault fault = new Fault("F-" + UUID.randomUUID(), assetId, date, description);
+        return report(assetId, date, description, Fault.Severity.UNSPECIFIED);
+    }
+
+    /** Records a severity assessment using the same validation as restored records. */
+    public Fault report(String assetId, LocalDate date, String description, Fault.Severity severity) {
+        Fault fault = new Fault("F-" + UUID.randomUUID(), assetId, date, description, severity);
         add(fault);
         return fault;
     }
@@ -35,5 +40,18 @@ public class FaultBook {
     /** Supplies immutable records so other features cannot bypass validation. */
     public List<Fault> getFaults() {
         return List.copyOf(faults);
+    }
+
+    /**
+     * Supplies the overview's severe reports. All current reports are unresolved;
+     * the repair feature must extend this filter when resolution becomes available.
+     */
+    public List<Fault> getUnresolvedSevereFaults() {
+        return faults.stream().filter(fault -> fault.getSeverity() == Fault.Severity.SEVERE).toList();
+    }
+
+    /** Severe reports block new lending immediately, regardless of their recorded date. */
+    public boolean blocksLending(String assetId) {
+        return getUnresolvedSevereFaults().stream().anyMatch(fault -> fault.getAssetId().equals(assetId));
     }
 }

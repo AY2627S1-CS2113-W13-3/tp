@@ -74,7 +74,8 @@ registration and is available after restart.
 
 Enter `list` in the main console to show asset ID, name, category, model,
 location, and availability for each registered unit. A unit is on loan when it
-has an active loan; returning it makes it available in the next listing.
+has an active loan. Otherwise, a severe fault shows `Unavailable: severe fault`;
+units with neither an active loan nor a severe fault show `Available`.
 An empty inventory reports `No equipment registered.` No records are changed.
 
 ### Finding one unit: `find`
@@ -96,7 +97,35 @@ or prevent loans. Reservation and maintenance notes are lost when the session en
 Fault reports receive a unique `F-...` ID shown on success and in history. They
 are saved across restarts and included in exports. Multiple reports for the same
 equipment are allowed, each with its own ID. Past and future dates are accepted,
-as with the original dated notes. Severity and repair commands are not included.
+as with the original dated notes. Repair commands are not yet included.
+
+### Recording fault severity and description
+
+Use `fault ASSET_ID d/YYYY-MM-DD [s/SEVERITY] desc/DESCRIPTION`, for example:
+
+```text
+fault OSC-001 d/2026-10-22 s/severe desc/Cracked screen
+```
+
+The optional severity goes between the date and description. Values ignore case:
+
+| Severity | Meaning | Blocks new loans? |
+| --- | --- | --- |
+| `minor` | Small defect that does not prevent use | No |
+| `moderate` | Significant defect needing attention | No |
+| `severe` | Serious defect that makes equipment unsuitable for lending | Yes |
+| Omitted | Not assessed; displayed as `unspecified` | No |
+
+Descriptions must be non-empty and on one line. Supply each field only once;
+standalone `s/`, `d/`, and `desc/` prefixes inside descriptions are rejected to
+avoid silently accepting misplaced or repeated fields. Invalid input creates no
+report. Confirmation and history include the severity, which survives restarts
+and exports. Older fault records without a severity remain unspecified.
+
+All current fault reports are unresolved. Severe faults block new loans
+immediately, including reports with future dates. Existing loans remain active
+and can be returned, but returning a unit does not clear its severe faults.
+Fault resolution belongs to the separate repair feature (#87).
 
 ### Listing all active loans: `active-loans`
 
@@ -194,7 +223,8 @@ The equipment must be registered and must not already be out. Unknown equipment,
 malformed or past due dates, and missing, repeated, or unknown prefixes are
 rejected without recording anything. A unit that someone still has is refused with
 a message naming the current borrower and due date, so the same unit cannot be
-lent twice; once it is returned it can be lent again.
+lent twice. Unresolved severe faults also prevent new loans, including after a
+return. Minor, moderate and unspecified faults do not block lending.
 
 Borrower IDs must already exist in the shared borrower book. The main console
 rejects unknown borrower IDs. Equipment and loan history are saved in the
@@ -268,7 +298,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
-| `fault ASSET_ID d/DATE desc/DETAILS` | Main | Save an identifiable equipment fault |
+| `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
 | `exit` | Main | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
@@ -293,8 +323,9 @@ FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
 they include borrower contact details.
 
-Format 3 contains equipment, borrowers, full loan and return details, structured
-fault reports, and current history notes. Fault IDs, equipment IDs, dates and
-descriptions are preserved. Older format 2 exports remain readable by the
-snapshot reader; their legacy fault notes remain notes. Reservation domain
-records, severity, repairs and audit records require their own schema extensions.
+Format 4 contains equipment, borrowers, full loan and return details, structured
+fault reports, and current history notes. Fault IDs, equipment IDs, dates,
+descriptions and severity are preserved. Older format 2 and 3 exports remain
+readable by the snapshot reader; legacy fault notes remain notes and format 3
+faults have unspecified severity. Reservation domain records, repairs and audit
+records require their own schema extensions.

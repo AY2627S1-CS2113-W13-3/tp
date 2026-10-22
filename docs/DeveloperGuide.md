@@ -373,7 +373,7 @@ LabLog data file.
 
 EquipmentFindCommands resolves one case-sensitive asset ID from the shared
 inventory and reports descriptive fields with availability derived from active
-loans. The lookup is read-only and returns a clear error for unknown IDs.
+loans and severe faults. The lookup is read-only and returns a clear error for unknown IDs.
 
 EquipmentFindCommandsTest covers details, availability, invalid syntax,
 unknown IDs, and unchanged equipment and loan records.
@@ -392,14 +392,14 @@ unchanged loan objects, restart persistence, invalid fields, and failed saves.
 ## Versioned export schema (issue #90)
 
 ApplicationSnapshot captures the supported object graph and uses LabLogStore's
-equipment/loan serializer. UTF-8 properties format 3 retains borrower.count and
+equipment/loan serializer. UTF-8 properties format 4 retains borrower.count and
 note.count with indexed fields. audit.count is explicitly zero until an audit
 domain schema exists. The codec validates references and dates before writing
 a temporary file and atomically replacing its destination. The export command
 requires a new file and protects the active data paths.
 
 Integration contract for domain owners: add full serialization, validation and
-round-trip tests for new reservation/repair/severity/audit models, then bump the version.
+round-trip tests for new reservation/repair/audit models, then bump the version.
 Do not serialize HistoryEntry display text as a substitute for full domain data.
 Import CLI integration follows in issue #91; envelope hardening is issue #92.
 
@@ -410,7 +410,7 @@ Import CLI integration follows in issue #91; envelope hardening is issue #92.
 Reports use UUID-based `F-...` IDs to avoid a separate persistent counter.
 `getFaults()` returns an immutable snapshot for future overview consumers;
 `Fault.toHistoryEntry()` includes the ID without storing duplicated history text.
-Severity, repair transitions and availability changes are outside this feature.
+Issue #86 adds severity and lending restrictions below; repair transitions remain separate.
 
 `HistoryRecordCommands` retains the existing fault command syntax and date rules
 (including past and future dates). `LabLog` shares the store's fault book and saves
@@ -428,3 +428,33 @@ Derived fault history is excluded from exported notes to prevent duplication.
 `FaultReportingTest` covers multiple reports, date boundaries, invalid input,
 immutable views, stable IDs across restart/export, broken saved references,
 duplicate IDs, legacy loading, and failed-save behavior.
+
+## Fault severity and description (issue #86)
+
+`Fault.Severity` defines `MINOR`, `MODERATE`, `SEVERE` and `UNSPECIFIED`. The
+optional `s/` field accepts the first three levels case-insensitively, between
+`d/DATE` and `desc/DESCRIPTION`. Omission retains the original command syntax
+and records `UNSPECIFIED`. Descriptions remain required and single-line; repeated
+or misplaced field prefixes are rejected before any record is inserted.
+
+The agreed lending rule blocks equipment with a severe fault. `FaultBook`
+provides an immutable `getUnresolvedSevereFaults()` snapshot for US58 and
+`blocksLending(assetId)` for loan validation and availability displays. All
+reports are currently unresolved; #87 must extend the query to exclude repaired
+faults. Severity blocks immediately, independent of the report date. Existing
+loans and returns remain valid; a return does not resolve a fault.
+
+`LabLog` supplies the same fault book to reporting, loan, list and find handlers.
+`LoanCommands` rejects severe faults before adding a loan. Listings show `On loan`
+for active loans, otherwise `Unavailable: severe fault` for affected units.
+Overview presentation and repair commands are not implemented by this change.
+
+Live and export format 4 adds required `fault.N.severity` enum names. Live
+formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
+migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
+unknown severity in format 4 is corruption, not a migration default. The next
+save/export writes format 4. Older app versions cannot read format 4.
+
+`FaultSeverityTest` covers all levels, description validation, immutable overview
+results, affected-unit isolation, date boundaries, reports during active loans,
+return behavior, restart/export preservation, migration and malformed severity.
