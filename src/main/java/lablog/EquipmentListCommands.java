@@ -2,23 +2,22 @@ package lablog;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.function.Function;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
-/** Lists registered units with availability derived from current loans. */
+/** Lists and sorts registered units with availability derived from current loans. */
 public class EquipmentListCommands {
-    private static final String USAGE = "Use: list [category/VALUE] [location/VALUE] "
-            + "[status/available|on-loan] [sort/FIELD]";
-    private static final Set<String> FILTER_FIELDS = Set.of("category", "location", "status", "sort");
-
     private static final String SUPPORTED_SORT_FIELDS =
             "asset-id, name, category, model, location, availability";
     private static final Set<String> SORT_FIELDS = Set.of(
             "asset-id", "name", "category", "model", "location", "availability");
+    private static final String USAGE = "Use: list [category/VALUE] [location/VALUE]"
+            + " [status/available|on-loan] [sort/FIELD]";
+    private static final Set<String> OPTION_FIELDS = Set.of("category", "location", "status", "sort");
 
     private final Inventory inventory;
     private final LoanBook loans;
@@ -28,14 +27,20 @@ public class EquipmentListCommands {
         this(inventory, loans, new FaultBook(inventory));
     }
 
-    /** Shares the fault reports used by lending validation. */
+    /** Shares the fault book used by lending, repair and snapshot replacement. */
     public EquipmentListCommands(Inventory inventory, LoanBook loans, FaultBook faults) {
         this.inventory = inventory;
         this.loans = loans;
         this.faults = faults;
     }
 
-    /** Lists matching units in registration order without changing inventory or loans. */
+    /**
+     * Filters the inventory snapshot and optionally sorts a copy of the matching units.
+     *
+     * @param input list command with optional category, location, status, and sort options
+     * @return matching equipment rows or an empty-result message
+     * @throws IllegalArgumentException if the command syntax or any option is invalid
+     */
     public String execute(String input) {
         String command = input == null ? "" : input.strip();
         if (!command.equals("list")
@@ -43,21 +48,22 @@ public class EquipmentListCommands {
                         && Character.isWhitespace(command.charAt(4)))) {
             throw new IllegalArgumentException(USAGE);
         }
-        Map<String, String> filters = parseFilters(command.length() == 4 ? "" : command.substring(4).strip());
+        Map<String, String> options = parseOptions(command.length() == 4 ? "" : command.substring(4).strip());
         List<Equipment> equipment = inventory.getEquipmentUnits();
         if (equipment.isEmpty()) {
             return "No equipment registered.";
         }
-        List<Equipment> matches = equipment.stream().filter(unit -> matches(unit, filters)).toList();
-        if (matches.isEmpty()) {
+        List<Equipment> units = equipment.stream().filter(unit -> matches(unit, options)).toList();
+        if (units.isEmpty()) {
             return "No equipment matches the supplied filters.";
         }
-        if (filters.containsKey("sort")) {
-            matches = new ArrayList<>(matches);
-            matches.sort(comparatorFor(filters.get("sort")));
+        String sortField = options.get("sort");
+        if (sortField != null) {
+            units = new ArrayList<>(units);
+            units.sort(comparatorFor(sortField));
         }
         StringBuilder result = new StringBuilder("Asset ID | Name | Category | Model | Location | Availability");
-        for (Equipment unit : matches) {
+        for (Equipment unit : units) {
             result.append("\n").append(unit.getAssetId()).append(" | ").append(unit.getName())
                     .append(" | ").append(unit.getCategory()).append(" | ").append(unit.getModel())
                     .append(" | ").append(unit.getLocation()).append(" | ")
@@ -66,12 +72,12 @@ public class EquipmentListCommands {
         return result.toString();
     }
 
-    /** Parses optional field filters and rejects unsupported or repeated fields. */
-    private Map<String, String> parseFilters(String input) {
+    /** Parses filters and the sort option together, preserving spaces inside filter values. */
+    private Map<String, String> parseOptions(String input) {
         if (input.isEmpty()) {
             return Map.of();
         }
-        Map<String, String> filters = new HashMap<>();
+        Map<String, String> options = new HashMap<>();
         for (String clause : input.split("\\s+(?=\\S+/)")) {
             int separator = clause.indexOf('/');
             if (separator <= 0) {
@@ -79,15 +85,15 @@ public class EquipmentListCommands {
             }
             String field = clause.substring(0, separator).toLowerCase(Locale.ROOT);
             String value = clause.substring(separator + 1).strip();
-            if (!FILTER_FIELDS.contains(field)) {
-                throw new IllegalArgumentException("Unsupported filter '" + field
+            if (!OPTION_FIELDS.contains(field)) {
+                throw new IllegalArgumentException("Unsupported option '" + field
                         + "'. Choose category, location, status, or sort. " + USAGE);
             }
             if (value.isEmpty()) {
-                throw new IllegalArgumentException("Filter values must not be empty. " + USAGE);
+                throw new IllegalArgumentException("Option values must not be empty. " + USAGE);
             }
-            if (filters.containsKey(field)) {
-                throw new IllegalArgumentException("Use each filter at most once. " + USAGE);
+            if (options.containsKey(field)) {
+                throw new IllegalArgumentException("Use each option at most once. " + USAGE);
             }
             if (field.equals("status")) {
                 value = value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "-");
@@ -99,23 +105,22 @@ public class EquipmentListCommands {
                 throw new IllegalArgumentException("Unsupported sort field: " + value
                         + ". Supported fields: " + SUPPORTED_SORT_FIELDS + ".");
             }
-            filters.put(field, value);
+            options.put(field, value);
         }
-        return Map.copyOf(filters);
+        return Map.copyOf(options);
     }
 
     /** Applies exact, case-insensitive category/location filters and the current loan status. */
-    private boolean matches(Equipment unit, Map<String, String> filters) {
-        String category = filters.get("category");
-        String location = filters.get("location");
-        String status = filters.get("status");
+    private boolean matches(Equipment unit, Map<String, String> options) {
+        String category = options.get("category");
+        String location = options.get("location");
+        String status = options.get("status");
         return (category == null || unit.getCategory().equalsIgnoreCase(category))
                 && (location == null || unit.getLocation().equalsIgnoreCase(location))
                 && (status == null || status.equals(statusOf(unit)));
     }
-    /**
-     * Builds an ascending, case-insensitive comparator with asset ID as the stable tie-breaker.
-     */
+
+    /** Builds an ascending, case-insensitive comparator with asset ID as the stable tie-breaker. */
     private Comparator<Equipment> comparatorFor(String field) {
         Function<Equipment, String> fieldValue = switch (field) {
         case "asset-id" -> Equipment::getAssetId;
@@ -137,7 +142,7 @@ public class EquipmentListCommands {
         return loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
                 : faults.blocksLending(unit.getAssetId()) ? "Unavailable: severe fault" : "Available";
     }
-    /** Keeps filtering consistent with lending restrictions and the displayed availability. */
+    /** Keeps filters consistent with lending restrictions and displayed availability. */
     private String statusOf(Equipment unit) {
         return loans.hasActiveLoan(unit.getAssetId()) ? "on-loan"
                 : faults.blocksLending(unit.getAssetId()) ? "unavailable" : "available";

@@ -189,14 +189,17 @@ public class HelpCommands {
             return "List registered equipment and current availability (main console).\n"
                     + "Format: list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]\n"
                     + "Example: list category/Electronics location/Lab A status/available\n"
-                    + "Example: list sort/name\n"
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Active loans determine on-loan status; "
                     + "unresolved severe faults exclude units from available results.\n"
-                    + "Fields: category/ and location/ match exact values; status/ is available or on-loan.\n"
+                    + "Example: list sort/name\n  Sort all registered units by name.\n"
+                    + "Example: list category/Electronics location/Lab A status/available sort/name\n"
+                    + "  Filter first, then sort the matching units. Options may appear in any order, once each.\n"
                     + "Supported sort fields: asset-id, name, category, model, location, availability.\n"
                     + "Sorting is ascending and case-insensitive; ties use asset ID, then exact ID case.\n"
-                    + "Sorting does not change inventory order. Combine filters with sort/FIELD.";
+                    + "Sorting does not change inventory order; omitting sort/ preserves registration order.\n"
+                    + "Fields: category/ and location/ match exact values; status/ is available or on-loan; "
+                    + "sort/FIELD selects one supported field.";
         case "find":
             return "Show one registered equipment unit by its exact asset ID.\n"
                     + "Format: find ASSET_ID\n"
