@@ -343,3 +343,19 @@ currently supported reservation, fault and maintenance notes. Rich reservation
 and fault models and audit records are not yet implemented on develop. Their
 owners must agree a new schema before those records can be transferred; they
 are not represented by inventing data or treating display notes as full records.
+
+## Import application data (US62)
+
+Use import FILE --replace in the main console. This replaces all current records,
+rather than merging them. Export a backup first if the current records are needed.
+For example: import backups/lablog.properties --replace. Paths may contain spaces
+and may be enclosed in double quotes. A successful import takes effect immediately
+and survives restart. Missing --replace or invalid records cause an error.
+
+The main console now saves one format-2 file containing equipment, borrowers,
+loans, returns and history notes. It loads old format-1 equipment/loan data with
+the sibling borrowers.properties and migrates on the next successful save.
+That old borrower file is retained, but is no longer read after migration.
+The standalone borrower console continues to use its own borrower file; it no
+longer edits the main console's contacts after migration. Use edit-borrower in
+the main console for those records.

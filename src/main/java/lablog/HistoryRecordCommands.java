@@ -53,4 +53,9 @@ public class HistoryRecordCommands {
     public List<HistoryEntry> getEntries() {
         return List.copyOf(entries);
     }
+    /** Installs records that have already passed complete validation and persistence. */
+    void replaceAll(List<HistoryEntry> replacement) {
+        entries.clear();
+        entries.addAll(replacement);
+    }
 }

@@ -455,3 +455,21 @@ Integration contract for domain owners: add full serialization, validation and
 round-trip tests for new reservation/fault/audit models, then bump the version.
 Do not serialize HistoryEntry display text as a substitute for full domain data.
 Import CLI integration follows in issue #91; envelope hardening is issue #92.
+
+## Import and single-file persistence (issue #91)
+
+LabLog.load reads format 2 into detached books, or loads the legacy two-file
+installation without writing during startup. Main-console mutations persist
+one ApplicationSnapshot. BorrowerBook's Saver writes proposed contacts with
+the other current records before publishing the edit.
+
+Import decodes all records and validates IDs, references, dates and active-loan
+constraints before writing the replacement atomically. Only after persistence
+succeeds does it replace the contents of shared books. Existing command handlers
+therefore observe the new records without being rebuilt. Injected external
+history sources cannot be replaced and are rejected explicitly.
+
+SnapshotImportTest checks valid replacement, visibility through existing
+handlers, restart, updated contacts, legacy migration and a failed destination
+replacement. An unsupported atomic move fails safely; no non-atomic fallback
+is attempted. Use one main-console process per data file.
