@@ -41,7 +41,8 @@ class HelpCommandsTest {
     @Test
     void execute_listHelp_documentsFiltersAndAvailabilityRules() {
         String detail = help.execute("help list");
-        assertTrue(detail.contains("Format: list [category/VALUE] [location/VALUE] [status/available|on-loan]"));
+        assertTrue(detail.contains("Format: list [category/VALUE] [location/VALUE]"
+                + " [status/available|on-loan] [sort/FIELD]"));
         assertTrue(detail.contains("Example: list category/Electronics location/Lab A status/available"));
         assertTrue(detail.contains("Match category and location exactly, ignoring case; combine any filters."));
         assertTrue(detail.contains("reservation and fault notes do not change it"));
@@ -78,6 +79,18 @@ class HelpCommandsTest {
                 + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));
         assertTrue(detail.contains("Register the borrower with add-borrower"));
+    }
+
+    @Test
+    void execute_listHelp_documentsSortFieldsAndTieHandling() {
+        String detail = help.execute("help list");
+
+        assertTrue(detail.contains("Format: list [category/VALUE] [location/VALUE]"
+                + " [status/available|on-loan] [sort/FIELD]"));
+        assertTrue(detail.contains("Example: list sort/name"));
+        assertTrue(detail.contains("asset-id, name, category, model, location, availability"));
+        assertTrue(detail.contains("case-insensitive"));
+        assertTrue(detail.contains("does not change inventory order"));
     }
 
     @Test

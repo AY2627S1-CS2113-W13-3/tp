@@ -45,14 +45,22 @@ loan exists. These are lookup helpers, not an enforcement mechanism:
 not validate identifiers or dates. `LoanCommands` applies those checks before
 storing a record; any other issuing path must repeat them.
 
-### Equipment listing and filters
+### Equipment listing, filters, and sorting
 
 `EquipmentListCommands` accepts `list` with optional `category/`, `location/`,
-and `status/` filters. Category and location compare as exact values without
+and `status/` filters, plus an optional `sort/` field, in any order once each.
+Category and location compare as exact values without
 case sensitivity, and combined filters use AND semantics. The handler filters
-an immutable inventory snapshot, so results preserve registration order and do
-not mutate shared records. Empty inventories and filters with no matches have
+an immutable inventory snapshot, preserving registration order unless sorting
+is requested. Empty inventories and filters with no matches have
 distinct messages; malformed, repeated, and unsupported filters are rejected.
+
+After filtering, `sort/` accepts `asset-id`, `name`, `category`, `model`,
+`location`, or `availability`. Comparisons are ascending and case-insensitive,
+with asset ID and then exact ID case as deterministic tie-breakers. The handler
+sorts a copy of the matching units, so neither filtering nor sorting changes
+inventory order or stored records. All options are validated before returning
+an empty result, including when the inventory is empty.
 
 Status follows the availability rule shared by the current loan and history
 interfaces: a unit with an active loan is `on-loan`, and a unit without one is
@@ -61,7 +69,8 @@ change availability or prevent lending in this version. The handler reads
 `LoanBook.hasActiveLoan` directly instead of keeping a second status field.
 
 `EquipmentListCommandsTest` covers each filter, case-insensitive field values,
-combined filters, status changes, invalid inputs, no matches, and the fact that
+combined filters and sorting, option ordering, unchanged inventory order,
+status changes, invalid inputs, no matches, and the fact that
 reservation and fault notes do not change loan-derived status.
 
 ### Copying equipment

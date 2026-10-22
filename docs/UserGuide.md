@@ -106,14 +106,14 @@ non-empty location. LabLog validates the full selection and destination before
 changing any unit, so an invalid ID or location leaves the whole batch
 unchanged. A successful batch is saved to the configured LabLog data file.
 
-### Listing and filtering equipment: `list`
+### Listing, filtering, and sorting equipment: `list`
 
 Enter `list` in the main console to show asset ID, name, category, model,
 location, and availability for each registered unit. Add any combination of
 category, location, and status filters:
 
 ```text
-list [category/VALUE] [location/VALUE] [status/available|on-loan]
+list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]
 ```
 
 For example, `list category/Electronics location/Lab A status/available` shows
@@ -121,8 +121,18 @@ electronics stored in Lab A that are not currently on loan. Category and
 location values match exactly, ignoring case; when combined, all supplied
 filters must match. Status is `on-loan` when a unit has an active loan and
 `available` otherwise. Reservation and fault history notes do not change loan
-availability. Results stay in registration order and filtering changes no
-records. An empty inventory reports `No equipment registered.` A filter with no
+availability. Results stay in registration order unless sorting is requested.
+
+Add `sort/FIELD` to sort the matching units in ascending order by `asset-id`,
+`name`, `category`, `model`, `location`, or `availability`. For example,
+`list sort/name` sorts all units, while
+`list category/Electronics location/Lab A status/available sort/name` filters
+first and then sorts the matches. Options may appear in any order, once each.
+Comparisons are case-insensitive. Equal values are ordered by asset ID, with
+exact ID case as a final tie-breaker. Sorting only reorders the displayed
+snapshot; it does not change inventory order or stored records.
+
+An empty inventory reports `No equipment registered.` A filter with no
 matches reports `No equipment matches the supplied filters.`
 
 ### Finding one unit: `find`
