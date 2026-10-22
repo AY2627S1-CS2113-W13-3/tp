@@ -10,7 +10,7 @@ public class HelpCommands {
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
-            + "fault ASSET_ID d/DATE desc/DETAILS - Report a persistent equipment fault.\n"
+            + "fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS - Report a persistent equipment fault.\n"
             + "list [filters] [sort/FIELD] - Filter and sort equipment (main console).\n"
             + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
             + "Edit equipment details (main console).\n"
@@ -68,7 +68,7 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 3 includes structured faults and current history notes.\n"
+                    + "Snapshot format 4 includes fault severity and current history notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected when decoding format 2, rather than silently dropped.";
         case "import":
@@ -118,14 +118,16 @@ public class HelpCommands {
                     + "All IDs and the location are validated before any unit changes; "
                     + "an invalid batch changes nothing.\n"
                     + "The completed batch is saved to the LabLog data file.";
-        case "reservation":
         case "fault":
             return "Report a fault for registered equipment.\n"
-                    + "Format: fault ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION\n"
-                    + "Example: fault OSC-001 d/2026-10-14 desc/Cracked screen\n"
+                    + "Format: fault ASSET_ID d/YYYY-MM-DD [s/SEVERITY] desc/DESCRIPTION\n"
+                    + "Example: fault OSC-001 d/2026-10-14 s/severe desc/Cracked screen\n"
                     + "Use a real date and a non-empty single-line description. Dates may be past or future.\n"
                     + "The fault ID is shown on success and in history; reports survive restarts and exports.\n"
-                    + "Reports do not change lending availability. Severity and repair commands are not included.";
+                    + "Severity: minor, moderate, or severe (case-insensitive); omission means unspecified.\n"
+                    + "Put s/ before desc/; repeated fields are rejected.\n"
+                    + "Severe faults block new loans immediately, even for future report dates.\n"
+                    + "Returns remain allowed and do not clear faults. Repair commands are not yet included.";
         case "reservation":
         case "maintenance":
             return "Record a dated equipment history note.\nFormat: " + parts[1]

@@ -75,7 +75,7 @@ public class ApplicationSnapshot {
         return records;
     }
 
-    /** Reads transfer formats 2 and 3; legacy two-file data is handled only by the application loader. */
+    /** Reads transfer formats 2 through 4; legacy two-file data is handled only by the application loader. */
     public static ApplicationSnapshot read(Path file) throws IOException {
         return decode(readProperties(file));
     }
@@ -91,8 +91,8 @@ public class ApplicationSnapshot {
      */
     static ApplicationSnapshot decode(Properties records) throws IOException {
         try {
-            if (!Set.of("2", "3").contains(required(records, "format"))) {
-                throw new IllegalArgumentException("Unsupported snapshot format; expected 2 or 3.");
+            if (!Set.of("2", "3", "4").contains(required(records, "format"))) {
+                throw new IllegalArgumentException("Unsupported snapshot format; expected 2, 3 or 4.");
             }
             LabLogStore base = new LabLogStore(records);
             List<Borrower> borrowers = new ArrayList<>();
@@ -153,7 +153,7 @@ public class ApplicationSnapshot {
         base.getLoans().replaceAll(loans);
         faults.forEach(base.getFaults()::add);
         Properties records = base.toProperties();
-        records.setProperty("format", "3");
+        records.setProperty("format", "4");
         records.setProperty("borrower.count", Integer.toString(borrowers.size()));
         records.setProperty("note.count", Integer.toString(notes.size()));
         records.setProperty("audit.count", "0");
@@ -191,7 +191,7 @@ public class ApplicationSnapshot {
         Path temporary = Files.createTempFile(file.getParent(), "snapshot-", ".tmp");
         try {
             try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
-                records.store(writer, "LabLog complete snapshot, format 3");
+                records.store(writer, "LabLog complete snapshot, format 4");
             }
             if (Files.size(temporary) > MAX_BYTES) {
                 throw new IOException("Snapshot exceeds the supported 10 MiB size limit.");

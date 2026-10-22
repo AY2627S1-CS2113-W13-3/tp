@@ -21,10 +21,17 @@ public class EquipmentListCommands {
 
     private final Inventory inventory;
     private final LoanBook loans;
+    private final FaultBook faults;
 
     public EquipmentListCommands(Inventory inventory, LoanBook loans) {
+        this(inventory, loans, new FaultBook(inventory));
+    }
+
+    /** Shares the fault reports used by lending validation. */
+    public EquipmentListCommands(Inventory inventory, LoanBook loans, FaultBook faults) {
         this.inventory = inventory;
         this.loans = loans;
+        this.faults = faults;
     }
 
     /** Lists matching units in registration order without changing inventory or loans. */
@@ -53,7 +60,8 @@ public class EquipmentListCommands {
             result.append("\n").append(unit.getAssetId()).append(" | ").append(unit.getName())
                     .append(" | ").append(unit.getCategory()).append(" | ").append(unit.getModel())
                     .append(" | ").append(unit.getLocation()).append(" | ")
-                    .append(loans.hasActiveLoan(unit.getAssetId()) ? "On loan" : "Available");
+                    .append(loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
+                            : faults.blocksLending(unit.getAssetId()) ? "Unavailable: severe fault" : "Available");
         }
         return result.toString();
     }
@@ -103,7 +111,7 @@ public class EquipmentListCommands {
         String status = filters.get("status");
         return (category == null || unit.getCategory().equalsIgnoreCase(category))
                 && (location == null || unit.getLocation().equalsIgnoreCase(location))
-                && (status == null || status.equals(loans.hasActiveLoan(unit.getAssetId()) ? "on-loan" : "available"));
+                && (status == null || status.equals(statusOf(unit)));
     }
     /**
      * Builds an ascending, case-insensitive comparator with asset ID as the stable tie-breaker.
@@ -126,6 +134,12 @@ public class EquipmentListCommands {
 
     /** Returns the same availability label displayed in each equipment row. */
     private String availabilityOf(Equipment unit) {
-        return loans.hasActiveLoan(unit.getAssetId()) ? "On loan" : "Available";
+        return loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
+                : faults.blocksLending(unit.getAssetId()) ? "Unavailable: severe fault" : "Available";
+    }
+    /** Keeps filtering consistent with lending restrictions and the displayed availability. */
+    private String statusOf(Equipment unit) {
+        return loans.hasActiveLoan(unit.getAssetId()) ? "on-loan"
+                : faults.blocksLending(unit.getAssetId()) ? "unavailable" : "available";
     }
 }

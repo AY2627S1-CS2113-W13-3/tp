@@ -24,7 +24,7 @@ public class HistoryRecordCommands {
     /** Validates a complete note before adding it to the history source. */
     public String execute(String input) {
         String[] parts = input == null ? new String[0] : input.strip().split("\\s+", 4);
-        if (parts.length != 4 || !parts[2].startsWith("d/") || !parts[3].startsWith("desc/")) {
+        if (parts.length != 4 || !parts[2].startsWith("d/")) {
             throw new IllegalArgumentException(
                     "Use: reservation|fault|maintenance ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION");
         }
@@ -51,10 +51,23 @@ public class HistoryRecordCommands {
         } catch (DateTimeParseException exception) {
             throw new IllegalArgumentException("Date must be a real date in YYYY-MM-DD format.");
         }
-        HistoryEntry entry = new HistoryEntry(parts[1], date, type, parts[3].substring(5).strip());
+        String details = parts[3];
+        Fault.Severity severity = Fault.Severity.UNSPECIFIED;
+        if (type == HistoryEntry.Type.FAULT && details.startsWith("s/")) {
+            String[] fields = details.split("\\s+", 2);
+            severity = Fault.Severity.parse(fields[0].substring(2));
+            details = fields.length == 2 ? fields[1] : "";
+        }
+        if (!details.startsWith("desc/") || (type == HistoryEntry.Type.FAULT
+                && details.substring(5).matches("(?s).*(?<!\\S)(?:s|d|desc)/.*"))) {
+            throw new IllegalArgumentException("Use fault ASSET_ID d/YYYY-MM-DD [s/minor|moderate|severe]"
+                    + " desc/DESCRIPTION; put severity before the description and supply fields once.");
+        }
+        HistoryEntry entry = new HistoryEntry(parts[1], date, type, details.substring(5).strip());
         if (type == HistoryEntry.Type.FAULT) {
-            Fault fault = faults.report(entry.getAssetId(), date, entry.getDescription());
-            return "Recorded fault for " + parts[1] + ". Fault ID: " + fault.getId() + ".";
+            Fault fault = faults.report(entry.getAssetId(), date, entry.getDescription(), severity);
+            return "Recorded fault for " + parts[1] + ". Fault ID: " + fault.getId()
+                    + ". Severity: " + severity + ".";
         }
         entries.add(entry);
         return "Recorded " + parts[0] + " for " + parts[1] + ".";

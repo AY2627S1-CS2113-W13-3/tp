@@ -144,7 +144,35 @@ or prevent loans. Reservation and maintenance notes are lost when the session en
 Fault reports receive a unique `F-...` ID shown on success and in history. They
 are saved across restarts and included in exports. Multiple reports for the same
 equipment are allowed, each with its own ID. Past and future dates are accepted,
-as with the original dated notes. Severity and repair commands are not included.
+as with the original dated notes. Repair commands are not yet included.
+
+### Recording fault severity and description
+
+Use `fault ASSET_ID d/YYYY-MM-DD [s/SEVERITY] desc/DESCRIPTION`, for example:
+
+```text
+fault OSC-001 d/2026-10-22 s/severe desc/Cracked screen
+```
+
+The optional severity goes between the date and description. Values ignore case:
+
+| Severity | Meaning | Blocks new loans? |
+| --- | --- | --- |
+| `minor` | Small defect that does not prevent use | No |
+| `moderate` | Significant defect needing attention | No |
+| `severe` | Serious defect that makes equipment unsuitable for lending | Yes |
+| Omitted | Not assessed; displayed as `unspecified` | No |
+
+Descriptions must be non-empty and on one line. Supply each field only once;
+standalone `s/`, `d/`, and `desc/` prefixes inside descriptions are rejected to
+avoid silently accepting misplaced or repeated fields. Invalid input creates no
+report. Confirmation and history include the severity, which survives restarts
+and exports. Older fault records without a severity remain unspecified.
+
+All current fault reports are unresolved. Severe faults block new loans
+immediately, including reports with future dates. Existing loans remain active
+and can be returned, but returning a unit does not clear its severe faults.
+Fault resolution belongs to the separate repair feature (#87).
 
 ### Listing all active loans: `active-loans`
 
@@ -243,7 +271,8 @@ The equipment must be registered and must not already be out. Unknown equipment,
 malformed or past due dates, and missing, repeated, or unknown prefixes are
 rejected without recording anything. A unit that someone still has is refused with
 a message naming the current borrower and due date, so the same unit cannot be
-lent twice; once it is returned it can be lent again.
+lent twice. Unresolved severe faults also prevent new loans, including after a
+return. Minor, moderate and unspecified faults do not block lending.
 
 Borrower IDs must already exist in the shared borrower book. The main console
 rejects unknown borrower IDs. Equipment and loan history are saved in the
@@ -340,7 +369,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
 
 | `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
-| `fault ASSET_ID d/DATE desc/DETAILS` | Main | Save an identifiable equipment fault |
+| `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
 | `exit` | Main | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |

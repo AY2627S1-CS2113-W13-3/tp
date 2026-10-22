@@ -29,12 +29,12 @@ public class LabLogStore {
         Properties records = new Properties();
         try (Reader reader = Files.newBufferedReader(this.file, StandardCharsets.UTF_8)) {
             records.load(reader);
-            if (!Set.of("1", "3").contains(required(records, "format"))) {
+            if (!Set.of("1", "3", "4").contains(required(records, "format"))) {
                 throw new IllegalArgumentException("Unsupported data format.");
             }
             Set<String> assets = readEquipment(records);
             readLoans(records, assets);
-            if ("3".equals(records.getProperty("format"))) {
+            if (Set.of("3", "4").contains(records.getProperty("format", ""))) {
                 readFaults(records);
             }
         } catch (IllegalArgumentException | DateTimeException exception) {
@@ -47,7 +47,7 @@ public class LabLogStore {
         file = null;
         Set<String> assets = readEquipment(records);
         readLoans(records, assets);
-        if ("3".equals(records.getProperty("format"))) {
+        if (Set.of("3", "4").contains(records.getProperty("format", ""))) {
             readFaults(records);
         }
     }
@@ -62,7 +62,10 @@ public class LabLogStore {
         for (int index = 0; index < count; index++) {
             String key = "fault." + index + ".";
             faults.add(new Fault(required(records, key + "id"), required(records, key + "asset"),
-                    LocalDate.parse(required(records, key + "date")), required(records, key + "description")));
+                    LocalDate.parse(required(records, key + "date")), required(records, key + "description"),
+                    "4".equals(records.getProperty("format"))
+                            ? Fault.Severity.valueOf(required(records, key + "severity"))
+                            : Fault.Severity.UNSPECIFIED));
         }
     }
 
@@ -143,7 +146,7 @@ public class LabLogStore {
     /** Reuses the established equipment and loan schema inside a complete snapshot. */
     Properties toProperties() {
         Properties records = new Properties();
-        records.setProperty("format", "3");
+        records.setProperty("format", "4");
         records.setProperty("equipment.count", Integer.toString(inventory.getEquipmentUnits().size()));
         records.setProperty("loan.count", Integer.toString(loans.getLoans().size()));
         int index = 0;
@@ -173,6 +176,7 @@ public class LabLogStore {
             records.setProperty(key + "asset", fault.getAssetId());
             records.setProperty(key + "date", fault.getReportDate().toString());
             records.setProperty(key + "description", fault.getDescription());
+            records.setProperty(key + "severity", fault.getSeverity().name());
         }
         return records;
     }

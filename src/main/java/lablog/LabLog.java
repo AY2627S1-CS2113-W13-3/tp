@@ -95,10 +95,10 @@ public class LabLog {
             entries.addAll(historyRecords.getEntries());
             return entries;
         });
-        this.equipmentList = new EquipmentListCommands(inventory, loans);
-        this.equipmentFind = new EquipmentFindCommands(inventory, loans);
+        this.equipmentList = new EquipmentListCommands(inventory, loans, faults);
+        this.equipmentFind = new EquipmentFindCommands(inventory, loans, faults);
         this.returns = new ReturnCommands(inventory, loans, clock);
-        this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers);
+        this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers, faults);
         this.borrowerCommands = new BorrowerCommands(borrowers, loans,
                 assetId -> inventory.getEquipmentUnits().stream()
                         .filter(unit -> unit.getAssetId().equals(assetId)).map(Equipment::getName)
