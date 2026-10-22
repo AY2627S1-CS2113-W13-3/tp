@@ -84,6 +84,20 @@ unchanged. The asset ID is stable, so loan and history references remain valid.
 Invalid or incomplete edits change nothing. Successful edits are saved to the
 configured LabLog data file.
 
+### Moving several equipment units together
+
+Use `move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION` to move selected units
+to the same location. For example:
+
+```text
+move-equipment OSC-001,MIC-002 l/Lab 3
+```
+
+Select distinct registered asset IDs, separated by commas, and provide one
+non-empty location. LabLog validates the full selection and destination before
+changing any unit, so an invalid ID or location leaves the whole batch
+unchanged. A successful batch is saved to the configured LabLog data file.
+
 ### Listing equipment: `list`
 
 Enter `list` in the main console to show asset ID, name, category, model,
@@ -162,8 +176,9 @@ Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives 
 The main console checks borrower IDs against registered borrowers before lending.
 ```
 
-Detailed help covers `add`, `edit-equipment`, history-note commands, `active-loans`, `list`,
-`find`, `loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
+Detailed help covers `add`, `edit-equipment`, `move-equipment`, history-note commands,
+`active-loans`, `list`, `find`,
+`loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
 commands belonging to the main or borrower console; viewing help does not make
 a command available in the other console.
 
