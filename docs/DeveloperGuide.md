@@ -391,6 +391,15 @@ updated inventory through the existing snapshot store.
 EquipmentMoveCommandsTest covers successful partial batch updates, validation
 atomicity, stable loan references, and persistence after restart.
 
+## Exact equipment lookup (issue #67)
+
+EquipmentFindCommands resolves one case-sensitive asset ID from the shared
+inventory and reports descriptive fields with availability derived from active
+loans. The lookup is read-only and returns a clear error for unknown IDs.
+
+EquipmentFindCommandsTest covers details, availability, invalid syntax,
+unknown IDs, and unchanged equipment and loan records.
+
 ## Borrower contact editing (issue #89)
 
 BorrowerCommands parses optional edit fields and constructs a validated immutable

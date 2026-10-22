@@ -14,6 +14,7 @@ public class HelpCommands {
             + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
             + "Edit equipment details (main console).\n"
             + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
+            + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
@@ -135,6 +136,13 @@ public class HelpCommands {
                     + "  Show asset IDs, names, categories, models, locations, and availability.\n"
                     + "Availability is derived from active loans; returned units are available.\n"
                     + "Fields: None.";
+        case "find":
+            return "Show one registered equipment unit by its exact asset ID.\n"
+                    + "Format: find ASSET_ID\n"
+                    + "Example: find OSC-001\n"
+                    + "  Display the unit's name, category, model, location, and current availability.\n"
+                    + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.\n"
+                    + "Unknown IDs produce an error. This lookup does not change records.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"

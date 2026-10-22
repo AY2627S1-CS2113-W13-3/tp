@@ -35,6 +35,7 @@ public class LabLog {
     private final HistoryRecordCommands historyRecords;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
+    private final EquipmentFindCommands equipmentFind;
 
 
 
@@ -84,6 +85,7 @@ public class LabLog {
             return entries;
         });
         this.equipmentList = new EquipmentListCommands(inventory, loans);
+        this.equipmentFind = new EquipmentFindCommands(inventory, loans);
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers);
         this.borrowerCommands = new BorrowerCommands(borrowers, loans,
@@ -249,6 +251,14 @@ public class LabLog {
                         return;
                     }
                     output.println(result);
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("find")) {
+                try {
+                    output.println(equipmentFind.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
