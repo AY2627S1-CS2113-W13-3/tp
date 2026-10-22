@@ -81,6 +81,17 @@ class HelpCommandsTest {
     }
 
     @Test
+    void execute_listHelp_documentsSortFieldsAndTieHandling() {
+        String detail = help.execute("help list");
+
+        assertTrue(detail.contains("Format: list [sort/FIELD]"));
+        assertTrue(detail.contains("Example: list sort/name"));
+        assertTrue(detail.contains("asset-id, name, category, model, location, availability"));
+        assertTrue(detail.contains("case-insensitive"));
+        assertTrue(detail.contains("does not change inventory order"));
+    }
+
+    @Test
     void execute_returnExamples_areAcceptedForSeparateActiveLoans() {
         String detail = help.execute("help return");
         int count = 0;

@@ -569,3 +569,12 @@ documented interaction. No terminal dependency or hidden execution is needed.
 CommandHistoryTest covers empty history, invalid/overflowing indices, eviction,
 session isolation, wizard-answer exclusion, both consoles and explicit execution
 after editing a recalled command.
+
+### Sorting filtered equipment
+
+Use `list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]`.
+Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
+`name`, `category`, `model`, `location`, and `availability`. For example,
+`list category/Electronics sort/name` sorts only matching units. Comparisons
+are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
+Sorting a copied snapshot preserves the stored registration order.

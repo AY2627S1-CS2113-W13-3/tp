@@ -10,7 +10,7 @@ public class HelpCommands {
     private static final String SUMMARY = "Common Version 1 commands:\n"
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
-            + "list [filters] - List equipment by category, location, or status (main console).\n"
+            + "list [filters] [sort/FIELD] - Filter and sort equipment (main console).\n"
             + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
             + "Edit equipment details (main console).\n"
             + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
@@ -167,11 +167,14 @@ public class HelpCommands {
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
         case "list":
             return "List registered equipment and current availability (main console).\n"
-                    + "Format: list [category/VALUE] [location/VALUE] [status/available|on-loan]\n"
+                    + "Format: list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]\n"
                     + "Example: list category/Electronics location/Lab A status/available\n"
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Status is derived from active loans; reservation and fault notes do not change it.\n"
-                    + "Fields: category/ and location/ match exact values; status/ is available or on-loan.";
+                    + "Fields: category/ and location/ match exact values; status/ is available or on-loan.\n"
+                    + "Supported sort fields: asset-id, name, category, model, location, availability.\n"
+                    + "Sorting is ascending and case-insensitive; ties use asset ID, then exact ID case.\n"
+                    + "Sorting does not change inventory order. Combine filters with sort/FIELD.";
         case "find":
             return "Show one registered equipment unit by its exact asset ID.\n"
                     + "Format: find ASSET_ID\n"

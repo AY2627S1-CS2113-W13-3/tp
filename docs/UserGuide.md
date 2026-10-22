@@ -414,3 +414,12 @@ It includes invalid commands, but excludes blank input, exit, commands, recall,
 and answers to equipment-registration prompts. Indices shift when the oldest
 line is discarded. Both consoles support this feature. Recent input may contain
 contact details, so avoid displaying it when sharing your screen.
+
+### Sorting filtered equipment
+
+Use `list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]`.
+Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
+`name`, `category`, `model`, `location`, and `availability`. For example,
+`list category/Electronics sort/name` sorts only matching units. Comparisons
+are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
+Sorting a copied snapshot preserves the stored registration order.
