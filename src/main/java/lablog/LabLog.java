@@ -30,6 +30,7 @@ public class LabLog {
     private final Supplier<List<HistoryEntry>> otherHistory;
     private final BorrowerCommands borrowerCommands;
     private final EquipmentAddCommands equipmentAdd;
+    private final EquipmentEditCommands equipmentEdit;
     private final HistoryRecordCommands historyRecords;
     private final FaultBook faults;
     private final ActiveLoanCommands activeLoans;
@@ -81,6 +82,7 @@ public class LabLog {
         this.loans = loans;
         this.otherHistory = otherHistory;
         this.equipmentAdd = new EquipmentAddCommands(inventory);
+        this.equipmentEdit = new EquipmentEditCommands(inventory);
         this.historyRecords = new HistoryRecordCommands(inventory, faults);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
@@ -236,6 +238,18 @@ public class LabLog {
             if (command.equals("list")) {
                 try {
                     output.println(equipmentList.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("edit-equipment")) {
+                try {
+                    String result = equipmentEdit.execute(input);
+                    if (!saveChanges(output)) {
+                        return;
+                    }
+                    output.println(result);
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }

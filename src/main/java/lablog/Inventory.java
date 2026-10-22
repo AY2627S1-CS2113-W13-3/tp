@@ -34,6 +34,29 @@ public class Inventory {
     }
 
     /**
+     * Finds an equipment unit by its stable asset identifier.
+     *
+     * @param assetId asset identifier to find
+     * @return matching equipment unit
+     */
+    public Equipment getEquipment(String assetId) {
+        return equipmentUnits.stream().filter(equipment -> equipment.getAssetId().equals(assetId))
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("Equipment " + assetId + " not found."));
+    }
+
+    /** Replaces an existing unit while preserving its asset ID and inventory position. */
+    public void updateEquipment(Equipment replacement) {
+        assert replacement != null : "replacement must not be null";
+        for (int index = 0; index < equipmentUnits.size(); index++) {
+            if (equipmentUnits.get(index).getAssetId().equals(replacement.getAssetId())) {
+                equipmentUnits.set(index, replacement);
+                return;
+            }
+        }
+        throw new IllegalArgumentException("Equipment " + replacement.getAssetId() + " not found.");
+    }
+
+    /**
      * Returns an immutable snapshot of the equipment units in this inventory.
      *
      * @return equipment units currently stored

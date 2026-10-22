@@ -70,6 +70,20 @@ Registration begins only after an explicit `add` command.
 Equipment is saved to the configured LabLog data file after each successful
 registration and is available after restart.
 
+### Editing equipment details
+
+Use `edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]` to
+change one or more descriptive fields. For example:
+
+```text
+edit-equipment OSC-001 l/Lab 2 n/Digital oscilloscope
+```
+
+Supply each field at most once; values may contain spaces. Omitted fields stay
+unchanged. The asset ID is stable, so loan and history references remain valid.
+Invalid or incomplete edits change nothing. Successful edits are saved to the
+configured LabLog data file.
+
 ### Listing equipment: `list`
 
 Enter `list` in the main console to show asset ID, name, category, model,
@@ -181,8 +195,8 @@ Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives 
 The main console checks borrower IDs against registered borrowers before lending.
 ```
 
-Detailed help covers `add`, history-note commands, `active-loans`, `list`, `find`,
-`loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
+Detailed help covers `add`, `edit-equipment`, history-note commands, `active-loans`, `list`,
+`find`, `loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
 commands belonging to the main or borrower console; viewing help does not make
 a command available in the other console.
 
