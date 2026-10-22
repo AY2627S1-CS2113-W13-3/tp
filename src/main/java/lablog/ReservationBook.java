@@ -62,6 +62,24 @@ public class ReservationBook {
         return reservation;
     }
 
+    /** Revalidates an edit excluding only itself, then atomically replaces the immutable record. */
+    public Reservation edit(String id, String borrowerId, DateWindow window) throws IOException {
+        Reservation original = find(id);
+        LocalDate today = LocalDate.now(clock);
+        if (!window.start().equals(original.window().start())) {
+            window.requireNotPast(today);
+        }
+        if (window.end().isBefore(today)) {
+            throw new IllegalArgumentException("An edited reservation must not end before today.");
+        }
+        Reservation replacement = new Reservation(id, original.assetId(), borrowerId, window);
+        availability.requireAvailable(replacement.assetId(), window, id, null);
+        List<Reservation> proposed = new ArrayList<>(reservations);
+        proposed.set(proposed.indexOf(original), replacement);
+        save(proposed);
+        return replacement;
+    }
+
     /** Returns one stable record or an actionable error, never a silently missing result. */
     public Reservation find(String id) {
         return reservations.stream().filter(item -> item.id().equals(id)).findFirst()

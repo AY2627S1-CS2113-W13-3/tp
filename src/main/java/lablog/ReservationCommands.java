@@ -27,6 +27,15 @@ public class ReservationCommands {
             }
             return output.toString();
         }
+        if (parts.length == 3 && parts[0].equals("edit-reservation")) {
+            Map<String, String> fields = BookingArguments.fields(parts[2], Set.of("b", "from", "to"));
+            Reservation original = reservations.find(parts[1]);
+            DateWindow window = DateWindow.parse(fields.getOrDefault("from", original.window().start().toString()),
+                    fields.getOrDefault("to", original.window().end().toString()));
+            Reservation updated = reservations.edit(original.id(),
+                    fields.getOrDefault("b", original.borrowerId()), window);
+            return "Updated reservation " + updated.id() + ".";
+        }
         if (parts.length != 3 || !parts[0].equals("reserve")) {
             throw new IllegalArgumentException(USAGE);
         }
