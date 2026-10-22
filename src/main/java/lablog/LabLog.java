@@ -28,6 +28,7 @@ public class LabLog {
     private final BorrowerBook borrowers;
     private final LoanBook loans;
     private final Supplier<List<HistoryEntry>> otherHistory;
+    private final CommandHistory commandHistory = new CommandHistory();
     private final BorrowerCommands borrowerCommands;
     private final EquipmentAddCommands equipmentAdd;
     private final EquipmentCopyCommands equipmentCopy;
@@ -240,6 +241,16 @@ public class LabLog {
             String input = scanner.nextLine().strip();
             if (input.equals("exit")) {
                 return;
+            }
+            try {
+                String historyOutput = commandHistory.accept(input);
+                if (historyOutput != null) {
+                    output.println(historyOutput);
+                    continue;
+                }
+            } catch (IllegalArgumentException exception) {
+                output.println("Error: " + exception.getMessage());
+                continue;
             }
             String command = input.split("\\s+", 2)[0];
             if (command.equals("export") || command.equals("import")) {

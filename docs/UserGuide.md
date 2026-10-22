@@ -382,3 +382,16 @@ outside the declared counts. For example, equipment.0.serialNumber produces
 The source and current saved records remain unchanged. Unsupported fields are
 never accepted and then discarded by re-exporting. Use a compatible application
 version when a file contains data from a newer feature.
+
+## Recall and adapt commands (US64)
+
+Use commands to list the last 20 submitted lines, oldest first, then recall INDEX
+to display one. For example, recall 1 displays the oldest retained command.
+Recall never executes a command. Copy the displayed line, edit it if needed,
+and submit it as a new command to execute it.
+
+History is scoped to this console session and is not saved or exported.
+It includes invalid commands, but excludes blank input, exit, commands, recall,
+and answers to equipment-registration prompts. Indices shift when the oldest
+line is discarded. Both consoles support this feature. Recent input may contain
+contact details, so avoid displaying it when sharing your screen.

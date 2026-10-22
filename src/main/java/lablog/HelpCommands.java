@@ -23,6 +23,7 @@ public class HelpCommands {
             + "edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL] - Edit contacts (both consoles).\n"
             + "export FILE - Export a complete snapshot to a new file (main console).\n"
             + "import FILE --replace - Replace all records from a validated snapshot (main console).\n"
+            + "commands | recall INDEX - View recent input without executing it (both consoles).\n"
             + "loans BORROWER_ID - View active loans (both consoles).\n"
             + "exit - Close the main console.\n"
             + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
@@ -76,6 +77,16 @@ public class HelpCommands {
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"
                     + "Unknown format-2 properties are rejected; the error names the unsupported field.";
+
+        case "commands":
+            return "Show the last 20 submitted command lines in this console session.\n"
+                    + "Format: commands\nExample: commands\nFields: None. Oldest retained line is index 1.\n"
+                    + "Includes invalid input; excludes blank lines, exit, commands, recall and wizard answers.\n"
+                    + "History is kept only in memory and may include contact details.";
+        case "recall":
+            return "Display a recent command for copying or editing; never execute it automatically.\n"
+                    + "Format: recall INDEX\nExample: recall 1\nFields: INDEX comes from commands.\n"
+                    + "Copy or edit the displayed command, then submit it explicitly to execute.";
         case "add":
             return "Register equipment explicitly.\nFormat: add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION\n"
                     + "Example: add OSC-001 n/Oscilloscope c/Electronics m/S1 l/Lab 1\n"

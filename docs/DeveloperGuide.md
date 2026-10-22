@@ -496,3 +496,15 @@ It supplies valid format-2 records plus unknown top-level, per-record and
 out-of-range indexed properties. Both direct decode and read-then-write must
 fail before the existing destination can be overwritten; the source, destination
 and input properties are checked for preservation.
+
+## Explicit command recall (issue #93)
+
+CommandHistory intercepts commands and recall before normal dispatch. It keeps
+at most 20 submitted top-level lines and returns display text without recursively
+dispatching the recalled command. Scanner-based consoles do not support portable
+editable terminal buffers, so copying/editing and explicit resubmission is the
+documented interaction. No terminal dependency or hidden execution is needed.
+
+CommandHistoryTest covers empty history, invalid/overflowing indices, eviction,
+session isolation, wizard-answer exclusion, both consoles and explicit execution
+after editing a recalled command.

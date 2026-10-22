@@ -39,6 +39,7 @@ public class BorrowerCli {
      */
     public static void run(Scanner scanner, PrintStream output, BorrowerCommands commands) {
         output.println("LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.");
+        CommandHistory history = new CommandHistory();
         while (true) {
             output.print("lablog> ");
             if (!scanner.hasNextLine()) {
@@ -49,7 +50,8 @@ public class BorrowerCli {
                 break;
             }
             try {
-                output.println(commands.execute(input));
+                String recalled = history.accept(input);
+                output.println(recalled == null ? commands.execute(input) : recalled);
             } catch (IllegalArgumentException exception) {
                 output.println("Error: " + exception.getMessage());
                 output.println("No changes saved.");
