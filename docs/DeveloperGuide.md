@@ -24,8 +24,8 @@ equipment references, and multiple active loans per unit. A corrupt file is not
 overwritten. This store assumes one application process owns a data file;
 concurrent writers are not supported.
 
-`LabLog` is the Gradle application entry point. It routes explicit equipment
-registration, listing, active loans, history notes, help, loan, history, return,
+`LabLog` is the Gradle application entry point. It routes equipment registration
+and copying, listing, active loans, history notes, help, loan, history, return,
 and borrower commands to their handlers. The prompted and single-line equipment
 registration forms both validate before storing. Borrower commands share the
 main console's inventory and loan book. The CLI loads borrowers from the sibling
@@ -45,17 +45,45 @@ loan exists. These are lookup helpers, not an enforcement mechanism:
 not validate identifiers or dates. `LoanCommands` applies those checks before
 storing a record; any other issuing path must repeat them.
 
-### Equipment listing
+### Equipment listing, filters, and sorting
 
-`EquipmentListCommands` formats asset ID, name, category, model, location, and
-availability for every registered unit. Availability is derived from active
-loans. `list` retains registration order; `list sort/FIELD` accepts `asset-id`,
-`name`, `category`, `model`, `location`, or `availability`. Comparisons are
-ascending and case-insensitive, with asset ID and then exact ID case as
-deterministic tie-breakers. The handler sorts a copy of the immutable inventory
-snapshot, so listing never changes registration order or stored records.
-Unsupported fields and malformed options produce a recoverable usage error.
-An empty inventory reports `No equipment registered.`
+`EquipmentListCommands` accepts `list` with optional `category/`, `location/`,
+and `status/` filters, plus an optional `sort/` field, in any order once each.
+Category and location compare as exact values without
+case sensitivity, and combined filters use AND semantics. The handler filters
+an immutable inventory snapshot, preserving registration order unless sorting
+is requested. Empty inventories and filters with no matches have
+distinct messages; malformed, repeated, and unsupported filters are rejected.
+
+After filtering, `sort/` accepts `asset-id`, `name`, `category`, `model`,
+`location`, or `availability`. Comparisons are ascending and case-insensitive,
+with asset ID and then exact ID case as deterministic tie-breakers. The handler
+sorts a copy of the matching units, so neither filtering nor sorting changes
+inventory order or stored records. All options are validated before returning
+an empty result, including when the inventory is empty.
+
+Status follows the availability rule shared by the current loan and history
+interfaces: a unit with an active loan is `on-loan`, and a unit without one is
+`available`. Reservation and fault history entries are display notes and do not
+change availability or prevent lending in this version. The handler reads
+`LoanBook.hasActiveLoan` directly instead of keeping a second status field.
+
+`EquipmentListCommandsTest` covers each filter, case-insensitive field values,
+combined filters and sorting, option ordering, unchanged inventory order,
+status changes, invalid inputs, no matches, and the fact that
+reservation and fault notes do not change loan-derived status.
+
+### Copying equipment
+
+`EquipmentCopyCommands` finds the source by its exact asset ID, rejects unknown
+sources and IDs already in `Inventory`, then creates a new `Equipment` with the
+source's descriptive fields and the requested ID. It receives only the shared
+inventory, so it cannot copy loan or history records. `LabLog` saves a successful
+copy through its existing snapshot store before reporting success.
+
+`EquipmentCopyCommandsTest` covers copied fields, unique-ID and source checks,
+the unchanged source, persistence, and keeping the original loan and history
+records attached to the original ID.
 
 ### Help and command examples
 
@@ -380,6 +408,37 @@ BORROWER_ID`, `return ASSET_ID`, and `history ASSET_ID`. Restart with the same
 data path to confirm equipment, loans, returns, and borrowers reload. Use a
 separate disposable directory because borrower data is stored beside the
 LabLog data file.
+
+## Equipment detail editing (issue #62)
+
+EquipmentEditCommands parses optional name, category, model, and location fields
+and constructs a fully validated immutable Equipment record. Inventory replaces
+the record at its existing position while retaining the same asset ID, so loan
+and history references remain valid. LabLog saves the updated equipment through
+the existing snapshot store after the command succeeds.
+
+EquipmentEditCommandsTest covers partial edits, field ordering, validation,
+stable asset references, and persistence after restart.
+
+## Bulk equipment location updates (issue #64)
+
+EquipmentMoveCommands parses a comma-separated selection and one target
+location. Inventory validates every distinct asset ID and constructs all
+replacement Equipment records before installing any of them, so an invalid
+selection or location leaves the batch unchanged. LabLog then persists the
+updated inventory through the existing snapshot store.
+
+EquipmentMoveCommandsTest covers successful partial batch updates, validation
+atomicity, stable loan references, and persistence after restart.
+
+## Exact equipment lookup (issue #67)
+
+EquipmentFindCommands resolves one case-sensitive asset ID from the shared
+inventory and reports descriptive fields with availability derived from active
+loans. The lookup is read-only and returns a clear error for unknown IDs.
+
+EquipmentFindCommandsTest covers details, availability, invalid syntax,
+unknown IDs, and unchanged equipment and loan records.
 
 ## Borrower contact editing (issue #89)
 
