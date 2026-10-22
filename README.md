@@ -2,7 +2,7 @@
 
 LabLog is a command-line application for laboratory technicians who manage
 loanable electronics equipment. It supports equipment and borrower registration,
-loans and returns, active-loan listings, and equipment history.
+loans, single-unit and batch returns, active-loan listings, and equipment history.
 
 ## Command help
 
@@ -54,6 +54,13 @@ list or `help return` for explained examples. To register equipment, enter
 a borrower with `add-borrower` before using
 `loan OSC-001 b/A0123456X d/2026-10-30` to lend it. Use `history OSC-001` to
 check its history, or `exit` to close.
+
+To return multiple loaned units together, enter `return OSC-001 OSC-002`.
+All selected units must pass validation before any loan is changed; duplicate
+IDs or an invalid selection reject the entire batch. To report damage, return
+the affected unit individually, for example `return OSC-003 faults/cracked screen`.
+Batch returns do not accept `faults/`. See the [User Guide](docs/UserGuide.md)
+for full return rules and examples.
 
 To build and run the executable JAR:
 
@@ -123,6 +130,10 @@ lend a unit that is already out, active-loan lookup, overdue dates, returns and
 fault descriptions, history ordering, help examples, unchanged records during
 help, and console input recovery. Return/history tests supply shared loan records
 directly, which keeps them independent of the loan command.
+Batch-return tests check successful updates, duplicate selections, rejected fault
+descriptions, and unchanged records when a later selection is invalid. A
+main-console persistence test verifies that both returns and their history remain
+available after reloading the saved data.
 See the [JUnit tutorial](https://se-education.org/guides/tutorials/junit.html) for background.
 
 ### Console tests

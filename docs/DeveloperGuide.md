@@ -87,19 +87,32 @@ the refusal for a unit already out, and lending again after a return.
 an injected `Clock`. It updates the existing `Loan` rather than removing it,
 so the same record remains available to equipment history and borrower listings.
 
-The command format is:
+The command formats are:
 
 ```text
 return ASSET_ID [faults/DESCRIPTION]
+return ASSET_ID ASSET_ID ...
 ```
+
+Multiple asset IDs are separated by whitespace and must be distinct. The optional
+`faults/` field is accepted only for a single unit; units with newly reported
+damage must be returned individually to associate each description with the
+correct loan.
 
 The main operations are:
 
-* `ReturnCommands#execute(input)` validates the command and finds exactly one
-  matching active loan.
-* `Loan#markReturned(returnDate, faults)` validates the active state, return date,
-  and fault text before assigning either return field. The one-argument overload
-  records a return without reported faults.
+* `ReturnCommands#readAssetIds(selection)` parses the equipment selection, preserves
+  input order, and rejects repeated IDs.
+* `ReturnCommands#findActiveLoan(assetId)` checks that equipment exists and finds
+  exactly one matching active loan, rejecting missing or inconsistent records.
+* `ReturnCommands#execute(input)` resolves all selections and validates every loan
+  before starting a separate update pass.
+* `Loan#validateReturn(returnDate, faults)` checks the active state, return date,
+  and fault text without changing the loan. Its package access lets the handler
+  validate a batch before applying any returns.
+* `Loan#markReturned(returnDate, faults)` calls the same validation method before
+  assigning the return fields. The one-argument overload records a return without
+  reported faults.
 * `Loan#isActive()` reports whether the return date is absent. Recording a return
   makes the loan inactive without changing a separate equipment status field.
 
@@ -118,8 +131,9 @@ is no later than today.
 3. The handler reads `LoanBook#getLoans()` and filters for matching active loans.
    It proceeds only when exactly one is found.
 4. The handler obtains `LocalDate.now(clock)` and calls
-   `Loan#markReturned(today, faults)`. The loan validates all return details before
-   recording the date and fault description.
+   `Loan#validateReturn(today, faults)` in the validation pass. It then calls
+   `Loan#markReturned(today, faults)` in the update pass to record the date and
+   fault description.
 5. The handler returns confirmation text. In a persistent CLI session, `LabLog`
    saves the updated records before displaying success. If saving fails, the
    session stops and the previous saved snapshot remains unchanged; the in-memory
@@ -127,18 +141,46 @@ is no later than today.
 6. A subsequent history request shows the return date and reported faults on the
    original loan entry. Active-loan and borrower-loan listings exclude that loan.
 
-The following sequence diagram shows the successful return path. Individual
-accessor calls are omitted for readability.
+The following sequence diagram summarises the successful single-unit return
+path. Parsing, the preliminary validation pass, and individual accessor calls
+are omitted for readability; `markReturned` also validates before updating.
 
 ![Sequence diagram for returning equipment](images/ReturnEquipment.png)
 
 Editable diagram source: [ReturnEquipment.puml](diagrams/ReturnEquipment.puml).
+
+#### Batch return flow and atomicity
+
+For `return OSC-001 OSC-002`, the handler performs the following steps:
+
+1. Parse the distinct asset IDs and reject any `faults/` field accompanying
+   multiple selections.
+2. Resolve every ID to exactly one active loan. An unknown unit or an already
+   returned loan causes rejection before any record is changed.
+3. Read today's date once using the injected clock and validate every selected
+   loan against that date and an empty fault description.
+4. Only after the whole selection passes validation, call `markReturned` on each
+   selected loan using the same date. Unselected and historical loans are retained.
+5. Return confirmation listing the selected asset IDs in input order. In a
+   persistent session, `LabLog` saves the complete equipment and loan snapshot
+   before displaying that confirmation.
+
+Validation is all-or-nothing: a failure on a later selection leaves earlier
+selections unchanged. This relies on the application's single-threaded command
+execution, with no concurrent changes between validation and mutation.
+
+Persistence uses one atomic snapshot replacement for the complete batch. If the
+save fails, the prior saved file remains unchanged and the session stops without
+displaying success. The in-memory loans have already been updated; there is no
+in-memory rollback on a storage failure. Restarting reloads the prior saved state.
 
 #### Invalid commands and exceptional cases
 
 | Condition | Behaviour |
 | --- | --- |
 | Missing asset ID or unsupported arguments | Reject the command with usage guidance. |
+| Repeated asset ID in the selection | Identify the duplicate and reject the entire batch. |
+| `faults/` supplied with multiple asset IDs | Ask the user to return units with reported faults individually. |
 | Empty or repeated `faults/` field | Request one non-empty fault description. |
 | Equipment does not exist | Report that the equipment was not found. |
 | No matching active loan | Report that the equipment is not currently on loan. |
@@ -148,8 +190,8 @@ Editable diagram source: [ReturnEquipment.puml](diagrams/ReturnEquipment.puml).
 
 `LabLog` catches validation exceptions and displays an error while allowing the
 user to continue. A repeated return is rejected when no active loan remains.
-Validation failures preserve existing loan details; this differs from a save
-failure after a valid return has already updated memory.
+For batches, any validation failure preserves all selected loans' existing
+details. A save failure occurs after the valid returns have already updated memory.
 
 #### Design considerations
 
@@ -169,6 +211,16 @@ failure after a valid return has already updated memory.
 * **Alternative: Read the system date directly.** This needs less configuration,
   but makes date-dependent tests harder to control.
 
+**Aspect: How batch failures are handled**
+
+* **Current choice: Validate all selections before applying any returns.** The
+  user can correct a rejected command without first checking which units were
+  already returned. Reusing `Loan#validateReturn` keeps the batch's checks aligned
+  with `markReturned`.
+* **Alternative: Return valid units and skip invalid selections.** This can make
+  partial progress, but needs per-unit outcomes and more care when retrying a
+  command. A single rejection would no longer mean that all records are unchanged.
+
 Reported faults are stored as text on the loan. They do not create a separate
 fault-history note or clear existing equipment faults. The production application
 persists loan and return details through `LabLogStore`.
@@ -177,7 +229,15 @@ persists loan and return details through `LabLogStore`.
 
 `ReturnCommandsTest` covers optional faults, local-date boundaries, malformed
 commands, repeated returns, multiple active loans, invalid return dates, historical
-loans, borrower-listing updates, and the return/history console flow.
+loans, borrower-listing updates, and the return/history console flow. Batch tests
+use JUnit assertions to check successful returns, duplicate selections, rejection
+of batch fault descriptions, and unchanged records when a later selection has a
+future loan date or has already been returned. They verify return fields and
+retained records as well as exception messages where relevant.
+
+`LabLogStoreTest#run_batchReturn_persistsBothReturnsAfterReload` drives the return
+through the main console with a temporary data file. It reloads the saved store
+and verifies both return dates, retained loan fields, and equipment history.
 
 ### Equipment history
 
@@ -303,6 +363,7 @@ returns, and lookups.
 |v1.0|laboratory technician|register borrowers|retain validated contact details|
 |v1.0|laboratory technician|view active loans and equipment history|track who has equipment and its past loans|
 |v1.0|laboratory technician|record returns and reported damage|close loans while retaining their history|
+|v2.0|laboratory technician|return multiple equipment units in one operation|process a group of returns without repeating the command|
 
 ## Non-Functional Requirements
 

@@ -192,12 +192,30 @@ configured LabLog file; borrower records are saved in the sibling
 
 ### Recording a return: `return`
 
-At the initial prompt, enter `return ASSET_ID [faults/DESCRIPTION]`:
+At the initial prompt, use either format:
 
 ```text
-return OSC-001
-return OSC-002 faults/cracked screen
+return ASSET_ID [faults/DESCRIPTION]
+return ASSET_ID ASSET_ID ...
 ```
+
+For example, return two units together, then return a third with reported damage:
+
+```text
+return OSC-001 OSC-002
+return OSC-003 faults/cracked screen
+```
+
+Separate asset IDs with spaces to return multiple units in one operation.
+Each ID must appear only once, identify registered equipment, and have exactly
+one active loan. All selected loans are checked before any are changed. If
+any selection or return date is invalid, the entire batch is rejected.
+
+Batch returns record no new faults. To report damage, return the affected
+unit individually using `faults/DESCRIPTION`. Supplying `faults/` with multiple
+asset IDs is rejected without changing any loan. All units in a successful
+batch receive the same return date. Their loan records remain available in
+history and are saved together with the LabLog data.
 
 The return date is today's date according to the computer's clock and local time
 zone. Omit `faults/` if the unit is returned in its original condition with no new
@@ -257,7 +275,8 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
 | `history ASSET_ID` | Main | View supplied equipment records |
 | `reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
-| `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
+| `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
+| `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
 | `exit` | Main | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
 | `loans BORROWER_ID` | Both | List a registered borrower's active loans |
