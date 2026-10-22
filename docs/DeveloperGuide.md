@@ -718,3 +718,14 @@ references before calling the existing snapshot saver, then replaces one item.
 This keeps old snapshots unchanged and prevents partial edits on validation or
 I/O failure. No schema change is needed. ReservationEditTest covers partial edits,
 self-exclusion, conflicts, date boundaries, failed persistence and restart.
+
+## Reservation cancellation (issue #81)
+
+Reservation now retains optional cancelledOn and cancellationReason. The
+immutable transition preserves the original period, borrower and ID. The book
+saves before publication; availability and pairwise validation ignore cancelled
+records. History emits both the original booking and a dated cancellation event.
+Format 7 requires both cancellation fields (empty for confirmed records), while
+format 6 migrates as confirmed. Partial cancellation records are invalid.
+ReservationCancellationTest covers release, isolation, repeats, history,
+restart/import/export, legacy migration and failed persistence.

@@ -1,5 +1,6 @@
 package lablog;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -18,9 +19,13 @@ final class ReservationCodec {
         List<Reservation> result = new ArrayList<>();
         for (int index = 0; index < count; index++) {
             String key = "reservation." + index + ".";
+            String cancelled = "7".equals(records.getProperty("format"))
+                    ? required(records, key + "cancelled") : "";
+            String reason = "7".equals(records.getProperty("format")) ? required(records, key + "reason") : "";
             result.add(new Reservation(required(records, key + "id"), required(records, key + "asset"),
                     required(records, key + "borrower"),
-                    DateWindow.parse(required(records, key + "from"), required(records, key + "to"))));
+                    DateWindow.parse(required(records, key + "from"), required(records, key + "to")),
+                    cancelled.isEmpty() ? null : LocalDate.parse(cancelled), reason));
         }
         return result;
     }
@@ -36,6 +41,8 @@ final class ReservationCodec {
             records.setProperty(key + "borrower", item.borrowerId());
             records.setProperty(key + "from", item.window().start().toString());
             records.setProperty(key + "to", item.window().end().toString());
+            records.setProperty(key + "cancelled", item.isCancelled() ? item.cancelledOn().toString() : "");
+            records.setProperty(key + "reason", item.cancellationReason());
         }
     }
 
