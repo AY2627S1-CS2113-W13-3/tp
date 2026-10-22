@@ -29,12 +29,12 @@ public class LabLogStore {
         Properties records = new Properties();
         try (Reader reader = Files.newBufferedReader(this.file, StandardCharsets.UTF_8)) {
             records.load(reader);
-            if (!Set.of("1", "3", "4", "5", "6", "7").contains(required(records, "format"))) {
+            if (!Set.of("1", "3", "4", "5", "6", "7", "8").contains(required(records, "format"))) {
                 throw new IllegalArgumentException("Unsupported data format.");
             }
             Set<String> assets = readEquipment(records);
             readLoans(records, assets);
-            if (Set.of("3", "4", "5", "6", "7").contains(records.getProperty("format", ""))) {
+            if (Set.of("3", "4", "5", "6", "7", "8").contains(records.getProperty("format", ""))) {
                 readFaults(records);
             }
         } catch (IllegalArgumentException | DateTimeException exception) {
@@ -47,7 +47,7 @@ public class LabLogStore {
         file = null;
         Set<String> assets = readEquipment(records);
         readLoans(records, assets);
-        if (Set.of("3", "4", "5", "6", "7").contains(records.getProperty("format", ""))) {
+        if (Set.of("3", "4", "5", "6", "7", "8").contains(records.getProperty("format", ""))) {
             readFaults(records);
         }
     }
@@ -61,12 +61,12 @@ public class LabLogStore {
         int count = count(records, "fault.count");
         for (int index = 0; index < count; index++) {
             String key = "fault." + index + ".";
-            boolean hasResolution = Set.of("5", "6", "7").contains(records.getProperty("format", ""));
+            boolean hasResolution = Set.of("5", "6", "7", "8").contains(records.getProperty("format", ""));
             String resolved = hasResolution ? required(records, key + "resolved") : "";
             String repair = hasResolution ? required(records, key + "repair") : "";
             faults.add(new Fault(required(records, key + "id"), required(records, key + "asset"),
                     LocalDate.parse(required(records, key + "date")), required(records, key + "description"),
-                    Set.of("4", "5", "6", "7").contains(records.getProperty("format", ""))
+                    Set.of("4", "5", "6", "7", "8").contains(records.getProperty("format", ""))
                             ? Fault.Severity.valueOf(required(records, key + "severity"))
                             : Fault.Severity.UNSPECIFIED,
                     resolved.isEmpty() ? null : LocalDate.parse(resolved), repair));

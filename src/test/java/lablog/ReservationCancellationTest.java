@@ -110,6 +110,7 @@ class ReservationCancellationTest {
         records.setProperty("reservation.0.cancelled", "2026-10-23");
         assertThrows(IOException.class, () -> ApplicationSnapshot.decode(records));
         records.setProperty("format", "6");
+        records.remove("waiting.count");
         records.remove("reservation.0.reason");
         records.remove("reservation.0.cancelled");
         assertFalse(ApplicationSnapshot.decode(records).getReservations().getFirst().isCancelled());
