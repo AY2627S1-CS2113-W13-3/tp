@@ -25,6 +25,7 @@ public class HelpCommands {
             + "loans BORROWER_ID - View active loans (both consoles).\n"
             + "exit - Close the main console.\n"
             + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
+            + "copy SOURCE_ASSET_ID NEW_ASSET_ID - Copy details to a new equipment unit (main console).\n"
             + "Use help COMMAND for syntax, fields, and usage examples.";
 
     /**
@@ -72,6 +73,14 @@ public class HelpCommands {
                     + "  Register a unit with all four required fields, in any order.\n"
                     + "Example: add OSC-001\n  Start the four-prompt registration wizard instead.\n"
                     + "Unknown commands and bare asset IDs are rejected; use add to begin registration.";
+        case "copy":
+            return "Copy descriptive details from a registered unit under a new asset ID.\n"
+                    + "Format: copy SOURCE_ASSET_ID NEW_ASSET_ID\n"
+                    + "Example: copy OSC-001 OSC-002\n"
+                    + "  Copy OSC-001's name, category, model, and location to OSC-002.\n"
+                    + "The source remains unchanged. The new ID must be unique.\n"
+                    + "Loans and history are not copied; the new unit starts without either record.\n"
+                    + "Fields: SOURCE_ASSET_ID must identify a registered unit; NEW_ASSET_ID must not already exist.";
         case "edit-equipment":
             return "Edit descriptive details of a registered equipment unit.\n"
                     + "Format: edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]\n"

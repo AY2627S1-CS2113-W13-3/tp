@@ -70,6 +70,14 @@ Registration begins only after an explicit `add` command.
 Equipment is saved to the configured LabLog data file after each successful
 registration and is available after restart.
 
+### Copying equipment details: `copy`
+
+Use `copy SOURCE_ASSET_ID NEW_ASSET_ID` to create another unit from a registered
+unit. The new ID must be unique. The copy receives the source's name, category,
+model, and location; the source remains unchanged. Loans and history stay with
+the original ID and are not copied. A successful copy is saved to the configured
+data file.
+
 ### Editing equipment details
 
 Use `edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]` to
@@ -176,7 +184,7 @@ Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives 
 The main console checks borrower IDs against registered borrowers before lending.
 ```
 
-Detailed help covers `add`, `edit-equipment`, `move-equipment`, history-note commands,
+Detailed help covers `add`, `copy`, `edit-equipment`, `move-equipment`, history-note commands,
 `active-loans`, `list`, `find`,
 `loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
 commands belonging to the main or borrower console; viewing help does not make
@@ -288,6 +296,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | --- | --- | --- |
 | `help [COMMAND]` | Both | View commands and explained examples |
 | `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
+| `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
 | `list` | Main | List equipment and availability |
 | `active-loans` | Main | List all active loans |
 | `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
