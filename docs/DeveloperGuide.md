@@ -381,6 +381,37 @@ data path to confirm equipment, loans, returns, and borrowers reload. Use a
 separate disposable directory because borrower data is stored beside the
 LabLog data file.
 
+## Equipment detail editing (issue #62)
+
+EquipmentEditCommands parses optional name, category, model, and location fields
+and constructs a fully validated immutable Equipment record. Inventory replaces
+the record at its existing position while retaining the same asset ID, so loan
+and history references remain valid. LabLog saves the updated equipment through
+the existing snapshot store after the command succeeds.
+
+EquipmentEditCommandsTest covers partial edits, field ordering, validation,
+stable asset references, and persistence after restart.
+
+## Bulk equipment location updates (issue #64)
+
+EquipmentMoveCommands parses a comma-separated selection and one target
+location. Inventory validates every distinct asset ID and constructs all
+replacement Equipment records before installing any of them, so an invalid
+selection or location leaves the batch unchanged. LabLog then persists the
+updated inventory through the existing snapshot store.
+
+EquipmentMoveCommandsTest covers successful partial batch updates, validation
+atomicity, stable loan references, and persistence after restart.
+
+## Exact equipment lookup (issue #67)
+
+EquipmentFindCommands resolves one case-sensitive asset ID from the shared
+inventory and reports descriptive fields with availability derived from active
+loans. The lookup is read-only and returns a clear error for unknown IDs.
+
+EquipmentFindCommandsTest covers details, availability, invalid syntax,
+unknown IDs, and unchanged equipment and loan records.
+
 ## Borrower contact editing (issue #89)
 
 BorrowerCommands parses optional edit fields and constructs a validated immutable
