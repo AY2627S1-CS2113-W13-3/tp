@@ -33,7 +33,7 @@ Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or C
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
-The main console saves equipment, loans, return dates, and reported return faults
+The main console saves equipment, loans, return dates, return faults and structured fault reports
 in `data/lablog.properties` after each successful change. It reloads them on
 startup. To select another file, run
 `java -jar build/libs/lablog.jar PATH/TO/lablog.properties`.
@@ -140,7 +140,11 @@ fields, or `maintenance` with the same fields. For example:
 The equipment must already be registered. Dates must be real calendar dates,
 and descriptions must be non-empty and single-line. View recorded notes using
 `history ASSET_ID`. Notes describe events only: they do not reserve availability
-or prevent loans, and are lost when the session ends.
+or prevent loans. Reservation and maintenance notes are lost when the session ends.
+Fault reports receive a unique `F-...` ID shown on success and in history. They
+are saved across restarts and included in exports. Multiple reports for the same
+equipment are allowed, each with its own ID. Past and future dates are accepted,
+as with the original dated notes. Severity and repair commands are not included.
 
 ### Listing all active loans: `active-loans`
 
@@ -308,8 +312,8 @@ Unknown equipment produces an error; registered equipment with no supplied recor
 produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
 The application combines loan history with notes recorded through `reservation`,
-`fault`, and `maintenance`. These notes last for the session and are not saved
-across restarts.
+`fault`, and `maintenance`. Fault records survive restarts; reservation and
+maintenance notes last only for the session.
 
 ## FAQ
 
@@ -334,12 +338,16 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
 | `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
+
+| `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Add a session history note |
+| `fault ASSET_ID d/DATE desc/DETAILS` | Main | Save an identifiable equipment fault |
+| `return ASSET_ID [faults/DESCRIPTION]` | Main | Close an existing active loan |
 | `exit` | Main | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
 | `loans BORROWER_ID` | Both | List a registered borrower's active loans |
 
 Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
-to add a dated history note in the main console.
+to record a dated event in the main console. Fault reports are persistent records.
 
 ## Edit borrower contacts (US21)
 
@@ -423,3 +431,9 @@ Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
 `list category/Electronics sort/name` sorts only matching units. Comparisons
 are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
 Sorting a copied snapshot preserves the stored registration order.
+
+Format 3 contains equipment, borrowers, full loan and return details, structured
+fault reports, and current history notes. Fault IDs, equipment IDs, dates and
+descriptions are preserved. Older format 2 exports remain readable by the
+snapshot reader; their legacy fault notes remain notes. Reservation domain
+records, severity, repairs and audit records require their own schema extensions.

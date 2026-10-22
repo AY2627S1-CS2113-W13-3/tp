@@ -35,6 +35,7 @@ public class LabLog {
     private final EquipmentEditCommands equipmentEdit;
     private final EquipmentMoveCommands equipmentMove;
     private final HistoryRecordCommands historyRecords;
+    private final FaultBook faults;
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
@@ -72,6 +73,13 @@ public class LabLog {
     /** Connects both command groups to the same equipment, loans, and borrower records. */
     public LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory,
             Clock clock, BorrowerBook borrowers) {
+        this(inventory, loans, otherHistory, clock, borrowers, new FaultBook(inventory));
+    }
+
+    /** Shares the store's fault book so commands, history and saves see the same reports. */
+    private LabLog(Inventory inventory, LoanBook loans, Supplier<List<HistoryEntry>> otherHistory,
+            Clock clock, BorrowerBook borrowers, FaultBook faults) {
+        this.faults = faults;
         this.inventory = inventory;
         this.borrowers = borrowers;
         this.loans = loans;
@@ -80,7 +88,7 @@ public class LabLog {
         this.equipmentCopy = new EquipmentCopyCommands(inventory);
         this.equipmentEdit = new EquipmentEditCommands(inventory);
         this.equipmentMove = new EquipmentMoveCommands(inventory);
-        this.historyRecords = new HistoryRecordCommands(inventory);
+        this.historyRecords = new HistoryRecordCommands(inventory, faults);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
             List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
@@ -119,10 +127,12 @@ public class LabLog {
         Path absolute = file.toAbsolutePath().normalize();
         Inventory inventory;
         LoanBook loans;
+        FaultBook faults;
         BorrowerBook borrowers = new BorrowerBook();
         List<HistoryEntry> notes = List.of();
         Properties records = Files.exists(absolute) ? ApplicationSnapshot.readProperties(absolute) : null;
-        if (records != null && "2".equals(records.getProperty("format"))) {
+        if (records != null && ("2".equals(records.getProperty("format"))
+                || records.containsKey("borrower.count"))) {
             ApplicationSnapshot snapshot = ApplicationSnapshot.decode(records);
             inventory = new Inventory();
             inventory.replaceAll(snapshot.getEquipment());
@@ -130,14 +140,17 @@ public class LabLog {
             loans.replaceAll(snapshot.getLoans());
             borrowers.replaceAll(snapshot.getBorrowers());
             notes = snapshot.getNotes();
+            faults = new FaultBook(inventory);
+            faults.replaceAll(snapshot.getFaults());
         } else {
             LabLogStore legacy = new LabLogStore(absolute);
             inventory = legacy.getInventory();
             loans = legacy.getLoans();
+            faults = legacy.getFaults();
             Path borrowerFile = absolute.resolveSibling("borrowers.properties");
             borrowers.replaceAll(new BorrowerBook(borrowerFile).getBorrowers());
         }
-        LabLog application = new LabLog(inventory, loans, List::of, Clock.systemDefaultZone(), borrowers);
+        LabLog application = new LabLog(inventory, loans, List::of, Clock.systemDefaultZone(), borrowers, faults);
         application.dataFile = absolute;
         application.historyRecords.replaceAll(notes);
         // Persist proposed borrowers in the same atomic file as their equipment and loan references.
@@ -148,8 +161,9 @@ public class LabLog {
     /** Captures supported history notes as well as borrowers, equipment and complete loans. */
     private ApplicationSnapshot snapshot(List<Borrower> proposedBorrowers) {
         List<HistoryEntry> notes = new ArrayList<>(otherHistory.get());
-        notes.addAll(historyRecords.getEntries());
-        return new ApplicationSnapshot(inventory.getEquipmentUnits(), proposedBorrowers, loans.getLoans(), notes);
+        notes.addAll(historyRecords.getNotes());
+        return new ApplicationSnapshot(inventory.getEquipmentUnits(), proposedBorrowers, loans.getLoans(), notes,
+                faults.getFaults());
     }
 
     /** Validates and saves an import before replacing any of the shared live books. */
@@ -165,6 +179,7 @@ public class LabLog {
         loans.replaceAll(replacement.getLoans());
         borrowers.replaceAll(replacement.getBorrowers());
         historyRecords.replaceAll(replacement.getNotes());
+        faults.replaceAll(replacement.getFaults());
     }
 
     /** Uses explicit replacement syntax and never overwrites an existing export destination. */

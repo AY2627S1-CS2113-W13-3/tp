@@ -60,7 +60,8 @@ class SnapshotExportTest {
         String saved = Files.readString(data);
         Path output = directory.resolve("with spaces.properties");
         assertTrue(run(app, "export \"" + output + "\"").contains("Exported application data"));
-        assertEquals(1, ApplicationSnapshot.read(output).getNotes().size());
+        assertEquals(1, ApplicationSnapshot.read(output).getFaults().size());
+        assertTrue(ApplicationSnapshot.read(output).getNotes().isEmpty());
         assertEquals(1, ApplicationSnapshot.read(output).getBorrowers().size());
         assertEquals(saved, Files.readString(data));
         String exported = Files.readString(output);
