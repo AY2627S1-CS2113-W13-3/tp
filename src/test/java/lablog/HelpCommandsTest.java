@@ -28,7 +28,7 @@ class HelpCommandsTest {
         String summary = help.execute("help");
         assertEquals(summary, help.execute("  help\t "));
         assertFalse(summary.contains("Example:"));
-        for (String command : List.of("help", "loan", "return", "list", "history", "add-borrower", "loans",
+        for (String command : List.of("help", "loan", "return", "list", "find", "history", "add-borrower", "loans",
                 "exit")) {
             assertTrue(summary.contains(command));
             String detail = help.execute("help " + command);

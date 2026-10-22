@@ -11,6 +11,7 @@ public class HelpCommands {
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
             + "list - List registered equipment and availability (main console).\n"
+            + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
@@ -117,6 +118,13 @@ public class HelpCommands {
                     + "  Show asset IDs, names, categories, models, locations, and availability.\n"
                     + "Availability is derived from active loans; returned units are available.\n"
                     + "Fields: None.";
+        case "find":
+            return "Show one registered equipment unit by its exact asset ID.\n"
+                    + "Format: find ASSET_ID\n"
+                    + "Example: find OSC-001\n"
+                    + "  Display the unit's name, category, model, location, and current availability.\n"
+                    + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.\n"
+                    + "Unknown IDs produce an error. This lookup does not change records.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"
