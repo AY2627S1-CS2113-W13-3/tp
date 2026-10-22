@@ -11,6 +11,8 @@ public class HelpCommands {
             + "help [COMMAND] - Show common commands or detailed help.\n"
             + "reservation|fault|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
             + "list - List registered equipment and availability (main console).\n"
+            + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
+            + "Edit equipment details (main console).\n"
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans - List all active loans and overdue status (main console).\n"
             + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
@@ -69,6 +71,13 @@ public class HelpCommands {
                     + "  Register a unit with all four required fields, in any order.\n"
                     + "Example: add OSC-001\n  Start the four-prompt registration wizard instead.\n"
                     + "Unknown commands and bare asset IDs are rejected; use add to begin registration.";
+        case "edit-equipment":
+            return "Edit descriptive details of a registered equipment unit.\n"
+                    + "Format: edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]\n"
+                    + "Example: edit-equipment OSC-001 l/Lab 2 n/Digital oscilloscope\n"
+                    + "Fields: Supply at least one field, once each. Omitted values remain unchanged.\n"
+                    + "The asset ID stays unchanged so loans and history keep their equipment reference.\n"
+                    + "Equipment validation applies to all values; failed edits change nothing.";
         case "reservation":
         case "fault":
         case "maintenance":
