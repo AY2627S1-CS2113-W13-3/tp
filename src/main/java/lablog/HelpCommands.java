@@ -67,14 +67,15 @@ public class HelpCommands {
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
                     + "Snapshot format 2 supports current reservation, fault and maintenance notes.\n"
                     + "Future domain records and audit data require a schema update; "
-                    + "unsupported fields are rejected.";
+                    + "unsupported fields are rejected when decoding format 2, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
                     + "Fields: FILE is a format-2 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
-                    + "Export first for a backup.";
+                    + "Export first for a backup.\n"
+                    + "Unknown format-2 properties are rejected; the error names the unsupported field.";
         case "add":
             return "Register equipment explicitly.\nFormat: add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION\n"
                     + "Example: add OSC-001 n/Oscilloscope c/Electronics m/S1 l/Lab 1\n"

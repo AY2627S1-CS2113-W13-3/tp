@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeSet;
 
 /** Complete transfer snapshot, validated independently of the running application's records. */
 public class ApplicationSnapshot {
@@ -48,9 +49,12 @@ public class ApplicationSnapshot {
         return notes;
     }
 
-    /** Reads the UTF-8 properties envelope before domain validation. */
+    /** Reads UTF-8 properties, rejecting repeated keys and files exceeding the supported size. */
     static Properties readProperties(Path file) throws IOException {
-        Properties records = new Properties();
+        if (!Files.isRegularFile(file) || Files.size(file) > MAX_BYTES) {
+            throw new IOException("Expected a regular snapshot file no larger than 10 MiB.");
+        }
+        Properties records = new UniqueProperties();
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             records.load(reader);
         } catch (IllegalArgumentException exception) {
@@ -64,7 +68,15 @@ public class ApplicationSnapshot {
         return decode(readProperties(file));
     }
 
-    /** Validates supported records and their references independently of live data. */
+    /**
+     * Decodes the closed format-2 schema before publishing a snapshot.
+     * Unknown top-level, record and out-of-range indexed fields are rejected so
+     * re-serialization cannot silently discard data owned by an unsupported feature.
+     *
+     * @param records complete properties read from the source file
+     * @return snapshot containing only validated, supported records
+     * @throws IOException if any required field, value, reference or property name is invalid
+     */
     static ApplicationSnapshot decode(Properties records) throws IOException {
         try {
             if (!"2".equals(required(records, "format"))) {
@@ -107,6 +119,12 @@ public class ApplicationSnapshot {
             }
             ApplicationSnapshot result = new ApplicationSnapshot(base.getInventory().getEquipmentUnits(), borrowers,
                     base.getLoans().getLoans(), notes);
+            // Derive accepted keys from the export schema to keep read and write support in agreement.
+            Set<String> unknownFields = new TreeSet<>(records.stringPropertyNames());
+            unknownFields.removeAll(result.encode().stringPropertyNames());
+            if (!unknownFields.isEmpty()) {
+                throw new IllegalArgumentException("Unknown snapshot field: " + unknownFields.iterator().next() + ".");
+            }
             return result;
         } catch (IllegalArgumentException | DateTimeException exception) {
             throw new IOException("Invalid snapshot: " + exception.getMessage(), exception);
@@ -189,4 +207,14 @@ public class ApplicationSnapshot {
         return count;
     }
 
+    /** Properties normally overwrites repeated keys; imports reject that ambiguity. */
+    private static class UniqueProperties extends Properties {
+        @Override
+        public synchronized Object put(Object key, Object value) {
+            if (containsKey(key)) {
+                throw new IllegalArgumentException("Duplicate field: " + key);
+            }
+            return super.put(key, value);
+        }
+    }
 }

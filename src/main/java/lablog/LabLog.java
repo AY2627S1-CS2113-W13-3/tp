@@ -444,4 +444,3 @@ public class LabLog {
     private static class RegistrationCancelledException extends RuntimeException {
     }
 }
-
