@@ -63,13 +63,21 @@ class HelpCommandsTest {
             LoanBook loans = new LoanBook();
             Loan loan = new Loan("OSC-001", "A0123456X", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 18));
             loans.addLoan(loan);
+            inventory.addEquipment(
+                    new Equipment("OSC-002", "Scope 2", "Electronics", "S2", "Lab"));
+            Loan second = new Loan("OSC-002", "A0123456X",
+                    LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 18));
+            loans.addLoan(second);
             Clock clock = Clock.fixed(Instant.parse("2026-09-10T12:00:00Z"), ZoneOffset.UTC);
             new ReturnCommands(inventory, loans, clock).execute(line.substring(9));
             assertFalse(loan.isActive());
             assertEquals(line.contains("faults/") ? "cracked screen" : "", loan.getReturnFaults());
+            boolean batchExample = line.equals("Example: return OSC-001 OSC-002");
+            assertEquals(!batchExample, second.isActive());
+            assertEquals("", second.getReturnFaults());
             count++;
         }
-        assertEquals(2, count);
+        assertEquals(3, count);
     }
 
     @Test

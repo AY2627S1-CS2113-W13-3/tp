@@ -2,6 +2,7 @@ package lablog;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,6 +42,51 @@ class LabLogStoreTest {
         Files.writeString(file, invalidDate);
         assertThrows(IOException.class, () -> new LabLogStore(file));
         assertEquals(invalidDate, Files.readString(file));
+    }
+
+    @Test
+    void run_batchReturn_persistsBothReturnsAfterReload(@TempDir Path directory) throws Exception {
+        Path file = directory.resolve("records.properties");
+        LabLogStore store = new LabLogStore(file);
+        LocalDate issued = LocalDate.of(2026, 1, 1);
+
+        for (String assetId : List.of("OSC-001", "OSC-002")) {
+            store.getInventory().addEquipment(
+                    new Equipment(assetId, "Scope", "Electronics", "S1", "Lab"));
+            store.getLoans().addLoan(
+                    new Loan(assetId, "A0123456X", issued, issued.plusDays(7)));
+        }
+        store.save();
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        LabLog.load(file).run(
+                new Scanner("return OSC-001 OSC-002\nexit\n"),
+                new PrintStream(output));
+
+        assertTrue(output.toString().contains("Returned OSC-001, OSC-002 on "));
+
+        LabLogStore reloaded = new LabLogStore(file);
+        List<Loan> savedLoans = reloaded.getLoans().getLoans();
+        assertEquals(2, savedLoans.size());
+        assertEquals(List.of("OSC-001", "OSC-002"),
+                savedLoans.stream().map(Loan::getAssetId).toList());
+
+        HistoryCommands history = new HistoryCommands(
+                reloaded.getInventory(), reloaded.getLoans(), List::of);
+
+        for (Loan savedLoan : savedLoans) {
+            assertFalse(savedLoan.isActive());
+            assertNotNull(savedLoan.getReturnDate());
+            assertEquals("", savedLoan.getReturnFaults());
+            assertEquals(issued, savedLoan.getLoanDate());
+            assertEquals(issued.plusDays(7), savedLoan.getDueDate());
+            assertEquals("A0123456X", savedLoan.getBorrowerId());
+            assertTrue(history.execute("history " + savedLoan.getAssetId())
+                    .contains("returned " + savedLoan.getReturnDate()));
+        }
+
+        assertEquals(savedLoans.get(0).getReturnDate(),
+                savedLoans.get(1).getReturnDate());
     }
 
     @Test
