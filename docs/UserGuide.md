@@ -509,4 +509,15 @@ period and intended borrower. Invalid input or a failed save changes no bookings
 These are structured records in snapshot format 6, preserved by restart, export
 and replacement import. Older formats load with no bookings. The existing
 `reservation ... d/DATE desc/TEXT` command remains a history note and cannot
-reserve a unit. Overlap enforcement is added by the dependent US35 change.
+reserve a unit. Overlapping reservations and loans are rejected.
+
+## Booking conflicts (US35)
+
+Reservations and loans occupy inclusive start/end dates. A booking ending on
+Friday conflicts with another starting Friday; starting Saturday is valid.
+Returned loans occupy their actual loan-to-return dates. An active loan occupies
+its loan-to-due dates; once overdue, it blocks future periods until returned.
+Unresolved severe faults block reservations and lending for every period because
+there is no known repair completion date. Errors identify the conflicting booking
+or loan. The same rule applies even for the same borrower: cancel a reservation
+before issuing its loan. Legacy notes are not booking constraints.

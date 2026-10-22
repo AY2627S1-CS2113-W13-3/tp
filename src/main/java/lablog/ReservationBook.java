@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -20,13 +23,24 @@ public class ReservationBook {
     private final Inventory inventory;
     private final BorrowerBook borrowers;
     private final Clock clock;
+    private final BookingAvailability availability;
     private final List<Reservation> reservations = new ArrayList<>();
     private Saver saver = proposed -> { };
 
     public ReservationBook(Inventory inventory, BorrowerBook borrowers, Clock clock) {
+        this(inventory, borrowers, new LoanBook(), new FaultBook(inventory), clock);
+    }
+
+    /** Shares live loans and faults so conflict checks always reflect other commands. */
+    public ReservationBook(Inventory inventory, BorrowerBook borrowers, LoanBook loans, FaultBook faults, Clock clock) {
         this.inventory = inventory;
         this.borrowers = borrowers;
         this.clock = clock;
+        this.availability = new BookingAvailability(inventory, loans, this, faults, clock);
+    }
+
+    public BookingAvailability getAvailability() {
+        return availability;
     }
 
     void setSaver(Saver saver) {
@@ -40,6 +54,7 @@ public class ReservationBook {
     /** Checks identity, references and period before saving a new booking. */
     public Reservation reserve(String assetId, String borrowerId, DateWindow window) throws IOException {
         window.requireNotPast(LocalDate.now(clock));
+        availability.requireAvailable(assetId, window, null, null);
         Reservation reservation = new Reservation("R-" + UUID.randomUUID(), assetId, borrowerId, window);
         List<Reservation> proposed = new ArrayList<>(reservations);
         proposed.add(reservation);
@@ -64,6 +79,13 @@ public class ReservationBook {
                 throw new IllegalArgumentException("Equipment " + item.assetId() + " was not found.");
             }
             borrowers.getBorrower(item.borrowerId());
+        }
+        Map<String, Reservation> previous = new HashMap<>();
+        for (Reservation item : proposed.stream().sorted(Comparator.comparing(r -> r.window().start())).toList()) {
+            Reservation earlier = previous.put(item.assetId(), item);
+            if (earlier != null && earlier.window().overlaps(item.window())) {
+                throw new IllegalArgumentException("Overlapping reservations: " + earlier.id() + " and " + item.id());
+            }
         }
     }
 

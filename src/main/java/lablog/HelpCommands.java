@@ -98,7 +98,8 @@ public class HelpCommands {
                     + "Example: reserve OSC-001 b/A0123456X from/2099-01-01 to/2099-01-02\n"
                     + "Fields: b/, from/ and to/ occur once in any order. "
                     + "Dates are inclusive; start is today or later.\n"
-                    + "Reservations persist and appear in history. Legacy reservation notes are not bookings.";
+                    + "Reservations persist and appear in history. Legacy notes are not bookings.\n"
+                    + "Overlapping loans/bookings and unresolved severe faults are rejected. Endpoints are inclusive.";
         case "reservations":
             return "List saved bookings with IDs, units, users and inclusive periods.\n"
                     + "Format: reservations\nExample: reservations\nFields: None.";
@@ -179,7 +180,8 @@ public class HelpCommands {
                     + "  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.\n"
                     + "Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; "
                     + "d/ gives the due date in YYYY-MM-DD format.\n"
-                    + "Register the borrower with add-borrower before issuing a loan.";
+                    + "Register the borrower with add-borrower before issuing a loan.\n"
+                    + "The inclusive loan interval must not overlap a reservation, including your own.";
         case "return":
             return "Return one or more equipment units on today's date (main console).\n"
                     + "Format: return ASSET_ID [faults/DESCRIPTION] (single unit)\n"
