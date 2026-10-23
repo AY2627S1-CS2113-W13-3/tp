@@ -50,6 +50,14 @@ public record LoanAuditEvent(String id, String loanId, LocalDate date, Type type
                 loan.getAssetId(), loan.getBorrowerId(), loan.getDueDate(), faults.strip(), "", "");
     }
 
+    /** Adds a dated explanation referring to the complete original evidence rather than overwriting it. */
+    static LoanAuditEvent reversed(LoanAuditEvent original, LocalDate date, String reason) {
+        Type type = original.type() == Type.LOAN ? Type.REVERSE_LOAN : Type.REVERSE_RETURN;
+        return new LoanAuditEvent("E-" + UUID.randomUUID(), original.loanId(), date, type, original.assetId(),
+                original.borrowerId(), original.dueDate(), original.faults(), original.id(),
+                reason == null ? null : reason.strip());
+    }
+
     private static void requireToken(String value) {
         if (value == null || value.isBlank() || value.chars().anyMatch(character ->
                 Character.isWhitespace(character) || Character.isISOControl(character))) {

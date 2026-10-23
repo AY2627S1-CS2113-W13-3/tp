@@ -173,7 +173,12 @@ class LoanAuditPersistenceTest {
         List<LoanAuditEvent> events = new ArrayList<>(snapshot.getAuditEvents());
         events.add(undoReturn);
         events.add(undoLoan);
-        ApplicationSnapshot corrected = withAudit(snapshot, events);
+        Loan cancelled = snapshot.getLoans().getFirst().copy();
+        cancelled.reverseReturn();
+        cancelled.reverseIssue();
+        ApplicationSnapshot corrected = new ApplicationSnapshot(snapshot.getEquipment(), snapshot.getBorrowers(),
+                List.of(cancelled, snapshot.getLoans().getLast()), snapshot.getNotes(), snapshot.getFaults(),
+                snapshot.getReservations(), snapshot.getWaitingRequests(), events);
         assertEquals(events, ApplicationSnapshot.decode(corrected.toProperties()).getAuditEvents());
         for (String[] change : List.of(new String[]{"audit.3.related", "E-unknown"},
                 new String[]{"audit.3.related", undoReturn.id()}, new String[]{"audit.3.related", issue.id()},
@@ -205,7 +210,10 @@ class LoanAuditPersistenceTest {
         List<LoanAuditEvent> redoReturn = new ArrayList<>(snapshot.getAuditEvents());
         redoReturn.add(undoReturn);
         redoReturn.add(again);
-        LoanAuditCodec.validate(snapshot.getLoans(), redoReturn);
+        Loan returnedAgain = snapshot.getLoans().getFirst().copy();
+        returnedAgain.reverseReturn();
+        returnedAgain.markReturned(again.date(), again.faults());
+        LoanAuditCodec.validate(List.of(returnedAgain, snapshot.getLoans().getLast()), redoReturn);
         Loan other = snapshot.getLoans().getLast();
         List<LoanAuditEvent> crossLoan = new ArrayList<>(snapshot.getAuditEvents());
         crossLoan.add(new LoanAuditEvent("E-wrong-owner", other.getId(), DAY.plusDays(1),

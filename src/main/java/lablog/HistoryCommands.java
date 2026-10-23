@@ -67,11 +67,12 @@ public class HistoryCommands {
         for (Loan loan : loans.getLoans()) {
             if (assetId.equals(loan.getAssetId())) {
                 String details = "Borrower " + loan.getBorrowerId() + "; due " + loan.getDueDate()
-                        + (loan.isActive() ? "; active" : "; returned " + loan.getReturnDate());
+                        + (loan.isReversed() ? "; REVERSED (loan cancelled)"
+                                : loan.isActive() ? "; active" : "; returned " + loan.getReturnDate());
                 if (loan.isLost()) {
                     details += "; LOST since " + loan.getLostDate();
                 }
-                if (!loan.isActive()) {
+                if (loan.getReturnDate() != null) {
                     details += loan.getReturnFaults().isEmpty()
                             ? "; no faults reported on return" : "; faults: " + loan.getReturnFaults();
                 }

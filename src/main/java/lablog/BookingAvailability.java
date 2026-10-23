@@ -46,7 +46,7 @@ public class BookingAvailability {
             }
         }
         for (Loan loan : loans.getLoans()) {
-            if (loan == ignoredLoan || !loan.getAssetId().equals(assetId)) {
+            if (loan == ignoredLoan || loan.isReversed() || !loan.getAssetId().equals(assetId)) {
                 continue;
             }
             LocalDate end = loan.isActive() ? loan.getDueDate() : loan.getReturnDate();

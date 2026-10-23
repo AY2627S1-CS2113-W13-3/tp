@@ -42,6 +42,7 @@ public class LostCommands {
         }
         LocalDate today = LocalDate.now(clock);
         Loan loan = active.getFirst();
+        loans.validateActionDate(loan, today);
         loan.markLost(today);
         return "Marked " + assetId + " as lost on " + today + ". Borrower: " + loan.getBorrowerId()
                 + ". Original loan and renewal history retained.";

@@ -54,7 +54,7 @@ final class LoanAuditCodec {
     }
 
     /** Rejects duplicate identities, broken ownership and invalid/forward correction references before publication. */
-    static void validate(List<Loan> loans, List<LoanAuditEvent> events) {
+    static Set<String> validate(List<Loan> loans, List<LoanAuditEvent> events) {
         Map<String, Loan> byLoan = new HashMap<>();
         for (Loan loan : loans) {
             if (byLoan.putIfAbsent(loan.getId(), loan) != null) {
@@ -66,6 +66,9 @@ final class LoanAuditCodec {
         Set<String> reversed = new HashSet<>();
         Set<String> returned = new HashSet<>();
         Set<String> voided = new HashSet<>();
+        Set<String> corrected = new HashSet<>();
+        Map<String, LoanAuditEvent> currentReturns = new HashMap<>();
+        Map<String, LocalDate> latestDates = new HashMap<>();
         for (LoanAuditEvent event : events) {
             Loan loan = byLoan.get(event.loanId());
             if (loan == null || !loan.getAssetId().equals(event.assetId())
@@ -76,6 +79,10 @@ final class LoanAuditCodec {
             if (seen.containsKey(event.id())) {
                 throw new IllegalArgumentException("Duplicate audit event ID: " + event.id());
             }
+            LocalDate previousDate = latestDates.put(event.loanId(), event.date());
+            if (previousDate != null && event.date().isBefore(previousDate)) {
+                throw new IllegalArgumentException("Audit dates must follow acceptance order within each loan.");
+            }
             if (event.type() == LoanAuditEvent.Type.LOAN
                     && (!issued.add(event.loanId()) || !event.date().equals(loan.getLoanDate())
                             || !event.dueDate().equals(loan.getOriginalDueDate()))) {
@@ -85,6 +92,9 @@ final class LoanAuditCodec {
                     && (voided.contains(event.loanId()) || !returned.add(event.loanId()))) {
                 throw new IllegalArgumentException(
                         "A return event must be reversed before another return is recorded.");
+            }
+            if (event.type() == LoanAuditEvent.Type.RETURN) {
+                currentReturns.put(event.loanId(), event);
             }
             if (event.type() == LoanAuditEvent.Type.REVERSE_LOAN
                     || event.type() == LoanAuditEvent.Type.REVERSE_RETURN) {
@@ -99,14 +109,48 @@ final class LoanAuditCodec {
                 }
                 if (event.type() == LoanAuditEvent.Type.REVERSE_RETURN) {
                     returned.remove(event.loanId());
+                    currentReturns.remove(event.loanId());
                 } else {
                     if (returned.contains(event.loanId())) {
                         throw new IllegalArgumentException("Reverse dependent return events before reversing a loan.");
                     }
                     voided.add(event.loanId());
                 }
+                corrected.add(event.loanId());
             }
             seen.put(event.id(), event);
+        }
+        validateState(loans, voided, corrected, currentReturns);
+        return Set.copyOf(voided);
+    }
+
+    /** Checks the persisted projection against effective events before restoring any derived reversal flags. */
+    private static void validateState(List<Loan> loans, Set<String> voided, Set<String> corrected,
+            Map<String, LoanAuditEvent> currentReturns) {
+        Set<String> activeAssets = new HashSet<>();
+        for (Loan loan : loans) {
+            if (loan.isReversed() && !voided.contains(loan.getId())) {
+                throw new IllegalArgumentException("A reversed loan must retain its correction evidence.");
+            }
+            if (voided.contains(loan.getId())) {
+                if (loan.getReturnDate() != null || loan.isLost() || !loan.getRenewals().isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "A reversed loan cannot retain dependent return, renewal or loss.");
+                }
+                continue;
+            }
+            LoanAuditEvent returned = currentReturns.get(loan.getId());
+            if (returned != null && (!returned.date().equals(loan.getReturnDate())
+                    || !returned.faults().equals(loan.getReturnFaults())
+                    || !returned.dueDate().equals(loan.getDueDate()))) {
+                throw new IllegalArgumentException("Current return details must match the effective audit event.");
+            }
+            if (corrected.contains(loan.getId()) && returned == null && loan.getReturnDate() != null) {
+                throw new IllegalArgumentException("A reversed return must restore the outstanding loan.");
+            }
+            if (loan.isActive() && !activeAssets.add(loan.getAssetId())) {
+                throw new IllegalArgumentException("Multiple active loans for equipment " + loan.getAssetId() + ".");
+            }
         }
     }
 
