@@ -59,6 +59,10 @@ To extend an active loan, use `renew OSC-001 d/2026-11-05`. The new date must
 be later than its current deadline and no earlier than today. Shared booking
 checks apply, and `history OSC-001` retains each successful deadline change.
 
+To report loaned equipment lost, use `lost OSC-001`. It remains outstanding
+with status `LOST` and stays unavailable; ordinary return and renewal are blocked.
+Use `list status/lost` to find lost units and `history OSC-001` for the report.
+
 To return multiple loaned units together, enter `return OSC-001 OSC-002`.
 All selected units must pass validation before any loan is changed; duplicate
 IDs or an invalid selection reject the entire batch. To report damage, return
@@ -76,7 +80,7 @@ java -jar build/libs/lablog.jar
 The main console supports registration, help, loans, history, active-loan lists,
 returns, and borrower commands, so a fresh session can complete a loan/return
 workflow. The main console saves equipment, borrowers, loans, returns, faults, repairs and history
-notes, renewal events, reservations and waiting requests together in `data/lablog.properties` (format 9). Legacy format-1 installations
+notes, renewal events, loss reports, reservations and waiting requests together in `data/lablog.properties` (format 10). Legacy format-1 installations
 load the sibling borrower file and migrate on their next successful save. The
 old borrower file is retained as a backup and ignored after migration. Pass another data-file
 path after the JAR name to use it for equipment and loan records. Use only one

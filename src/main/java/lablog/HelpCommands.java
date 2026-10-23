@@ -26,6 +26,7 @@ public class HelpCommands {
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans [overdue] - List all active loans or only overdue loans (main console).\n"
             + "loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE - Issue one or more loans (main console).\n"
+            + "lost ASSET_ID - Report an outstanding loan lost and keep its history (main console).\n"
             + "renew ASSET_ID d/DUE_DATE - Extend an active loan and retain the change (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "return ASSET_ID ASSET_ID ... - Return multiple units (no faults/, main console).\n"
@@ -73,6 +74,15 @@ public class HelpCommands {
                     + "Example: edit-borrower A0123456X p/92345678\n"
                     + "Fields: Supply at least one field, once each. Omitted values remain unchanged.\n"
                     + "The same validation as add-borrower applies. Failed edits change nothing.";
+        case "lost":
+            return "Report one outstanding equipment loan lost.\n"
+                    + "Format: lost ASSET_ID\nExample: lost OSC-001\n"
+                    + "Fields: One case-sensitive asset ID with exactly one active, non-lost loan.\n"
+                    + "The local report date, borrower, loan and renewal history are retained.\n"
+                    + "Lost units remain outstanding and unavailable indefinitely; return and renew are rejected.\n"
+                    + "Use list status/lost, find, active-loans, loans or history to inspect the report.\n"
+                    + "Overdue-only listings include lost loans when their due date is before today.\n"
+                    + "No recovery command is provided. Invalid input changes no records.";
         case "renew":
             return "Extend an active loan, including an overdue loan, and retain its renewal record.\n"
                     + "Format: renew ASSET_ID d/YYYY-MM-DD\n"
@@ -80,19 +90,20 @@ public class HelpCommands {
                     + "Fields: One case-sensitive asset ID and exactly one d/ date.\n"
                     + "The new date must be later than the current due date and no earlier than today.\n"
                     + "Shared booking checks still apply; overlapping reservation endpoints conflict.\n"
+                    + "Lost loans cannot be renewed.\n"
                     + "Rejected input changes nothing. Successful changes appear in history and survive restart.";
         case "export":
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 9 includes renewal events, reservations, waiting requests, faults "
-                    + "and history notes.\n"
+                    + "Snapshot format 10 includes loss reports, renewal events, reservations, "
+                    + "waiting requests, faults and history notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected for every supported version, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
-                    + "Fields: FILE is a format-2 through 9 snapshot; --replace explicitly requests replacement,\n"
+                    + "Fields: FILE is a format-2 through 10 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"
@@ -124,7 +135,7 @@ public class HelpCommands {
                     + "Fields: b/, from/ and to/ occur once in any order. "
                     + "Dates are inclusive; start is today or later.\n"
                     + "Reservations persist and appear in history. Legacy notes are not bookings.\n"
-                    + "Overlapping loans/bookings and unresolved severe faults are rejected. Endpoints are inclusive.";
+                    + "Lost units, overlapping loans/bookings and severe faults are rejected. Endpoints are inclusive.";
         case "edit-reservation":
             return "Edit a saved booking, keeping its ID and equipment unchanged.\n"
                     + "Format: edit-reservation RESERVATION_ID [b/BORROWER_ID] [from/START] [to/END]\n"
@@ -142,7 +153,7 @@ public class HelpCommands {
                     + "Format: available from/START to/END [category/CATEGORY]\n"
                     + "Example: available from/2099-01-01 to/2099-01-02 category/Electronics\n"
                     + "Fields: from/ and to/ are required once; category/ is optional and matches ignoring case.\n"
-                    + "Start is today or later. Loans, confirmed bookings and unresolved severe faults block results.";
+                    + "Start is today or later. Loans, bookings, lost units and severe faults block results.";
         case "reservations":
             return "List saved bookings with IDs, units, users and inclusive periods.\n"
                     + "Format: reservations\nExample: reservations\nFields: None.";
@@ -207,6 +218,7 @@ public class HelpCommands {
                     + "Example: active-loans overdue\n  Show only active loans due before today's local date.\n"
                     + "Rows show asset ID, borrower ID, due date, and status, ordered by due date then asset ID.\n"
                     + "Returned loans are excluded. Loans due today are not overdue.\n"
+                    + "Lost loans stay listed as LOST; overdue-only mode still checks their due date.\n"
                     + "Fields: overdue is an optional, case-sensitive keyword; no other arguments are accepted.\n"
                     + "An empty overdue-only result reports No overdue loans. The listing does not change records.";
         case "help":
@@ -247,24 +259,25 @@ public class HelpCommands {
                     + "Choose an example for currently loaned equipment; "
                     + "the same loan cannot be returned twice.\n"
                     + "Fields: Each asset ID must appear once and have exactly one active loan.\n"
+                    + "Lost equipment cannot be returned with this command.\n"
                     + "If any selection or return date is invalid, no selected loan is changed.\n"
                     + "faults/ accepts a non-empty, single-line description for one unit only.\n"
                     + "Return units with reported faults individually.\n"
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
         case "list":
             return "List registered equipment and current availability (main console).\n"
-                    + "Format: list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]\n"
+                    + "Format: list [category/VALUE] [location/VALUE] [status/available|on-loan|lost] [sort/FIELD]\n"
                     + "Example: list category/Electronics location/Lab A status/available\n"
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Active loans determine on-loan status; "
-                    + "unresolved severe faults exclude units from available results.\n"
+                    + "unresolved severe faults and lost units exclude equipment from available results.\n"
                     + "Example: list sort/name\n  Sort all registered units by name.\n"
                     + "Example: list category/Electronics location/Lab A status/available sort/name\n"
                     + "  Filter first, then sort the matching units. Options may appear in any order, once each.\n"
                     + "Supported sort fields: asset-id, name, category, model, location, availability.\n"
                     + "Sorting is ascending and case-insensitive; ties use asset ID, then exact ID case.\n"
                     + "Sorting does not change inventory order; omitting sort/ preserves registration order.\n"
-                    + "Fields: category/ and location/ match exact values; status/ is available or on-loan; "
+                    + "Fields: category/ and location/ match exact values; status/ is available, on-loan or lost; "
                     + "sort/FIELD selects one supported field.";
         case "find":
             return "Show one registered equipment unit by its exact asset ID.\n"
@@ -278,7 +291,7 @@ public class HelpCommands {
                     + "Format: history ASSET_ID\n"
                     + "Example: history OSC-001\n"
                     + "  After registering OSC-001, show its records, including active and returned loans.\n"
-                    + "  Each renewal includes the date and previous/new deadlines.\n"
+                    + "  Each renewal includes the date and previous/new deadlines; loss reports retain their date.\n"
                     + "  If no records have been supplied, report no history found.\n"
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.";
         case "add-borrower":
@@ -301,7 +314,8 @@ public class HelpCommands {
                     + "  After registering Alex Lim, show Alex's active loans. "
                     + "If none exist, report no active loans.\n"
                     + "Fields: BORROWER_ID identifies a registered borrower.\n"
-                    + "Returned loans are excluded. A loan is overdue only after its due date.";
+                    + "Returned loans are excluded. A loan is overdue only after its due date.\n"
+                    + "Lost loans remain outstanding and appear with Status LOST alongside the Overdue column.";
         case "exit":
             return "Close the main console.\nFormat: exit\nExample: exit\n"
                     + "  Enter exit at the initial main prompt to end the session.\nFields: None.\n"

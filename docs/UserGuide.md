@@ -113,14 +113,15 @@ location, and availability for each registered unit. Add any combination of
 category, location, and status filters:
 
 ```text
-list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]
+list [category/VALUE] [location/VALUE] [status/available|on-loan|lost] [sort/FIELD]
 ```
 
 For example, `list category/Electronics location/Lab A status/available` shows
 electronics stored in Lab A that are not currently on loan. Category and
 location values match exactly, ignoring case; when combined, all supplied
-filters must match. Status is `on-loan` when a unit has an active loan and
-`available` only when it has neither an active loan nor an unresolved severe
+filters must match. Status is `lost` for a reported loss, `on-loan` for an
+ordinary active loan, and `available` only when it has neither an active loan
+nor an unresolved severe
 fault. Severe faults display `Unavailable: severe fault` and are excluded from
 `status/available` results. Reservation and legacy fault notes do not block loans.
 Add `sort/FIELD` to sort the matching units in ascending order by `asset-id`,
@@ -224,8 +225,9 @@ active-loans overdue
 ```
 
 Both modes order results by due date, then asset ID when dates match. Each row
-includes asset ID, borrower ID, due date, and overdue status. Returned loans
-are excluded. The overdue-only view also excludes loans due today or later.
+includes asset ID, borrower ID, due date, and status. Lost loans remain listed
+as `LOST`, including in overdue-only mode when their due date is before today.
+Returned loans are excluded. The overdue-only view also excludes loans due today or later.
 It reports `No overdue loans.` when there are no matches; the full view reports
 `No active loans.` when no loans remain active.
 
@@ -252,7 +254,8 @@ save leaves the borrower book unchanged.
 
 In the main console, enter `loans A0123456X` for a registered borrower.
 Active loans are ordered by due date, then asset ID. Rows include the equipment
-name, issue date, due date, and whether the loan is overdue. Returned loans are
+name, issue date, due date, whether the loan is overdue, and its status.
+Outstanding lost loans remain listed with status `LOST`. Returned loans are
 excluded; a loan becomes overdue after its due date, not on that date.
 
 The standalone console has no loan-creation command, so after registration it
@@ -279,7 +282,7 @@ Example: loan OSC-001 MIC-002 b/A0123456X d/2026-09-18
 
 Detailed help covers `add`, `copy`, `edit-equipment`, `move-equipment`, history-note commands,
 `active-loans`, `list`, `find`,
-`loan`, `renew`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
+`loan`, `renew`, `lost`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
 commands belonging to the main or borrower console; viewing help does not make
 a command available in the other console.
 
@@ -355,7 +358,7 @@ renew OSC-001 d/2026-11-05
 ```
 
 Use one case-sensitive asset ID and exactly one `d/` date. The equipment must
-have an active loan; overdue loans can also be renewed. The new due date must
+have an active, non-lost loan; overdue loans can also be renewed. The new due date must
 be later than its current due date and no earlier than today in the computer's
 local time zone. For an overdue loan, today is an acceptable new deadline.
 Renewal keeps the borrower and original loan date unchanged.
@@ -373,6 +376,38 @@ use the new deadline. Renewal records persist through restart, export and import
 and remain attached to the loan after return or a later loan of the same unit.
 If saving fails, LabLog reports the failure and stops without a success message;
 restart from the previous saved state before continuing.
+
+### Reporting loaned equipment lost: `lost`
+
+Format: `lost ASSET_ID`
+
+```text
+lost OSC-001
+```
+
+Supply one case-sensitive asset ID with exactly one active loan. LabLog records
+today's local date as the loss report date. The loan remains outstanding, with
+its borrower, issue date, original/current deadlines and renewal history intact.
+Returned equipment, duplicate reports and malformed input are rejected without
+changes. A report date cannot precede the loan or its latest renewal.
+
+`list` and `find` show `Lost`; `list status/lost` selects only lost units.
+`list status/on-loan` selects ordinary outstanding loans, excluding lost units.
+`active-loans` and `loans BORROWER_ID` retain the borrower association and display
+`LOST`. The overdue-only view includes a lost loan only when its due date is
+before today; its status still reads `LOST`. `history` includes a dated loss row
+alongside the original loan and any renewal events.
+
+Lost units stay unavailable for all periods, including after the original due
+date. New lending, reservations, ordinary returns and renewals are rejected.
+A batch return containing a lost unit changes none of the selected loans.
+Existing reservations remain recorded and must be handled explicitly; reporting
+a loss does not cancel them. A category with only lost or severely faulty units
+has no operationally suitable capacity for a waiting request.
+
+Loss reports survive restart, export and import. There is no recovery command
+in this version. If saving fails, the session stops without reporting success;
+the previous saved snapshot remains intact.
 
 ### Recording a return: `return`
 
@@ -411,6 +446,7 @@ The equipment must exist and have exactly one active loan. Invalid commands,
 repeated returns, multiple active loans, and returns before the loan date or latest renewal are
 rejected without changing records. Returned loans remain in equipment history,
 including their reported faults, and are excluded from active-loan listings.
+Lost loans cannot be returned using this command.
 
 Fault details are stored on the loan only; this command does not create a separate
 fault record or certify that the equipment is available for lending. The updated
@@ -425,13 +461,13 @@ equipment first using `add`.
 The display combines loan, reservation, fault, and maintenance records for that
 unit, oldest first. Loans include both active and returned records, with borrower
 ID, due date, and return date where available. Renewals add separate rows with
-the previous and new due dates. Other rows represent current records rather
+the previous and new due dates; loss reports add dated `LOST` rows. Other rows represent current records rather
 than every change made to them. Reservation, fault, and maintenance details
 are supplied by their respective features.
 
 Dates mean loan date, reservation start date, fault report date, maintenance date,
-or renewal date. Future reservations are included. Same-day entries are ordered by type
-(loan, reservation, fault, maintenance, renewal), then description. Renewals on
+renewal date, or loss report date. Future reservations are included. Same-day entries are ordered by type
+(loan, reservation, fault, maintenance, renewal, lost), then description. Renewals on
 the same day retain the order in which they were accepted.
 
 Unknown equipment produces an error; registered equipment with no supplied records
@@ -461,7 +497,8 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `active-loans [overdue]` | Main | List all active loans or only overdue loans |
 | `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |
 | `renew ASSET_ID d/YYYY-MM-DD` | Main | Extend an active loan and retain the change |
-| `history ASSET_ID` | Main | View equipment records and renewal events |
+| `lost ASSET_ID` | Main | Record a loss while retaining the outstanding loan |
+| `history ASSET_ID` | Main | View equipment records, renewal events and loss reports |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
 | `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
 | `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a dated history note |
@@ -490,9 +527,9 @@ FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
 they include borrower contact details.
 
-Format 9 contains equipment, borrowers, complete loans and returns, structured
-renewal events, history notes, faults with severity and repair details,
-reservations and waiting requests. Formats 2 through 8 remain readable.
+Format 10 contains equipment, borrowers, complete loans and returns, structured
+renewal events, loss reports, history notes, faults with severity and repair details,
+reservations and waiting requests. Formats 2 through 9 remain readable. Formats before 10 load without loss reports.
 Older loans load without renewal events; their saved due date is treated as
 the original deadline. Legacy fault notes remain notes. Unknown future fields
 are rejected instead of silently discarded.
@@ -505,8 +542,8 @@ For example: import backups/lablog.properties --replace. Paths may contain space
 and may be enclosed in double quotes. A successful import takes effect immediately
 and survives restart. Missing --replace or invalid records cause an error.
 
-The main console now saves one format-9 file containing equipment, borrowers,
-loans, returns, renewal events, structured faults, repairs, history notes, reservations and waiting requests. It also loads legacy equipment/loan data with
+The main console now saves one format-10 file containing equipment, borrowers,
+loans, returns, renewal events, loss reports, structured faults, repairs, history notes, reservations and waiting requests. It also loads legacy equipment/loan data with
 the sibling borrowers.properties and migrates on the next successful save.
 That old borrower file is retained, but is no longer read after migration.
 The standalone borrower console continues to use its own borrower file; it no
@@ -520,7 +557,8 @@ property keys or equipment/borrower IDs, broken references, impossible dates,
 multiple active loans for one unit, and invalid contact details. Files must be
 valid UTF-8 regular files no larger than 10 MiB. Counts are bounded at 100,000
 records per section. Structured renewal events are supported; a general loan/return audit trail is
-not yet available. Invalid renewal chains or dates are rejected.
+not yet available. Invalid renewal chains or dates, and loss reports on returned
+loans or before the latest renewal, are rejected.
 
 Any validation or save failure reports an error and preserves current live and
 saved records. Fix the reported problem and submit the import again. Unknown
@@ -552,7 +590,7 @@ contact details, so avoid displaying it when sharing your screen.
 
 ### Sorting filtered equipment
 
-Use `list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]`.
+Use `list [category/VALUE] [location/VALUE] [status/available|on-loan|lost] [sort/FIELD]`.
 Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
 `name`, `category`, `model`, `location`, and `availability`. For example,
 `list category/Electronics sort/name` sorts only matching units. Comparisons
@@ -579,6 +617,7 @@ Reservations and loans occupy inclusive start/end dates. A booking ending on
 Friday conflicts with another starting Friday; starting Saturday is valid.
 Returned loans occupy their actual loan-to-return dates. An active loan occupies
 its loan-to-due dates; once overdue, it blocks future periods until returned.
+Lost equipment also blocks every period without an assumed recovery date.
 Unresolved severe faults block reservations and lending for every period because
 there is no known repair completion date. Errors identify the conflicting booking
 or loan. The same rule applies even for the same borrower: cancel a reservation

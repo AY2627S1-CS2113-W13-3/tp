@@ -41,7 +41,7 @@ public class ActiveLoanCommands {
         for (Loan loan : active) {
             result.append("\n").append(loan.getAssetId()).append(" | ").append(loan.getBorrowerId())
                     .append(" | ").append(loan.getDueDate()).append(" | ")
-                    .append(loan.getDueDate().isBefore(today) ? "OVERDUE" : "On time");
+                    .append(loan.isLost() ? "LOST" : loan.getDueDate().isBefore(today) ? "OVERDUE" : "On time");
         }
         return result.toString();
     }

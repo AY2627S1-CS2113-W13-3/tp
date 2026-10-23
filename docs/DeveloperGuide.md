@@ -12,7 +12,7 @@ executable JAR. See `build.gradle` for dependency versions.
 
 The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
 or the optional command-line file path. It stores equipment, borrowers, loans,
-notes, structured faults and repairs in one format-9 UTF-8 properties snapshot. Save to a temporary file
+notes, structured faults and repairs in one format-10 UTF-8 properties snapshot. Save to a temporary file
 in the destination directory, then atomically replace the snapshot before
 printing success. Unsupported atomic replacement is reported as a save failure;
 there is no non-atomic fallback. Save failure stops the session to avoid further
@@ -25,7 +25,7 @@ overwritten. This store assumes one application process owns a data file;
 concurrent writers are not supported.
 
 `LabLog` is the Gradle application entry point. It routes equipment registration
-and copying, listing, active loans, history notes, help, loan, renew, history, return,
+and copying, listing, active loans, history notes, help, loan, renew, lost, history, return,
 and borrower commands to their handlers. The prompted and single-line equipment
 registration forms both validate before storing. Borrower commands share the
 main console's inventory and loan book. Borrowers are part of the complete
@@ -62,7 +62,7 @@ sorts a copy of the matching units, so neither filtering nor sorting changes
 inventory order or stored records. All options are validated before returning
 an empty result, including when the inventory is empty.
 
-Status follows the shared availability rule: active loans produce `on-loan`;
+Status follows shared records: losses produce `lost`, other active loans `on-loan`;
 `available` requires neither an active loan nor an unresolved severe fault.
 Display-only reservation and legacy fault notes do not block loans. Filtering,
 sorting and display read the current loan and fault books rather than cached status.
@@ -223,6 +223,49 @@ successive changes, overdue/local-date boundaries, inactive loans, invalid input
 reservation endpoints, severe faults, self-exclusion and history ordering.
 `RenewalPersistenceTest` covers restart/export/import, legacy migration, corrupt
 chains, return retention, unchanged files after rejection, and failed saves.
+
+### Reporting loaned equipment lost (issue #75)
+
+`LostCommands` handles `lost ASSET_ID` using the shared inventory, loan book and
+injected local `Clock`. It requires registered equipment and exactly one active
+loan. `Loan.markLost` rejects returned/already-lost loans and dates before the
+issue date or latest renewal, then sets the loss report date. Borrower, issue date,
+deadlines and renewal events remain unchanged.
+
+**State choice:** A lost loan stays active in the sense of outstanding, with a
+separate `isLost` flag derived from its report date. Treating loss as a return
+would falsely release the equipment and remove it from borrower listings.
+`Loan.validateReturn` and `Loan.renew` reject lost records, so batch-return
+validation also fails before changing any selected loan. No recovery transition
+is implemented in this increment.
+
+`LoanBook.hasLostLoan` supplies the shared loss check. `BookingAvailability`
+rejects lost equipment before interval/exclusion checks, even when a caller
+passes an ignored loan or a period beyond its deadline. Its `isOperational`
+query excludes losses and severe faults from waiting-request capacity. Existing
+reservations remain historical/operational records and are not auto-cancelled.
+
+Equipment list/find display `Lost`; the equipment status filter accepts `lost`
+and excludes it from `on-loan` and `available`. Active-loan and borrower-loan
+views keep the record and mark it `LOST`. Overdue-only filtering still depends
+on the due date, with `LOST` taking precedence in the displayed status. Borrower
+rows now have a separate Status column alongside Overdue. History retains the
+original loan/renewals and derives a `LOST` row dated on the report day.
+
+Snapshot format 10 adds the required `loan.N.lost` field: an empty string means
+no loss, otherwise it is the report date. Decode restores renewals and returns
+before applying the loss transition, rejecting contradictory dates or a loss
+on a returned loan. Formats 2-9 remain readable without fabricated loss reports.
+The closed schema rejects loss fields in older formats and rejects display notes
+masquerading as loss events. Complete and legacy loan stores preserve the field;
+restart, export and replacement import use the same validated representation.
+
+`LostCommandsTest` covers transitions, local-date boundaries, shared policy,
+list/filter consistency, batch-return atomicity and waiting capacity with JUnit
+assertions. `LostPersistenceTest` covers full round trips, format-9 migration,
+corrupt input, unchanged files after rejection and failed saves. Like loan/return
+commands, loss updates occur in memory before save; save failure retains the old
+file, suppresses success and stops the session rather than rolling memory back.
 
 ### Equipment returns
 
@@ -478,7 +521,7 @@ structured unresolved severe faults block new loans.
 * **Alternative: Read each feature's model directly.** This gives direct access
   to its details, but adds dependencies whenever new record types are introduced.
 
-History summarises current records and adds immutable renewal events. It is not
+History summarises current records and adds immutable renewal events and dated loss reports. It is not
 a complete audit trail of every borrowing/return change. Rebuilding ordinary
 entries makes updated details visible without preserving all previous versions;
 renewal entries explicitly retain each previous and new deadline.
@@ -509,6 +552,7 @@ returns, and lookups.
 |v1.0|laboratory technician|register borrowers|retain validated contact details|
 |v1.0|laboratory technician|view active loans and equipment history|track who has equipment and its past loans|
 |v1.0|laboratory technician|record returns and reported damage|close loans while retaining their history|
+|v2.0|laboratory technician|mark loaned equipment lost|retain borrower history and prevent lending missing equipment|
 |v2.0|laboratory technician|renew active loans while retaining deadline changes|extend borrowing without losing renewal history|
 |v2.0|laboratory technician|return multiple equipment units in one operation|process a group of returns without repeating the command|
 
@@ -621,8 +665,8 @@ unchanged loan objects, restart persistence, invalid fields, and failed saves.
 ## Versioned export schema (issue #90)
 
 ApplicationSnapshot captures the supported object graph and uses LabLogStore's
-equipment/loan serializer. UTF-8 properties format 9 retains borrower.count and
-note.count with indexed fields and adds structured renewal chains within each loan.
+equipment/loan serializer. UTF-8 properties format 10 retains borrower.count and
+note.count with indexed fields, structured renewal chains and each loan's loss report date.
 audit.count remains zero; a general borrowing/return audit schema is not yet
 supported. The codec validates references and dates before writing a temporary file and atomically replacing its destination. The export command
 requires a new file and protects the active data paths.
@@ -634,7 +678,7 @@ Import and envelope validation use the same codec as export.
 
 ## Import and single-file persistence (issue #91)
 
-LabLog.load reads complete formats 2 through 9 into detached books, or loads the legacy two-file
+LabLog.load reads complete formats 2 through 10 into detached books, or loads the legacy two-file
 installation without writing during startup. Main-console mutations persist
 one ApplicationSnapshot. BorrowerBook's Saver writes proposed contacts with
 the other current records before publishing the edit.
@@ -688,7 +732,7 @@ after editing a recalled command.
 
 ### Sorting filtered equipment
 
-Use `list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]`.
+Use `list [category/VALUE] [location/VALUE] [status/available|on-loan|lost] [sort/FIELD]`.
 Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
 `name`, `category`, `model`, `location`, and `availability`. For example,
 `list category/Electronics sort/name` sorts only matching units. Comparisons
@@ -743,7 +787,7 @@ Live and export format 4 adds required `fault.N.severity` enum names. Live
 formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
 migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
 unknown severity in format 4 or later is corruption, not a migration default.
-The current writer uses format 9, retaining renewal events as described above.
+The current writer uses format 10, retaining renewal events and loss reports as described above.
 
 `FaultSeverityTest` covers all levels, description validation, immutable overview
 results, affected-unit isolation, date boundaries, reports during active loans,
@@ -865,7 +909,7 @@ feature intentionally has no automatic allocation or request removal command.
 ApplicationSnapshot format 8 adds waiting.count and indexed id, borrower,
 category, from and to fields. Formats 2-7 decode with empty waiting lists. Schema
 history: 3 introduced faults, 4 severity, 5 repairs, 6 reservations, 7 cancellation,
-8 waiting demand, 9 loan renewal chains. Every current save/export writes format 9
+8 waiting demand, 9 loan renewal chains, 10 loss reports. Every current save/export writes format 10
 and retains all these records. Unknown fields and missing required fields remain errors.
 
 WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,

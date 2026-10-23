@@ -51,6 +51,11 @@ public class LoanBook {
         return findActiveLoan(assetId).isPresent();
     }
 
+    /** Keeps every availability consumer aware of unresolved loss reports in the shared records. */
+    public boolean hasLostLoan(String assetId) {
+        return loans.stream().anyMatch(loan -> loan.isLost() && loan.getAssetId().equals(assetId));
+    }
+
     /**
      * Returns an immutable snapshot of every loan recorded so far.
      *

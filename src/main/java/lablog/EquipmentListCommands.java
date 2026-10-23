@@ -16,7 +16,7 @@ public class EquipmentListCommands {
     private static final Set<String> SORT_FIELDS = Set.of(
             "asset-id", "name", "category", "model", "location", "availability");
     private static final String USAGE = "Use: list [category/VALUE] [location/VALUE]"
-            + " [status/available|on-loan] [sort/FIELD]";
+            + " [status/available|on-loan|lost] [sort/FIELD]";
     private static final Set<String> OPTION_FIELDS = Set.of("category", "location", "status", "sort");
 
     private final Inventory inventory;
@@ -97,8 +97,8 @@ public class EquipmentListCommands {
             }
             if (field.equals("status")) {
                 value = value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "-");
-                if (!Set.of("available", "on-loan").contains(value)) {
-                    throw new IllegalArgumentException("Status must be available or on-loan. " + USAGE);
+                if (!Set.of("available", "on-loan", "lost").contains(value)) {
+                    throw new IllegalArgumentException("Status must be available, on-loan or lost. " + USAGE);
                 }
             }
             if (field.equals("sort") && !SORT_FIELDS.contains(value)) {
@@ -139,12 +139,14 @@ public class EquipmentListCommands {
 
     /** Returns the same availability label displayed in each equipment row. */
     private String availabilityOf(Equipment unit) {
-        return loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
+        return loans.hasLostLoan(unit.getAssetId()) ? "Lost"
+                : loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
                 : faults.blocksLending(unit.getAssetId()) ? "Unavailable: severe fault" : "Available";
     }
     /** Keeps filters consistent with lending restrictions and displayed availability. */
     private String statusOf(Equipment unit) {
-        return loans.hasActiveLoan(unit.getAssetId()) ? "on-loan"
+        return loans.hasLostLoan(unit.getAssetId()) ? "lost"
+                : loans.hasActiveLoan(unit.getAssetId()) ? "on-loan"
                 : faults.blocksLending(unit.getAssetId()) ? "unavailable" : "available";
     }
 }
