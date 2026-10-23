@@ -26,6 +26,8 @@ public class HelpCommands {
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans [overdue] - List all active loans or only overdue loans (main console).\n"
             + "loan-audit [ASSET_ID] - View recorded borrowing/return events (main console).\n"
+            + "reverse-loan EVENT_ID reason/TEXT - Correct a mistaken loan and retain its evidence (main console).\n"
+            + "reverse-return EVENT_ID reason/TEXT - Correct a mistaken return after conflict checks (main console).\n"
             + "loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE - Issue one or more loans (main console).\n"
             + "lost ASSET_ID - Report an outstanding loan lost and keep its history (main console).\n"
             + "renew ASSET_ID d/DUE_DATE - Extend an active loan and retain the change (main console).\n"
@@ -69,6 +71,24 @@ public class HelpCommands {
         }
         LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
+        case "reverse-loan":
+            return "Correct a mistaken loan without deleting its original event.\n"
+                    + "Format: reverse-loan EVENT_ID reason/TEXT\n"
+                    + "Example: reverse-loan E-123 reason/Equipment was not handed over\n"
+                    + "Fields: One exact LOAN event ID from loan-audit and a non-empty, single-line reason.\n"
+                    + "Reverse any return first. Renewals, loss reports and later effective loans block reversal.\n"
+                    + "The loan remains in history as REVERSED and no longer occupies the equipment.\n"
+                    + "The correction retains the original event ID and reason across restart and export/import.\n"
+                    + "Legacy loans without a LOAN event cannot be reversed. Rejected input changes nothing.";
+        case "reverse-return":
+            return "Correct a mistaken return and restore the same outstanding loan.\n"
+                    + "Format: reverse-return EVENT_ID reason/TEXT\n"
+                    + "Example: reverse-return E-456 reason/Equipment has not been returned\n"
+                    + "Fields: One exact RETURN event ID from loan-audit and a non-empty, single-line reason.\n"
+                    + "Later effective loans, overlapping reservations and unresolved severe faults block reopening.\n"
+                    + "An overdue loan blocks all future periods until returned. Its deadline stays unchanged.\n"
+                    + "Current return details are cleared; their original evidence and correction reason remain.\n"
+                    + "Each original event can be reversed once. Rejected input changes nothing.";
         case "loan-audit":
             return "View immutable borrowing and return evidence, including related correction records.\n"
                     + "Format: loan-audit [ASSET_ID]\n"
@@ -78,7 +98,7 @@ public class HelpCommands {
                     + "Empty Faults, Related event and Reason fields are omitted.\n"
                     + "Events are ordered by date, then acceptance order within the same day.\n"
                     + "Legacy loans may have no events; history still shows their saved records.\n"
-                    + "This query changes no records. Applying corrections is a separate workflow.";
+                    + "This query changes no records. Use reverse-loan or reverse-return for explicit corrections.";
         case "edit-borrower":
             return "Edit a registered borrower's contacts; the ID and loan references stay unchanged.\n"
                     + "Format: edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL]\n"

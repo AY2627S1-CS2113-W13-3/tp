@@ -8,8 +8,8 @@ import java.util.UUID;
 /**
  * Represents a single loan of one equipment unit to one borrower.
  *
- * <p>A loan stays active from the day it is recorded until it is closed with
- * a return date. The borrower is referenced by identifier rather than by
+ * <p>A loan stays active until returned or its issue is explicitly reversed.
+ * The borrower is referenced by identifier rather than by
  * object so that loans can be recorded before borrower records exist.
  */
 public class Loan {
@@ -21,6 +21,8 @@ public class Loan {
     // Events belong to this specific loan, even when an asset is lent again on the same day.
     private final List<LoanRenewal> renewals = new ArrayList<>();
     private LocalDate returnDate;
+    // Rebuilt from REVERSE_LOAN evidence on load; the original loan remains in history.
+    private boolean reversed;
     // Lost equipment remains outstanding; a loss is never treated as a return.
     private LocalDate lostDate;
     // Empty means no faults were reported on return; it does not clear equipment faults.
@@ -151,10 +153,47 @@ public class Loan {
     /**
      * Returns whether this unit is still out with the borrower.
      *
-     * @return true if the unit has not been returned yet, including outstanding lost equipment
+     * @return true if neither returned nor reversed, including outstanding lost equipment
      */
     public boolean isActive() {
-        return returnDate == null;
+        return returnDate == null && !reversed;
+    }
+
+    public boolean isReversed() {
+        return reversed;
+    }
+
+    /** Cancels an erroneous issue only when no renewal, return or loss still depends on it. */
+    void reverseIssue() {
+        if (!isActive() || isLost() || !renewals.isEmpty()) {
+            throw new IllegalArgumentException("Reverse the return first; renewed or lost loans cannot be reversed.");
+        }
+        reversed = true;
+    }
+
+    /** Restores an outstanding loan; its original return evidence remains in the owning book. */
+    void reverseReturn() {
+        if (returnDate == null) {
+            throw new IllegalArgumentException("Only a returned, non-reversed loan can be reopened.");
+        }
+        returnDate = null;
+        returnFaults = "";
+    }
+
+    /** Builds a detached candidate so corrections can be fully validated before changing shared state. */
+    Loan copy() {
+        Loan copy = new Loan(id, assetId, borrowerId, loanDate, getOriginalDueDate());
+        renewals.forEach(event -> copy.renew(event.newDueDate(), event.date()));
+        if (returnDate != null) {
+            copy.markReturned(returnDate, returnFaults);
+        }
+        if (lostDate != null) {
+            copy.markLost(lostDate);
+        }
+        if (reversed) {
+            copy.reverseIssue();
+        }
+        return copy;
     }
 
     /**

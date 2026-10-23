@@ -34,6 +34,7 @@ public class RenewCommands {
         Loan loan = loans.findActiveLoan(parts[1]).orElseThrow(() ->
                 new IllegalArgumentException("No active loan found for " + parts[1] + "."));
         LocalDate today = LocalDate.now(clock);
+        loans.validateActionDate(loan, today);
         if (!dueDate.isAfter(loan.getDueDate()) || dueDate.isBefore(today)) {
             throw new IllegalArgumentException("New due date must be later than the current due date ("
                     + loan.getDueDate() + ") and no earlier than today (" + today + ").");
