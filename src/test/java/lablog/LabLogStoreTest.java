@@ -45,6 +45,100 @@ class LabLogStoreTest {
     }
 
     @Test
+    void run_batchLoan_persistsEveryLoanAndSharedBorrowerAfterReload(@TempDir Path directory) throws Exception {
+        Path file = directory.resolve("records.properties");
+        LocalDate before = LocalDate.now();
+        LocalDate dueDate = before.plusDays(7);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        LabLog.load(file).run(new Scanner("add OSC-001 n/Scope c/Electronics m/S1 l/Lab A\n"
+                + "add MIC-002 n/Microscope c/Optics m/M2 l/Lab B\n"
+                + "add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\n"
+                + "loan OSC-001 MIC-002 b/A0123456X d/" + dueDate + "\nexit\n"), new PrintStream(output));
+
+        assertFalse(output.toString().contains("Error:"));
+        assertTrue(output.toString().contains("Loaned OSC-001, MIC-002 to A0123456X on "));
+        ApplicationSnapshot saved = ApplicationSnapshot.read(file);
+        assertEquals(2, saved.getEquipment().size());
+        assertEquals(1, saved.getBorrowers().size());
+        assertEquals(List.of("OSC-001", "MIC-002"), saved.getLoans().stream().map(Loan::getAssetId).toList());
+        LocalDate issued = saved.getLoans().getFirst().getLoanDate();
+        assertFalse(issued.isBefore(before));
+        assertFalse(issued.isAfter(LocalDate.now()));
+        for (Loan loan : saved.getLoans()) {
+            assertEquals("A0123456X", loan.getBorrowerId());
+            assertEquals(issued, loan.getLoanDate());
+            assertEquals(dueDate, loan.getDueDate());
+            assertTrue(loan.isActive());
+        }
+        String savedFile = Files.readString(file);
+        output.reset();
+        LabLog.load(file).run(new Scanner("active-loans\nloans A0123456X\n"
+                + "history OSC-001\nhistory MIC-002\nexit\n"), new PrintStream(output));
+        assertFalse(output.toString().contains("Error:"));
+        assertTrue(output.toString().contains("OSC-001 | A0123456X | " + dueDate));
+        assertTrue(output.toString().contains("MIC-002 | A0123456X | " + dueDate));
+        assertTrue(output.toString().contains("2 active loans."));
+        assertTrue(output.toString().contains("History for OSC-001 - Scope:"));
+        assertTrue(output.toString().contains("History for MIC-002 - Microscope:"));
+        assertEquals(savedFile, Files.readString(file));
+    }
+
+    @Test
+    void run_invalidBatchLoans_preservesSnapshotAndExistingLoan(@TempDir Path directory) throws Exception {
+        Path file = directory.resolve("records.properties");
+        LocalDate dueDate = LocalDate.now().plusDays(7);
+        LabLog.load(file).run(new Scanner("add OSC-001 n/Scope c/Electronics m/S1 l/Lab A\n"
+                + "add MIC-002 n/Microscope c/Optics m/M2 l/Lab B\n"
+                + "add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\n"
+                + "loan MIC-002 b/A0123456X d/" + dueDate + "\nexit\n"),
+                new PrintStream(new ByteArrayOutputStream()));
+        String originalFile = Files.readString(file);
+
+        for (String command : List.of("loan OSC-001 MIC-002 b/A0123456X d/" + dueDate,
+                "loan OSC-001 UNKNOWN b/A0123456X d/" + dueDate,
+                "loan OSC-001 OSC-001 b/A0123456X d/" + dueDate,
+                "loan OSC-001 MIC-002 b/A7654321Y d/" + dueDate,
+                "loan OSC-001 MIC-002 b/A0123456X d/2026-02-30")) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            LabLog.load(file).run(new Scanner(command + "\nactive-loans\nexit\n"), new PrintStream(output));
+
+            assertTrue(output.toString().contains("Error:"), command);
+            assertFalse(output.toString().contains("Loaned OSC-001"), command);
+            assertTrue(output.toString().contains("MIC-002 | A0123456X | " + dueDate), command);
+            assertEquals(originalFile, Files.readString(file), command);
+            List<Loan> saved = ApplicationSnapshot.read(file).getLoans();
+            assertEquals(1, saved.size(), command);
+            assertEquals("MIC-002", saved.getFirst().getAssetId(), command);
+            assertTrue(saved.getFirst().isActive(), command);
+        }
+    }
+
+    @Test
+    void run_batchLoanReservationConflict_preservesSnapshot(@TempDir Path directory) throws Exception {
+        Path file = directory.resolve("records.properties");
+        LocalDate reservationStart = LocalDate.now().plusDays(2);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        LabLog.load(file).run(new Scanner("add OSC-001 n/Scope c/Electronics m/S1 l/Lab A\n"
+                + "add MIC-002 n/Microscope c/Optics m/M2 l/Lab B\n"
+                + "add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\n"
+                + "reserve MIC-002 b/A0123456X from/" + reservationStart + " to/" + reservationStart
+                + "\nexit\n"), new PrintStream(output));
+        assertFalse(output.toString().contains("Error:"));
+        String originalFile = Files.readString(file);
+        output.reset();
+
+        LabLog.load(file).run(new Scanner("loan OSC-001 MIC-002 b/A0123456X d/"
+                + reservationStart + "\nexit\n"), new PrintStream(output));
+
+        assertTrue(output.toString().contains("Conflicts with reservation"));
+        assertFalse(output.toString().contains("Loaned OSC-001"));
+        assertEquals(originalFile, Files.readString(file));
+        assertTrue(ApplicationSnapshot.read(file).getLoans().isEmpty());
+        assertEquals(1, ApplicationSnapshot.read(file).getReservations().size());
+    }
+
+    @Test
     void run_batchReturn_persistsBothReturnsAfterReload(@TempDir Path directory) throws Exception {
         Path file = directory.resolve("records.properties");
         LabLogStore store = new LabLogStore(file);
