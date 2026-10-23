@@ -15,7 +15,9 @@ final class LoanRenewalCodec {
         if (originalDue.isBefore(loanDate)) {
             throw new IllegalArgumentException("Original due date must not precede the loan date.");
         }
-        Loan loan = new Loan(assetId, borrowerId, loanDate, originalDue);
+        Loan loan = "11".equals(records.getProperty("format"))
+                ? new Loan(required(records, key + "id"), assetId, borrowerId, loanDate, originalDue)
+                : new Loan(assetId, borrowerId, loanDate, originalDue);
         int count = Integer.parseInt(required(records, key + "renewal.count"));
         if (count < 0 || count > 100000) {
             throw new IllegalArgumentException("Renewal count must be between 0 and 100000.");

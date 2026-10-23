@@ -63,6 +63,10 @@ To report loaned equipment lost, use `lost OSC-001`. It remains outstanding
 with status `LOST` and stays unavailable; ordinary return and renewal are blocked.
 Use `list status/lost` to find lost units and `history OSC-001` for the report.
 
+Use `loan-audit` or `loan-audit OSC-001` to inspect recorded borrowing/return
+events and their stable IDs. Older files retain their loans without invented
+historical events; `history` continues to show those records.
+
 To return multiple loaned units together, enter `return OSC-001 OSC-002`.
 All selected units must pass validation before any loan is changed; duplicate
 IDs or an invalid selection reject the entire batch. To report damage, return
@@ -80,7 +84,7 @@ java -jar build/libs/lablog.jar
 The main console supports registration, help, loans, history, active-loan lists,
 returns, and borrower commands, so a fresh session can complete a loan/return
 workflow. The main console saves equipment, borrowers, loans, returns, faults, repairs and history
-notes, renewal events, loss reports, reservations and waiting requests together in `data/lablog.properties` (format 10). Legacy format-1 installations
+notes, renewal events, loss reports, borrowing/return audit events, reservations and waiting requests together in `data/lablog.properties` (format 11). Legacy format-1 installations
 load the sibling borrower file and migrate on their next successful save. The
 old borrower file is retained as a backup and ignored after migration. Pass another data-file
 path after the JAR name to use it for equipment and loan records. Use only one

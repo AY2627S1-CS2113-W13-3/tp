@@ -3,6 +3,9 @@ package lablog;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Stores the loan records managed by LabLog.
@@ -13,14 +16,37 @@ import java.util.Optional;
  */
 public class LoanBook {
     private final List<Loan> loans = new ArrayList<>();
+    private final List<LoanAuditEvent> audit = new ArrayList<>();
 
     /**
-     * Records a loan.
+     * Records a new loan and immutable issue evidence. Restore paths use replaceAll instead.
      *
      * @param loan loan to store
      */
     public void addLoan(Loan loan) {
+        LoanAuditEvent event = LoanAuditEvent.issued(loan);
         loans.add(loan);
+        audit.add(event);
+    }
+
+    /** Returns events in acceptance order as an immutable collection of immutable values. */
+    public List<LoanAuditEvent> getAuditEvents() {
+        return List.copyOf(audit);
+    }
+
+    /** Validates a whole return batch and prepares all evidence before publishing either state or events. */
+    public void returnLoans(List<Loan> selected, LocalDate date, String faults) {
+        Set<String> ids = new HashSet<>();
+        for (Loan loan : selected) {
+            if (!loans.contains(loan) || !ids.add(loan.getId())) {
+                throw new IllegalArgumentException("Return selection must contain distinct loans from this book.");
+            }
+            loan.validateReturn(date, faults);
+        }
+        List<LoanAuditEvent> pending = selected.stream()
+                .map(loan -> LoanAuditEvent.returned(loan, date, faults)).toList();
+        selected.forEach(loan -> loan.markReturned(date, faults));
+        audit.addAll(pending);
     }
 
     /**
@@ -66,7 +92,15 @@ public class LoanBook {
     }
     /** Installs records that have already passed complete validation and persistence. */
     void replaceAll(List<Loan> replacement) {
+        replaceAll(replacement, List.of());
+    }
+
+    /** Restores existing records and evidence together without inventing fresh issue/return events. */
+    void replaceAll(List<Loan> replacement, List<LoanAuditEvent> events) {
+        LoanAuditCodec.validate(replacement, events);
         loans.clear();
         loans.addAll(replacement);
+        audit.clear();
+        audit.addAll(events);
     }
 }

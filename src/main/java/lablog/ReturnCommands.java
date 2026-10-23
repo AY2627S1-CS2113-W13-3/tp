@@ -65,14 +65,8 @@ public class ReturnCommands {
                 .toList();
         LocalDate today = LocalDate.now(clock);
 
-        // Validate the entire selection before changing any loan.
-        for (Loan loan : selectedLoans) {
-            loan.validateReturn(today, faults);
-        }
-
-        for (Loan loan : selectedLoans) {
-            loan.markReturned(today, faults);
-        }
+        // The book validates all selections and prepares evidence before changing any loan.
+        loans.returnLoans(selectedLoans, today, faults);
 
         return "Returned " + String.join(", ", assetIds) + " on " + today + ". "
                 + (faults.isEmpty() ? "No faults reported on return." : "Faults: " + faults);

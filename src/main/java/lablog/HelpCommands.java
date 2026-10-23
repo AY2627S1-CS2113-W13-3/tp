@@ -25,6 +25,7 @@ public class HelpCommands {
             + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans [overdue] - List all active loans or only overdue loans (main console).\n"
+            + "loan-audit [ASSET_ID] - View recorded borrowing/return events (main console).\n"
             + "loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE - Issue one or more loans (main console).\n"
             + "lost ASSET_ID - Report an outstanding loan lost and keep its history (main console).\n"
             + "renew ASSET_ID d/DUE_DATE - Extend an active loan and retain the change (main console).\n"
@@ -68,6 +69,16 @@ public class HelpCommands {
         }
         LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
+        case "loan-audit":
+            return "View immutable borrowing and return evidence, including related correction records.\n"
+                    + "Format: loan-audit [ASSET_ID]\n"
+                    + "Example: loan-audit\nExample: loan-audit OSC-001\n"
+                    + "Fields: Optional case-sensitive asset ID; omit it to show all recorded events.\n"
+                    + "Each numbered event uses separate lines for its details and complete event/loan IDs.\n"
+                    + "Empty Faults, Related event and Reason fields are omitted.\n"
+                    + "Events are ordered by date, then acceptance order within the same day.\n"
+                    + "Legacy loans may have no events; history still shows their saved records.\n"
+                    + "This query changes no records. Applying corrections is a separate workflow.";
         case "edit-borrower":
             return "Edit a registered borrower's contacts; the ID and loan references stay unchanged.\n"
                     + "Format: edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL]\n"
@@ -96,14 +107,14 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 10 includes loss reports, renewal events, reservations, "
-                    + "waiting requests, faults and history notes.\n"
-                    + "Future domain records and audit data require a schema update; "
+                    + "Snapshot format 11 includes loan/return audit events, stable IDs, loss reports, "
+                    + "renewals, reservations, waiting requests, faults and history notes.\n"
+                    + "Future domain records require a schema update; "
                     + "unsupported fields are rejected for every supported version, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
-                    + "Fields: FILE is a format-2 through 10 snapshot; --replace explicitly requests replacement,\n"
+                    + "Fields: FILE is a format-2 through 11 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"

@@ -47,7 +47,7 @@ class LostPersistenceTest {
     void snapshot_restartExportAndImport_preserveLossBorrowerAndRenewals(@TempDir Path directory) throws Exception {
         Path data = directory.resolve("records.properties");
         sample().write(data);
-        assertEquals("10", ApplicationSnapshot.readProperties(data).getProperty("format"));
+        assertEquals("11", ApplicationSnapshot.readProperties(data).getProperty("format"));
         Loan loaded = ApplicationSnapshot.read(data).getLoans().getFirst();
         assertTrue(loaded.isLost());
         assertTrue(loaded.isActive());
@@ -142,13 +142,14 @@ class LostPersistenceTest {
     void snapshot_format9RetainsRenewalsWithoutInventingLoss_reportsHiddenLossFields() throws Exception {
         Properties legacy = sample().toProperties();
         legacy.setProperty("format", "9");
-        legacy.keySet().removeIf(key -> key.toString().endsWith(".lost"));
+        legacy.keySet().removeIf(key -> key.toString().endsWith(".lost")
+                || (key.toString().startsWith("loan.") && key.toString().endsWith(".id")));
         ApplicationSnapshot restored = ApplicationSnapshot.decode(legacy);
         Loan loan = restored.getLoans().getFirst();
         assertFalse(loan.isLost());
         assertTrue(loan.isActive());
         assertEquals(sample().getLoans().getFirst().getRenewals(), loan.getRenewals());
-        assertEquals("10", restored.toProperties().getProperty("format"));
+        assertEquals("11", restored.toProperties().getProperty("format"));
         legacy.setProperty("loan.0.lost", DAY.toString());
         assertThrows(IOException.class, () -> ApplicationSnapshot.decode(legacy));
     }
@@ -164,7 +165,7 @@ class LostPersistenceTest {
         assertEquals(DAY, loaded.getLostDate());
         assertEquals(sample().getLoans().getFirst().getRenewals(), loaded.getRenewals());
         assertTrue(loaded.isActive());
-        assertEquals("10", ApplicationSnapshot.readProperties(data).getProperty("format"));
+        assertEquals("11", ApplicationSnapshot.readProperties(data).getProperty("format"));
     }
 
     @Test
