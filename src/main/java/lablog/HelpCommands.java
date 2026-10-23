@@ -25,6 +25,7 @@ public class HelpCommands {
             + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans [overdue] - List all active loans or only overdue loans (main console).\n"
+            + "overview - Show today's reservations, overdue loans and unresolved severe faults (main console).\n"
             + "loan-audit [ASSET_ID] - View recorded borrowing/return events (main console).\n"
             + "reverse-loan EVENT_ID reason/TEXT - Correct a mistaken loan and retain its evidence (main console).\n"
             + "reverse-return EVENT_ID reason/TEXT - Correct a mistaken return after conflict checks (main console).\n"
@@ -243,6 +244,13 @@ public class HelpCommands {
                     + " OSC-001 d/2026-10-14 desc/Inspection scheduled\n"
                     + "  Add a note for registered equipment; view it with history OSC-001.\n"
                     + "Notes do not change loan availability and are saved in the main application snapshot.";
+        case "overview":
+            return "Show today's operational overview from current shared records.\n"
+                    + "Format: overview\nExample: overview\nFields: None.\n"
+                    + "Includes non-cancelled reservations covering today, outstanding loans due before today,\n"
+                    + "and unresolved severe faults. Uses the application's local date.\n"
+                    + "Lost overdue loans are included; returned/reversed loans and resolved faults are excluded.\n"
+                    + "Maintenance scheduling is not supported. Viewing the overview does not save or change records.";
         case "active-loans":
             return "List active loans across all borrowers.\nFormat: active-loans [overdue]\n"
                     + "Example: active-loans\n  Show every active loan with its overdue status.\n"

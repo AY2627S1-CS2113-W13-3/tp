@@ -47,6 +47,7 @@ public class LabLog {
     private final WaitingRequestBook waiting;
     private final WaitingRequestCommands waitingCommands;
     private final ActiveLoanCommands activeLoans;
+    private final OverviewCommands overview;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
 
@@ -106,6 +107,7 @@ public class LabLog {
         this.equipmentMove = new EquipmentMoveCommands(inventory);
         this.historyRecords = new HistoryRecordCommands(inventory, faults);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
+        this.overview = new OverviewCommands(reservations, loans, faults, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
             List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
             entries.addAll(historyRecords.getEntries());
@@ -377,9 +379,9 @@ public class LabLog {
                 }
                 continue;
             }
-            if (command.equals("active-loans")) {
+            if (command.equals("active-loans") || command.equals("overview")) {
                 try {
-                    output.println(activeLoans.execute(input));
+                    output.println(command.equals("overview") ? overview.execute(input) : activeLoans.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
