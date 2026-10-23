@@ -4,16 +4,18 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Issues loans against the same inventory and loan book used by returns and history. */
 public class LoanCommands {
-    private static final String USAGE = "Use: loan ASSET_ID b/BORROWER_ID d/DUE_DATE";
+    private static final String USAGE = "Use: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE";
     // Recognize unknown prefixes too, so they cannot silently become part of another field.
     private static final Pattern PREFIX = Pattern.compile("(?<!\\S)([^\\s/]+)/");
 
@@ -57,13 +59,13 @@ public class LoanCommands {
     }
 
     /**
-     * Issues one loan dated today, after every check has passed.
+     * Issues one or more loans dated today, after every selected unit passes validation.
      *
      * <p>The main console supplies a shared borrower book and requires registered borrowers.
      * The three-argument constructor remains available for standalone callers managing their own validation.
      *
      * @param input complete loan command
-     * @return confirmation naming the unit, the borrower, and the due date
+     * @return confirmation naming the selected units, the borrower, and the due date
      * @throws IllegalArgumentException if the syntax, the equipment, the due date, or the
      *     unit's availability is invalid
      */
@@ -77,25 +79,44 @@ public class LoanCommands {
         if (!matcher.find()) {
             throw new IllegalArgumentException(USAGE);
         }
-        String assetId = arguments.substring(0, matcher.start()).strip();
-        if (assetId.isEmpty() || assetId.matches(".*\\s.*")) {
-            throw new IllegalArgumentException("Supply exactly one asset ID. " + USAGE);
-        }
+        List<String> assetIds = readAssetIds(arguments.substring(0, matcher.start()));
         LocalDate today = LocalDate.now(clock);
         Map<String, String> fields = readFields(arguments, matcher);
-        Equipment unit = findEquipment(assetId);
+        List<Equipment> units = assetIds.stream().map(this::findEquipment).toList();
         String borrowerId = readBorrowerId(fields.get("b"));
         if (borrowers != null) {
             borrowers.getBorrower(borrowerId);
         }
         LocalDate dueDate = readDueDate(fields.get("d"), today);
-        rejectUnavailable(assetId);
-        if (availability != null) {
-            availability.requireAvailable(assetId, new DateWindow(today, dueDate), null, null);
+        // Check every unit before adding any loan to the shared book.
+        for (String assetId : assetIds) {
+            rejectUnavailable(assetId);
+            if (availability != null) {
+                availability.requireAvailable(assetId, new DateWindow(today, dueDate), null, null);
+            }
         }
-        loans.addLoan(new Loan(assetId, borrowerId, today, dueDate));
-        return "Loaned " + assetId + " (" + unit.getName() + ") to " + borrowerId
+
+        List<Loan> issued = assetIds.stream().map(assetId -> new Loan(assetId, borrowerId, today, dueDate)).toList();
+        issued.forEach(loans::addLoan);
+        String selection = assetIds.size() == 1
+                ? assetIds.getFirst() + " (" + units.getFirst().getName() + ")" : String.join(", ", assetIds);
+        return "Loaned " + selection + " to " + borrowerId
                 + " on " + today + ". Due " + dueDate + ".";
+    }
+
+    /** Parses distinct, whitespace-separated asset IDs while preserving selection order. */
+    private List<String> readAssetIds(String selection) {
+        if (selection.isBlank()) {
+            throw new IllegalArgumentException("Supply at least one asset ID. " + USAGE);
+        }
+        List<String> assetIds = List.of(selection.strip().split("\\s+"));
+        Set<String> seen = new HashSet<>();
+        for (String assetId : assetIds) {
+            if (!seen.add(assetId)) {
+                throw new IllegalArgumentException("Duplicate asset ID: " + assetId + ".");
+            }
+        }
+        return assetIds;
     }
 
     /**
