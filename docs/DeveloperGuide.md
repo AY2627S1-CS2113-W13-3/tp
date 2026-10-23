@@ -45,6 +45,230 @@ loan exists. These are lookup helpers, not an enforcement mechanism:
 not validate identifiers or dates. `LoanCommands` applies those checks before
 storing a record; any other issuing path must repeat them.
 
+### Borrower registration and active-loan listings (Zeph)
+
+This enhancement implements issues #10 and #11: registering a student's contact
+details and finding the equipment they currently hold. The design separates
+console interaction, command parsing, validated records, and storage so both `LabLog` and
+`BorrowerCli` can reuse the handlers. The main console supplies shared borrower,
+loan, and equipment records; the standalone console keeps an initially empty loan
+book. This section describes registration and listing; contact editing is covered
+in [Borrower contact editing](#borrower-contact-editing-issue-89).
+
+#### Responsibilities and relationships
+
+`LabLog` creates shared dependencies and routes borrower commands; `BorrowerCli`
+also provides a standalone prompt. Both read complete command lines and print
+results or recoverable errors. `BorrowerCommands` interprets those lines and
+coordinates the books. `Borrower` is an immutable, validated contact record.
+`BorrowerBook` owns the ID-to-record map and optionally persists it. `LoanBook`
+remains the source of loan state; borrower records do not contain copied loans.
+
+```mermaid
+classDiagram
+    LabLog ..> BorrowerCommands : invokes
+    BorrowerCli ..> BorrowerCommands : invokes
+    BorrowerBook ..> ApplicationSnapshot : persists through injected Saver
+    BorrowerCommands --> BorrowerBook : registers and looks up
+    BorrowerCommands --> LoanBook : reads current loans
+    BorrowerCommands --> Clock : reads local date
+    BorrowerCommands --> EquipmentNameLookup : resolves asset name
+    BorrowerBook "1" --> "0..*" Borrower : stores by ID
+    LoanBook "1" --> "0..*" Loan : stores
+    class Borrower {
+        -String borrowerId
+        -String name
+        -String phone
+        -String email
+        +validateId(borrowerId)
+    }
+    class BorrowerBook {
+        +addBorrower(borrower)
+        +getBorrower(borrowerId)
+        +getBorrowers()
+        -persist(updated)
+    }
+    class BorrowerCommands {
+        +execute(input) String
+        -addBorrower(arguments) String
+        -listLoans(id) String
+    }
+    class EquipmentNameLookup {
+        <<interface>>
+        +apply(assetId) String
+    }
+```
+
+`EquipmentNameLookup` is a diagram label for the injected
+`Function<String, String>`, not an additional Java class. A loan refers to its
+borrower by ID, rather than holding a `Borrower` object. The diagram omits getters
+and the shared help handler to focus on registration and listing dependencies.
+
+#### Registering a borrower
+
+For example, `add-borrower A0123456X n/Jamie Tan p/91234567
+e/jamietan@u.nus.edu` requests one registration. `execute` separates the command
+word from its arguments. The registration parser locates whitespace-delimited
+prefixes and accepts `n/`, `p/`, and `e/` in any order, exactly once each. It
+recognizes unknown prefixes too, allowing it to reject them rather than silently
+including them in a name. Missing, repeated, empty, and unknown fields fail before
+the book is modified. Surrounding field whitespace is removed; internal name
+spaces and letter case are preserved.
+
+The `Borrower` constructor enforces the record's invariants even when a caller
+bypasses the command parser. An ID contains an uppercase letter, seven digits,
+and an uppercase letter; this is a shape check, not a check-digit calculation.
+Names contain 1–100 characters with no control characters. Phone numbers contain
+exactly eight ASCII digits, and email addresses use the lowercase `u.nus.edu`
+domain and the supported local-part pattern. `BorrowerBook` separately enforces
+uniqueness because that rule depends on the collection, not one record.
+
+The following sequence shows a valid registration in the **main console**.
+`LabLog.load` installs a `BorrowerBook.Saver` callback that writes the proposed
+borrowers together with the other application records. Callback and file
+operations are summarized as pseudocode.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as LabLog
+    participant Commands as BorrowerCommands
+    participant Record as Borrower
+    participant Book as BorrowerBook
+    participant Snapshot as ApplicationSnapshot
+    participant Disk as File system
+    User->>CLI: add-borrower ID n/NAME p/PHONE e/EMAIL
+    CLI->>Commands: execute(input)
+    Commands->>Commands: parse and validate prefixes
+    Commands->>Record: new Borrower(id, name, phone, email)
+    Record-->>Commands: validated record
+    Commands->>Book: addBorrower(record)
+    Book->>Book: reject duplicate ID; prepare updated map
+    Book->>Book: persist(updated)
+    Book->>Snapshot: Saver callback captures proposed borrowers and shared records
+    Snapshot->>Disk: write temporary snapshot and atomically replace destination
+    Disk-->>Snapshot: replacement succeeds
+    Snapshot-->>Book: save completed
+    Book->>Book: publish record in live map
+    Book-->>Commands: addition completed
+    Commands-->>CLI: success text
+    CLI-->>User: confirmation and contact details
+```
+
+Saving the proposed state before publishing it prevents a normal write failure
+from registering a borrower only in memory. The temporary file is created beside
+the destination so the replacement stays on the same file system. The code
+requests an atomic move and deliberately has no non-atomic fallback. If that
+operation is unsupported or writing fails, the error propagates to the console
+and the live map is not updated. Temporary-file deletion is attempted in a
+`finally` block. A cleanup failure can itself propagate as an I/O error; this is
+not a general database transaction or a guarantee against every storage failure.
+
+**Standalone storage.** In `BorrowerCli`, each properties key is a borrower ID;
+its value contains name, phone, and email
+separated by tabs. The model rejects control characters in names, so user data
+cannot introduce extra field separators. On startup, a missing file means a new
+book. An existing invalid record causes loading to fail rather than being silently
+discarded. Reloading uses the same `Borrower` validation as new registrations.
+The no-argument book constructor starts in memory; the main application then
+installs its snapshot saver. `ApplicationSnapshot` validates the complete stored
+state before the main console starts. Legacy split-file data is loaded and
+migrated into the complete snapshot on the next save.
+
+#### Listing active loans
+
+`loans A0123456X` first validates and resolves the borrower. A malformed or unknown
+ID is an error, distinct from a registered borrower who has no active loans.
+The handler reads the shared `LoanBook`, keeps only active loans with the exact
+borrower ID, and sorts a fresh list by due date and then asset ID. It does not
+reorder the book. Consequently, a return performed through another handler is
+visible on the next listing without synchronizing a borrower-specific cache.
+
+```mermaid
+sequenceDiagram
+    participant CLI as LabLog
+    participant Commands as BorrowerCommands
+    participant Borrowers as BorrowerBook
+    participant Loans as LoanBook
+    participant Time as Clock
+    participant Names as Equipment-name function
+    CLI->>Commands: execute("loans A0123456X")
+    Commands->>Borrowers: getBorrower(id)
+    Borrowers-->>Commands: registered borrower
+    Commands->>Loans: getLoans()
+    Loans-->>Commands: current loan records
+    Commands->>Commands: filter active loans by ID; sort fresh list
+    alt no matching active loans
+        Commands-->>CLI: no-active-loans message
+    else matching active loans
+        Commands->>Time: obtain today's local date
+        Time-->>Commands: today
+        loop each matching loan
+            Commands->>Names: apply(assetId)
+            Names-->>Commands: equipment name or null
+            Commands->>Commands: append row and overdue indicator
+        end
+        Commands-->>CLI: rows and active-loan count
+    end
+```
+
+**Lost loans remain active** until returned and appear with status `LOST`; other
+active rows show `On loan`. This keeps unresolved borrower responsibility visible.
+A due date before today is overdue; a loan due today is not. Injecting `Clock`
+makes this rule testable at local-date boundaries without changing the machine's
+clock. The injected equipment-name function avoids coupling the handler to the
+inventory's internal representation. A missing equipment record displays
+`Unknown equipment`; it does not hide a loan that still needs attention.
+
+#### Design choices and alternatives
+
+| Decision | Reason and trade-off | Alternative |
+| --- | --- | --- |
+| Validate immutable contact records at construction | Every constructed record has valid fields; edits would require a new record. | Parser-only validation is shorter but allows invalid records through other callers or file loading. |
+| Use an ID-keyed map | Duplicate checks and lookups are direct, with expected constant-time lookup. | A list is sufficient for a small dataset but requires repeated scans for IDs. |
+| Save a complete proposed snapshot | Atomic replacement keeps proposed borrowers consistent with other records in the main console; the standalone console saves only its borrower book. | A database scales better and provides transactions, but adds setup and dependencies beyond current needs. |
+| Derive active loans from the shared book | Returns immediately affect later listings, with no duplicate status to maintain. | A borrower-to-loans index speeds lookups but must stay synchronized with issue and return operations. |
+| Inject time and equipment-name lookup | Tests can control dates and missing equipment; the handler is reusable across consoles. | Direct calls to the system clock and inventory are simpler initially but make boundary tests and integration less flexible. |
+
+For `B` borrowers, registration copies O(B) borrower entries. Standalone
+persistence writes O(B) records; main-console persistence additionally captures
+and writes the other application records, so its cost depends on the full snapshot.
+For `L` loans and `K` matching active loans, listing takes O(L + K log K)
+time, excluding equipment-name lookup costs, and O(K) temporary list space.
+The current book is intended for one console process; atomic replacement does
+not provide locking or prevent lost updates between concurrent processes.
+
+#### Failure handling, tests, and integration boundary
+
+The CLI catches `IllegalArgumentException` for invalid commands and `IOException`
+for save failures, prints an error, and continues accepting input. Startup load
+errors stop the console because proceeding with an empty book could conceal
+existing data. Success is printed only after `addBorrower` returns.
+
+`BorrowerBookTest` checks round-trip persistence, failed saves, corrupt existing
+records, and unmodifiable snapshots. `BorrowerCommandsTest` covers prefix order,
+invalid fields, duplicate IDs, name-length boundaries, unknown borrowers, empty
+results, filtering and ordering, local-date overdue behavior, and a return between
+two listings. It also checks that the console recovers from a rejected command.
+The [console test plan](../test/ui-test-plan.md) covers separate-process checks.
+
+**Integrated workflow.** `LabLog` passes the same borrower and loan books to
+issuing, return, and borrower handlers. Its equipment-name lookup reads the shared
+inventory. `LoanCommands` validates registered borrowers when supplied with this
+book, as it is in the main console. Verify a register, issue, list, return, and
+list-again session through that prompt; the second listing must exclude the
+returned loan. `LabLogTest` checks borrower dispatch and registered-borrower loan issuing.
+
+`BorrowerCli.main` remains a separate entry point with an empty `LoanBook` and
+a name lookup that returns null. It cannot see loans from a different process.
+The [borrower implementation notes](BorrowerImplementation.md) describe the
+original standalone increment.
+
+**Editing the diagrams.** The class and sequence diagrams above are Mermaid
+source blocks in this Markdown file. Edit participant names, messages, or
+relationships directly and preview the guide on GitHub; no flattened image
+replacement is required.
+
 ### Equipment listing, filters, and sorting
 
 `EquipmentListCommands` accepts `list` with optional `category/`, `location/`,
