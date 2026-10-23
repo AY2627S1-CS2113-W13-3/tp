@@ -26,6 +26,7 @@ public class HelpCommands {
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans [overdue] - List all active loans or only overdue loans (main console).\n"
             + "loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE - Issue one or more loans (main console).\n"
+            + "renew ASSET_ID d/DUE_DATE - Extend an active loan and retain the change (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "return ASSET_ID ASSET_ID ... - Return multiple units (no faults/, main console).\n"
             + "history ASSET_ID - View equipment history (main console).\n"
@@ -72,17 +73,26 @@ public class HelpCommands {
                     + "Example: edit-borrower A0123456X p/92345678\n"
                     + "Fields: Supply at least one field, once each. Omitted values remain unchanged.\n"
                     + "The same validation as add-borrower applies. Failed edits change nothing.";
+        case "renew":
+            return "Extend an active loan, including an overdue loan, and retain its renewal record.\n"
+                    + "Format: renew ASSET_ID d/YYYY-MM-DD\n"
+                    + "Example: renew OSC-001 d/2099-11-05\n"
+                    + "Fields: One case-sensitive asset ID and exactly one d/ date.\n"
+                    + "The new date must be later than the current due date and no earlier than today.\n"
+                    + "Shared booking checks still apply; overlapping reservation endpoints conflict.\n"
+                    + "Rejected input changes nothing. Successful changes appear in history and survive restart.";
         case "export":
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 8 includes fault severity, repairs and current history notes.\n"
+                    + "Snapshot format 9 includes renewal events, reservations, waiting requests, faults "
+                    + "and history notes.\n"
                     + "Future domain records and audit data require a schema update; "
                     + "unsupported fields are rejected for every supported version, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
-                    + "Fields: FILE is a format-2 through 8 snapshot; --replace explicitly requests replacement,\n"
+                    + "Fields: FILE is a format-2 through 9 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"
@@ -268,6 +278,7 @@ public class HelpCommands {
                     + "Format: history ASSET_ID\n"
                     + "Example: history OSC-001\n"
                     + "  After registering OSC-001, show its records, including active and returned loans.\n"
+                    + "  Each renewal includes the date and previous/new deadlines.\n"
                     + "  If no records have been supplied, report no history found.\n"
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.";
         case "add-borrower":

@@ -279,7 +279,7 @@ Example: loan OSC-001 MIC-002 b/A0123456X d/2026-09-18
 
 Detailed help covers `add`, `copy`, `edit-equipment`, `move-equipment`, history-note commands,
 `active-loans`, `list`, `find`,
-`loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
+`loan`, `renew`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
 commands belonging to the main or borrower console; viewing help does not make
 a command available in the other console.
 
@@ -346,6 +346,34 @@ reloaded on restart. If saving fails, the session stops and the previous saved
 snapshot remains available; restart after fixing file access, as described in
 Quick Start.
 
+### Renewing an active loan: `renew`
+
+Format: `renew ASSET_ID d/YYYY-MM-DD`
+
+```text
+renew OSC-001 d/2026-11-05
+```
+
+Use one case-sensitive asset ID and exactly one `d/` date. The equipment must
+have an active loan; overdue loans can also be renewed. The new due date must
+be later than its current due date and no earlier than today in the computer's
+local time zone. For an overdue loan, today is an acceptable new deadline.
+Renewal keeps the borrower and original loan date unchanged.
+
+LabLog checks the entire proposed loan-to-new-due period against shared
+availability rules, excluding only the loan being renewed. Reservations,
+including those for the same borrower, still conflict at shared endpoints.
+Cancelled reservations are ignored; unresolved severe faults block renewal.
+An unknown asset, returned loan, invalid date or conflict leaves both the loan
+and its renewal records unchanged.
+
+Each successful renewal records its date and previous/new due dates. View these
+entries with `history OSC-001`; active-loan and borrower-loan listings immediately
+use the new deadline. Renewal records persist through restart, export and import,
+and remain attached to the loan after return or a later loan of the same unit.
+If saving fails, LabLog reports the failure and stops without a success message;
+restart from the previous saved state before continuing.
+
 ### Recording a return: `return`
 
 At the initial prompt, use either format:
@@ -380,7 +408,7 @@ existing equipment faults. If supplied, `faults/` must appear once with a non-em
 single-line description. Asset IDs are case-sensitive.
 
 The equipment must exist and have exactly one active loan. Invalid commands,
-repeated returns, multiple active loans, and returns before the loan date are
+repeated returns, multiple active loans, and returns before the loan date or latest renewal are
 rejected without changing records. Returned loans remain in equipment history,
 including their reported faults, and are excluded from active-loan listings.
 
@@ -396,13 +424,15 @@ equipment first using `add`.
 
 The display combines loan, reservation, fault, and maintenance records for that
 unit, oldest first. Loans include both active and returned records, with borrower
-ID, due date, and return date where available. Each row represents one record,
-not every change made to that record. Reservation, fault, and maintenance details
+ID, due date, and return date where available. Renewals add separate rows with
+the previous and new due dates. Other rows represent current records rather
+than every change made to them. Reservation, fault, and maintenance details
 are supplied by their respective features.
 
-Dates mean loan date, reservation start date, fault report date, or maintenance
-date. Future reservations are included. Same-day entries are ordered by type
-(loan, reservation, fault, maintenance), then description.
+Dates mean loan date, reservation start date, fault report date, maintenance date,
+or renewal date. Future reservations are included. Same-day entries are ordered by type
+(loan, reservation, fault, maintenance, renewal), then description. Renewals on
+the same day retain the order in which they were accepted.
 
 Unknown equipment produces an error; registered equipment with no supplied records
 produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
@@ -430,7 +460,8 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `list` | Main | List equipment and availability |
 | `active-loans [overdue]` | Main | List all active loans or only overdue loans |
 | `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |
-| `history ASSET_ID` | Main | View supplied equipment records |
+| `renew ASSET_ID d/YYYY-MM-DD` | Main | Extend an active loan and retain the change |
+| `history ASSET_ID` | Main | View equipment records and renewal events |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
 | `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
 | `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a dated history note |
@@ -459,11 +490,12 @@ FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
 they include borrower contact details.
 
-Format 6 contains equipment, borrowers, complete loans and returns, history
-notes, and structured faults with severity, resolution dates and repair details.
-Formats 2, 3 and 4 remain readable. Legacy fault notes remain notes; format-3
-faults have unspecified severity, and older faults load as unresolved.
-Reservation domain records and audit records require future schema extensions.
+Format 9 contains equipment, borrowers, complete loans and returns, structured
+renewal events, history notes, faults with severity and repair details,
+reservations and waiting requests. Formats 2 through 8 remain readable.
+Older loans load without renewal events; their saved due date is treated as
+the original deadline. Legacy fault notes remain notes. Unknown future fields
+are rejected instead of silently discarded.
 
 ## Import application data (US62)
 
@@ -473,8 +505,8 @@ For example: import backups/lablog.properties --replace. Paths may contain space
 and may be enclosed in double quotes. A successful import takes effect immediately
 and survives restart. Missing --replace or invalid records cause an error.
 
-The main console now saves one format-8 file containing equipment, borrowers,
-loans, returns, structured faults, repairs, history notes, reservations and waiting requests. It also loads legacy equipment/loan data with
+The main console now saves one format-9 file containing equipment, borrowers,
+loans, returns, renewal events, structured faults, repairs, history notes, reservations and waiting requests. It also loads legacy equipment/loan data with
 the sibling borrowers.properties and migrates on the next successful save.
 That old borrower file is retained, but is no longer read after migration.
 The standalone borrower console continues to use its own borrower file; it no
@@ -487,7 +519,8 @@ Imports reject unsupported versions, missing or unknown fields, duplicate
 property keys or equipment/borrower IDs, broken references, impossible dates,
 multiple active loans for one unit, and invalid contact details. Files must be
 valid UTF-8 regular files no larger than 10 MiB. Counts are bounded at 100,000
-records per section. Audit records are unsupported in the current schema.
+records per section. Structured renewal events are supported; a general loan/return audit trail is
+not yet available. Invalid renewal chains or dates are rejected.
 
 Any validation or save failure reports an error and preserves current live and
 saved records. Fix the reported problem and submit the import again. Unknown

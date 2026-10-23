@@ -1,6 +1,8 @@
 package lablog;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Represents a single loan of one equipment unit to one borrower.
@@ -13,7 +15,9 @@ public class Loan {
     private final String assetId;
     private final String borrowerId;
     private final LocalDate loanDate;
-    private final LocalDate dueDate;
+    private LocalDate dueDate;
+    // Events belong to this specific loan, even when an asset is lent again on the same day.
+    private final List<LoanRenewal> renewals = new ArrayList<>();
     private LocalDate returnDate;
     // Empty means no faults were reported on return; it does not clear equipment faults.
     private String returnFaults = "";
@@ -48,6 +52,37 @@ public class Loan {
 
     public LocalDate getDueDate() {
         return dueDate;
+    }
+
+    /** Returns the deadline at issue time, before any renewals. */
+    public LocalDate getOriginalDueDate() {
+        return renewals.isEmpty() ? dueDate : renewals.getFirst().previousDueDate();
+    }
+
+    /** Returns immutable renewal events in the order they were accepted. */
+    public List<LoanRenewal> getRenewals() {
+        return List.copyOf(renewals);
+    }
+
+    /**
+     * Extends an active loan and appends an event only after all date checks pass.
+     * Callers must check shared availability before invoking this method.
+     *
+     * @param newDueDate strictly later deadline, no earlier than the renewal date
+     * @param renewedOn local date on which the change is recorded
+     * @throws IllegalArgumentException if inactive or any date would contradict the loan's history
+     */
+    public void renew(LocalDate newDueDate, LocalDate renewedOn) {
+        if (!isActive()) {
+            throw new IllegalArgumentException("Only an active loan can be renewed.");
+        }
+        if (renewedOn == null || renewedOn.isBefore(loanDate)
+                || (!renewals.isEmpty() && renewedOn.isBefore(renewals.getLast().date()))) {
+            throw new IllegalArgumentException("Renewal date must not precede the loan or its previous renewal.");
+        }
+        LoanRenewal event = new LoanRenewal(renewedOn, dueDate, newDueDate);
+        renewals.add(event);
+        dueDate = newDueDate;
     }
 
     public LocalDate getReturnDate() {
@@ -103,6 +138,9 @@ public class Loan {
         }
         if (returnDate == null || returnDate.isBefore(loanDate)) {
             throw new IllegalArgumentException("Return date must not be before the loan date.");
+        }
+        if (!renewals.isEmpty() && returnDate.isBefore(renewals.getLast().date())) {
+            throw new IllegalArgumentException("Return date must not be before the latest renewal.");
         }
         if (faults == null || faults.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("Fault details must be on one line.");
