@@ -3,6 +3,7 @@ package lablog;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Represents a single loan of one equipment unit to one borrower.
@@ -12,6 +13,7 @@ import java.util.List;
  * object so that loans can be recorded before borrower records exist.
  */
 public class Loan {
+    private final String id;
     private final String assetId;
     private final String borrowerId;
     private final LocalDate loanDate;
@@ -33,11 +35,26 @@ public class Loan {
      * @param dueDate date the unit is expected back
      */
     public Loan(String assetId, String borrowerId, LocalDate loanDate, LocalDate dueDate) {
+        this("L-" + UUID.randomUUID(), assetId, borrowerId, loanDate, dueDate);
+    }
+
+    /** Restores a stable identity; older files receive one when first loaded and retain it on save. */
+    Loan(String id, String assetId, String borrowerId, LocalDate loanDate, LocalDate dueDate) {
+        if (id == null || !id.startsWith("L-") || id.length() < 3
+                || id.chars().anyMatch(character -> Character.isWhitespace(character)
+                        || Character.isISOControl(character))) {
+            throw new IllegalArgumentException("Loan ID must be a non-empty L- identifier without whitespace.");
+        }
+        this.id = id;
         this.assetId = assetId;
         this.borrowerId = borrowerId;
         this.loanDate = loanDate;
         this.dueDate = dueDate;
         this.returnDate = null;
+    }
+
+    public String getId() {
+        return id;
     }
 
     public String getAssetId() {

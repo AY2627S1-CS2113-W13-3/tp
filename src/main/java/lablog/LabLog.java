@@ -24,6 +24,7 @@ public class LabLog {
     private final LoanCommands loanCommands;
     private final RenewCommands renewals;
     private final LostCommands lost;
+    private final LoanAuditCommands loanAudit;
     private final HelpCommands help = new HelpCommands();
     /** Present only for persistent CLI sessions; injected test sessions remain in memory. */
     private Path dataFile;
@@ -116,6 +117,7 @@ public class LabLog {
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers, faults,
                 reservations.getAvailability());
+        this.loanAudit = new LoanAuditCommands(inventory, loans);
         this.lost = new LostCommands(inventory, loans, clock);
         this.renewals = new RenewCommands(loans, reservations.getAvailability(), clock);
         this.borrowerCommands = new BorrowerCommands(borrowers, loans,
@@ -158,7 +160,7 @@ public class LabLog {
             inventory = new Inventory();
             inventory.replaceAll(snapshot.getEquipment());
             loans = new LoanBook();
-            loans.replaceAll(snapshot.getLoans());
+            loans.replaceAll(snapshot.getLoans(), snapshot.getAuditEvents());
             borrowers.replaceAll(snapshot.getBorrowers());
             notes = snapshot.getNotes();
             bookings = snapshot.getReservations();
@@ -203,7 +205,7 @@ public class LabLog {
         List<HistoryEntry> notes = new ArrayList<>(otherHistory.get());
         notes.addAll(historyRecords.getNotes());
         return new ApplicationSnapshot(inventory.getEquipmentUnits(), proposedBorrowers, loans.getLoans(), notes,
-                faults.getFaults(), proposedReservations, proposedWaiting);
+                faults.getFaults(), proposedReservations, proposedWaiting, loans.getAuditEvents());
     }
 
     /** Validates and saves an import before replacing any of the shared live books. */
@@ -216,7 +218,7 @@ public class LabLog {
             replacement.write(dataFile);
         }
         inventory.replaceAll(replacement.getEquipment());
-        loans.replaceAll(replacement.getLoans());
+        loans.replaceAll(replacement.getLoans(), replacement.getAuditEvents());
         borrowers.replaceAll(replacement.getBorrowers());
         historyRecords.replaceAll(replacement.getNotes());
         faults.replaceAll(replacement.getFaults());
@@ -360,6 +362,14 @@ public class LabLog {
                         return;
                     }
                     output.println(result);
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("loan-audit")) {
+                try {
+                    output.println(loanAudit.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }

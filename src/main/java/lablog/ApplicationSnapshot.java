@@ -27,6 +27,7 @@ public class ApplicationSnapshot {
     private final List<Fault> faults;
     private final List<Reservation> reservations;
     private final List<WaitingRequest> waiting;
+    private final List<LoanAuditEvent> audit;
 
     /** Captures supported records; serialization validates the complete graph again. */
     public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
@@ -50,6 +51,14 @@ public class ApplicationSnapshot {
     public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
             List<Loan> loans, List<HistoryEntry> notes, List<Fault> faults, List<Reservation> reservations,
             List<WaitingRequest> waiting) {
+        this(equipment, borrowers, loans, notes, faults, reservations, waiting, List.of());
+    }
+
+    /** Captures immutable audit evidence alongside the current domain records. */
+    public ApplicationSnapshot(List<Equipment> equipment, List<Borrower> borrowers,
+            List<Loan> loans, List<HistoryEntry> notes, List<Fault> faults, List<Reservation> reservations,
+            List<WaitingRequest> waiting, List<LoanAuditEvent> audit) {
+        this.audit = List.copyOf(audit);
         this.waiting = List.copyOf(waiting);
         this.reservations = List.copyOf(reservations);
         this.faults = List.copyOf(faults);
@@ -57,6 +66,10 @@ public class ApplicationSnapshot {
         this.borrowers = List.copyOf(borrowers);
         this.loans = List.copyOf(loans);
         this.notes = List.copyOf(notes);
+    }
+
+    public List<LoanAuditEvent> getAuditEvents() {
+        return audit;
     }
 
     public List<WaitingRequest> getWaitingRequests() {
@@ -103,7 +116,7 @@ public class ApplicationSnapshot {
         return parsed;
     }
 
-    /** Reads transfer formats 2 through 10; legacy two-file data is handled only by the application loader. */
+    /** Reads transfer formats 2 through 11; legacy two-file data is handled only by the application loader. */
     public static ApplicationSnapshot read(Path file) throws IOException {
         return decode(readProperties(file));
     }
@@ -119,9 +132,9 @@ public class ApplicationSnapshot {
      */
     static ApplicationSnapshot decode(Properties records) throws IOException {
         try {
-            if (!Set.of("2", "3", "4", "5", "6", "7", "8", "9", "10").contains(required(records, "format"))) {
+            if (!Set.of("2", "3", "4", "5", "6", "7", "8", "9", "10", "11").contains(required(records, "format"))) {
                 throw new IllegalArgumentException(
-                        "Unsupported snapshot format; expected 2, 3, 4, 5, 6, 7, 8, 9 or 10.");
+                        "Unsupported snapshot format; expected 2, 3, 4, 5, 6, 7, 8, 9, 10 or 11.");
             }
             LabLogStore base = new LabLogStore(records);
             List<Borrower> borrowers = new ArrayList<>();
@@ -156,22 +169,22 @@ public class ApplicationSnapshot {
                 }
                 notes.add(entry);
             }
-            if (count(records, "audit.count") != 0) {
+            if (!"11".equals(records.getProperty("format")) && count(records, "audit.count") != 0) {
                 throw new IllegalArgumentException("Audit records are not supported by this schema version.");
             }
             BorrowerBook borrowerBook = new BorrowerBook();
             borrowerBook.replaceAll(borrowers);
             ReservationBook bookingBook = new ReservationBook(base.getInventory(), borrowerBook,
                     Clock.systemDefaultZone());
-            if (Set.of("6", "7", "8", "9", "10").contains(records.getProperty("format"))) {
+            if (Set.of("6", "7", "8", "9", "10", "11").contains(records.getProperty("format"))) {
                 bookingBook.replaceAll(ReservationCodec.read(records));
             }
-            List<WaitingRequest> waiting = Set.of("8", "9", "10").contains(records.getProperty("format"))
+            List<WaitingRequest> waiting = Set.of("8", "9", "10", "11").contains(records.getProperty("format"))
                     ? WaitingRequestCodec.read(records) : List.of();
             WaitingRequestBook.validate(waiting, borrowerBook);
             ApplicationSnapshot result = new ApplicationSnapshot(base.getInventory().getEquipmentUnits(), borrowers,
                     base.getLoans().getLoans(), notes, base.getFaults().getFaults(),
-                    bookingBook.getReservations(), waiting);
+                    bookingBook.getReservations(), waiting, base.getLoans().getAuditEvents());
             // Derive accepted keys from the export schema to keep read and write support in agreement.
             Set<String> unknownFields = new TreeSet<>(records.stringPropertyNames());
             unknownFields.removeAll(result.acceptedFields(records.getProperty("format")));
@@ -193,27 +206,31 @@ public class ApplicationSnapshot {
             if (format.equals("3")) {
                 accepted.removeIf(key -> key.startsWith("fault.") && key.endsWith(".severity"));
             }
-            if (!Set.of("5", "6", "7", "8", "9", "10").contains(format)) {
+            if (!Set.of("5", "6", "7", "8", "9", "10", "11").contains(format)) {
                 accepted.removeIf(key -> key.startsWith("fault.")
                         && (key.endsWith(".resolved") || key.endsWith(".repair")));
             }
         }
-        if (!Set.of("6", "7", "8", "9", "10").contains(format)) {
+        if (!Set.of("6", "7", "8", "9", "10", "11").contains(format)) {
             accepted.removeIf(key -> key.startsWith("reservation."));
         }
         if (format.equals("6")) {
             accepted.removeIf(key -> key.startsWith("reservation.")
                     && (key.endsWith(".cancelled") || key.endsWith(".reason")));
         }
-        if (!Set.of("8", "9", "10").contains(format)) {
+        if (!Set.of("8", "9", "10", "11").contains(format)) {
             accepted.removeIf(key -> key.startsWith("waiting."));
         }
-        if (!Set.of("9", "10").contains(format)) {
+        if (!Set.of("9", "10", "11").contains(format)) {
             accepted.removeIf(key -> key.startsWith("loan.")
                     && (key.endsWith(".originalDue") || key.contains(".renewal.")));
         }
-        if (!format.equals("10")) {
+        if (!Set.of("10", "11").contains(format)) {
             accepted.removeIf(key -> key.startsWith("loan.") && key.endsWith(".lost"));
+        }
+        if (!format.equals("11")) {
+            accepted.removeIf(key -> (key.startsWith("audit.") && !key.equals("audit.count"))
+                    || (key.startsWith("loan.") && key.endsWith(".id")));
         }
         return accepted;
     }
@@ -225,20 +242,13 @@ public class ApplicationSnapshot {
         empty.setProperty("loan.count", "0");
         LabLogStore base = new LabLogStore(empty);
         base.getInventory().replaceAll(equipment);
-        base.getLoans().replaceAll(loans);
+        base.getLoans().replaceAll(loans, audit);
         faults.forEach(base.getFaults()::add);
         Properties records = base.toProperties();
-        records.setProperty("format", "10");
-        for (int index = 0; index < loans.size(); index++) {
-            Loan loan = loans.get(index);
-            LoanRenewalCodec.write(records, "loan." + index + ".", loan);
-            records.setProperty("loan." + index + ".lost", loan.isLost() ? loan.getLostDate().toString() : "");
-        }
         WaitingRequestCodec.write(records, waiting);
         ReservationCodec.write(records, reservations);
         records.setProperty("borrower.count", Integer.toString(borrowers.size()));
         records.setProperty("note.count", Integer.toString(notes.size()));
-        records.setProperty("audit.count", "0");
         for (int index = 0; index < borrowers.size(); index++) {
             String key = "borrower." + index + ".";
             Borrower borrower = borrowers.get(index);
@@ -260,9 +270,13 @@ public class ApplicationSnapshot {
 
     /** Rejects invalid injected records before writing an unusable backup or saved state. */
     Properties toProperties() throws IOException {
-        Properties records = encode();
-        decode(records);
-        return records;
+        try {
+            Properties records = encode();
+            decode(records);
+            return records;
+        } catch (IllegalArgumentException | DateTimeException exception) {
+            throw new IOException("Invalid snapshot: " + exception.getMessage(), exception);
+        }
     }
 
     /** Writes the entire snapshot then atomically replaces the destination; failures retain old data. */
@@ -273,7 +287,7 @@ public class ApplicationSnapshot {
         Path temporary = Files.createTempFile(file.getParent(), "snapshot-", ".tmp");
         try {
             try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
-                records.store(writer, "LabLog complete snapshot, format 10");
+                records.store(writer, "LabLog complete snapshot, format 11");
             }
             if (Files.size(temporary) > MAX_BYTES) {
                 throw new IOException("Snapshot exceeds the supported 10 MiB size limit.");

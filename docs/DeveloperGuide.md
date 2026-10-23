@@ -12,7 +12,7 @@ executable JAR. See `build.gradle` for dependency versions.
 
 The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
 or the optional command-line file path. It stores equipment, borrowers, loans,
-notes, structured faults and repairs in one format-10 UTF-8 properties snapshot. Save to a temporary file
+notes, structured faults and repairs in one format-11 UTF-8 properties snapshot. Save to a temporary file
 in the destination directory, then atomically replace the snapshot before
 printing success. Unsupported atomic replacement is reported as a save failure;
 there is no non-atomic fallback. Save failure stops the session to avoid further
@@ -25,7 +25,7 @@ overwritten. This store assumes one application process owns a data file;
 concurrent writers are not supported.
 
 `LabLog` is the Gradle application entry point. It routes equipment registration
-and copying, listing, active loans, history notes, help, loan, renew, lost, history, return,
+and copying, listing, active loans, history notes, help, loan, renew, lost, loan-audit, history, return,
 and borrower commands to their handlers. The prompted and single-line equipment
 registration forms both validate before storing. Borrower commands share the
 main console's inventory and loan book. Borrowers are part of the complete
@@ -185,7 +185,8 @@ ambiguity when the same asset is returned and lent again, even on the same day.
 An immutable list snapshot prevents callers from changing earlier events.
 Storing only a display note or overwriting the deadline would lose the typed
 old/new values needed to inspect and validate the change. This is a renewal
-history model; the general borrowing/return correction audit is separate work.
+history model; issue #77 adds borrowing/return evidence and issue #76 supplies
+the correction workflow.
 
 `LoanRenewalCodec` adds `loan.N.originalDue`, `loan.N.renewal.count`, and indexed
 `date`, `previousDue`, `newDue` fields in snapshot format 9. Decode replays each
@@ -223,6 +224,80 @@ successive changes, overdue/local-date boundaries, inactive loans, invalid input
 reservation endpoints, severe faults, self-exclusion and history ordering.
 `RenewalPersistenceTest` covers restart/export/import, legacy migration, corrupt
 chains, return retention, unchanged files after rejection, and failed saves.
+
+### Borrowing and return audit trail (issue #77)
+
+`LoanAuditCommands` implements `loan-audit [ASSET_ID]` over stored evidence,
+not derived history text. Its optional asset filter is case-sensitive and requires
+registered equipment. Sorting by event date is stable, so events on one day keep
+their original acceptance order. Each event is numbered within the displayed
+selection and uses separate lines for its details and full identifiers.
+The formatter omits blank optional faults, related-event and reason lines.
+Queries leave book order and saved bytes unchanged.
+
+Every `Loan` now has a stable `L-` ID. `LoanAuditEvent` is an immutable record
+with its own event ID, owning loan ID, local operation date, type, asset, borrower,
+due date, return faults, related event ID and correction reason. Event values are
+copied at acceptance time. Renewals do not overwrite issue-time deadlines, and
+a later loss report does not remove the original borrowing evidence.
+
+`LoanBook.addLoan` prepares a `LOAN` event before adding either record. Keeping
+this hook in the book also covers callers issuing a validated batch with repeated
+`addLoan` calls. `LoanBook.returnLoans` validates the complete selection, prepares
+all `RETURN` events, then changes loan state and appends the evidence in selection
+order. `ReturnCommands` delegates to this boundary. Direct `Loan.markReturned`
+is used when restoring/testing domain records; it does not fabricate ledger events.
+
+**Design choice:** Store immutable events separately from mutable current loan
+state, joined by stable loan IDs. Asset ID, borrower and date cannot identify a
+specific loan when the same unit is lent repeatedly. Display notes would lose
+structured fields and correction relationships. Date plus stable acceptance
+order provides deterministic chronology without inventing time-of-day precision.
+
+Format 11 adds `loan.N.id` and typed `audit.N` fields under `audit.count`.
+`LoanAuditCodec` validates unique loan/event IDs, ownership, issue-time facts,
+dates and correction relationships before records are published. Corrections
+reference an earlier original event on the same loan, preserve its payload and
+require a reason; duplicate reversals, forward references and inconsistent event
+ordering are rejected. Original events remain present. The model can display and
+round-trip correction evidence; applying a reversal and validating operational
+dependencies is issue #76, not a mutation performed by this query.
+
+Formats 2-10 load with an empty event log and fresh loan IDs. The first successful
+save persists those IDs. Restoring uses `replaceAll(loans, events)` rather than
+`addLoan`, so no historical issue/return events are invented. A legacy loan can
+later acquire an actual return event without an issue event. Complete snapshots,
+legacy loan-store saves, export and replacement import all preserve IDs/evidence.
+Existing shared book instances are retained across import, so handlers see the
+new ledger immediately. Replacement import intentionally replaces the whole log.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant App as LabLog
+    participant Return as ReturnCommands
+    participant Book as LoanBook
+    User->>App: return OSC-001 MIC-002
+    App->>Return: execute(input)
+    Return->>Book: returnLoans(selection, today, faults)
+    Book->>Book: Validate all loans and prepare immutable events
+    Book->>Book: Record returns and append events
+    Book-->>Return: Accepted
+    Return-->>App: Confirmation
+    App->>App: Save loans and events in one snapshot
+    App-->>User: Print success after save
+```
+
+Input rejection changes neither loans nor events. As with existing loan/return
+commands, a save failure leaves the prior file intact, suppresses success and
+stops the session; in-memory state/evidence are not rolled back. Restart loads
+the previous saved transaction and its ledger together.
+
+`LoanAuditCommandsTest`, `LoanAuditEventTest` and `LoanAuditPersistenceTest`
+cover immutable facts, repeated lending, same-day/batch order, invalid operations,
+legacy migration, ID stability, restart/export/import, correction references,
+corrupt input and failed saves with assertions. Coverage is collected with a
+temporary JaCoCo init script without changing the project's build configuration.
 
 ### Reporting loaned equipment lost (issue #75)
 
@@ -522,7 +597,7 @@ structured unresolved severe faults block new loans.
   to its details, but adds dependencies whenever new record types are introduced.
 
 History summarises current records and adds immutable renewal events and dated loss reports. It is not
-a complete audit trail of every borrowing/return change. Rebuilding ordinary
+the borrowing/return event log; `LoanAuditCommands` displays that separate ledger. Rebuilding ordinary
 entries makes updated details visible without preserving all previous versions;
 renewal entries explicitly retain each previous and new deadline.
 
@@ -552,6 +627,7 @@ returns, and lookups.
 |v1.0|laboratory technician|register borrowers|retain validated contact details|
 |v1.0|laboratory technician|view active loans and equipment history|track who has equipment and its past loans|
 |v1.0|laboratory technician|record returns and reported damage|close loans while retaining their history|
+|v2.0|laboratory technician|inspect chronological borrowing and return evidence|trace operations without erasing originals|
 |v2.0|laboratory technician|mark loaned equipment lost|retain borrower history and prevent lending missing equipment|
 |v2.0|laboratory technician|renew active loans while retaining deadline changes|extend borrowing without losing renewal history|
 |v2.0|laboratory technician|return multiple equipment units in one operation|process a group of returns without repeating the command|
@@ -665,11 +741,12 @@ unchanged loan objects, restart persistence, invalid fields, and failed saves.
 ## Versioned export schema (issue #90)
 
 ApplicationSnapshot captures the supported object graph and uses LabLogStore's
-equipment/loan serializer. UTF-8 properties format 10 retains borrower.count and
+equipment/loan serializer. UTF-8 properties format 11 retains borrower.count and
 note.count with indexed fields, structured renewal chains and each loan's loss report date.
-audit.count remains zero; a general borrowing/return audit schema is not yet
-supported. The codec validates references and dates before writing a temporary file and atomically replacing its destination. The export command
-requires a new file and protects the active data paths.
+audit.count and typed indexed records retain borrowing/return evidence and correction
+references, joined to stable loan IDs. The codec validates references and dates
+before writing a temporary file and atomically replacing its destination.
+The export command requires a new file and protects the active data paths.
 
 Integration contract for domain owners: add full serialization, validation and
 round-trip tests for new reservation/audit models, then bump the version.
@@ -678,7 +755,7 @@ Import and envelope validation use the same codec as export.
 
 ## Import and single-file persistence (issue #91)
 
-LabLog.load reads complete formats 2 through 10 into detached books, or loads the legacy two-file
+LabLog.load reads complete formats 2 through 11 into detached books, or loads the legacy two-file
 installation without writing during startup. Main-console mutations persist
 one ApplicationSnapshot. BorrowerBook's Saver writes proposed contacts with
 the other current records before publishing the edit.
@@ -706,7 +783,7 @@ key in sorted order. Required-field validation separately rejects missing keys. 
 the export codec.
 
 SnapshotValidationTest supplies malformed versions, counts, contact fields,
-dates, references, duplicate IDs/keys, unknown fields, unsupported audit data,
+dates, references, duplicate IDs/keys, unknown fields, invalid audit data,
 invalid UTF-8 and oversized input. Dispatcher-level cases verify saved content
 and active-loan listings remain unchanged after each invalid import.
 
@@ -787,7 +864,7 @@ Live and export format 4 adds required `fault.N.severity` enum names. Live
 formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
 migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
 unknown severity in format 4 or later is corruption, not a migration default.
-The current writer uses format 10, retaining renewal events and loss reports as described above.
+The current writer uses format 11, retaining audit evidence, renewal events and loss reports.
 
 `FaultSeverityTest` covers all levels, description validation, immutable overview
 results, affected-unit isolation, date boundaries, reports during active loans,
@@ -909,7 +986,8 @@ feature intentionally has no automatic allocation or request removal command.
 ApplicationSnapshot format 8 adds waiting.count and indexed id, borrower,
 category, from and to fields. Formats 2-7 decode with empty waiting lists. Schema
 history: 3 introduced faults, 4 severity, 5 repairs, 6 reservations, 7 cancellation,
-8 waiting demand, 9 loan renewal chains, 10 loss reports. Every current save/export writes format 10
+8 waiting demand, 9 loan renewal chains, 10 loss reports, 11 loan IDs and audit evidence.
+Every current save/export writes format 11
 and retains all these records. Unknown fields and missing required fields remain errors.
 
 WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,

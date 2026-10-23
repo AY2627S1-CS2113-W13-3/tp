@@ -23,9 +23,10 @@ class SnapshotImportTest {
     private ApplicationSnapshot sample() {
         Equipment unit = new Equipment("OSC-001", "Scope Ω", "Electronics", "S1", "Lab A");
         Borrower borrower = new Borrower("A0123456X", "Jamie", "91234567", "jamie@u.nus.edu");
-        Loan returned = new Loan("OSC-001", "A0123456X", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 5));
+        Loan returned = new Loan("L-returned", "OSC-001", "A0123456X",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 5));
         returned.markReturned(LocalDate.of(2026, 1, 4), "Cracked = inspect: Ω");
-        Loan active = new Loan("OSC-001", "A0123456X", LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 5));
+        Loan active = new Loan("L-active", "OSC-001", "A0123456X", LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 5));
         List<HistoryEntry> notes = new ArrayList<>();
         for (HistoryEntry.Type type : List.of(HistoryEntry.Type.RESERVATION,
                 HistoryEntry.Type.FAULT, HistoryEntry.Type.MAINTENANCE)) {

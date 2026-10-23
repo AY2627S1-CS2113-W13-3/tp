@@ -281,7 +281,7 @@ Example: loan OSC-001 MIC-002 b/A0123456X d/2026-09-18
 ```
 
 Detailed help covers `add`, `copy`, `edit-equipment`, `move-equipment`, history-note commands,
-`active-loans`, `list`, `find`,
+`active-loans`, `loan-audit`, `list`, `find`,
 `loan`, `renew`, `lost`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
 commands belonging to the main or borrower console; viewing help does not make
 a command available in the other console.
@@ -376,6 +376,55 @@ use the new deadline. Renewal records persist through restart, export and import
 and remain attached to the loan after return or a later loan of the same unit.
 If saving fails, LabLog reports the failure and stops without a success message;
 restart from the previous saved state before continuing.
+
+### Viewing borrowing and return evidence: `loan-audit`
+
+```text
+loan-audit
+loan-audit OSC-001
+```
+
+Omit the asset ID to show all recorded borrowing/return events, or supply one
+case-sensitive registered asset ID to filter the view. Each numbered event uses
+separate lines for the date, type, equipment, borrower, deadline and complete
+event/loan IDs. Empty Faults, Related event and Reason fields are omitted.
+Events are ordered oldest first; same-day events keep their acceptance
+order, including the selection order of a batch return. The query never saves
+or changes records.
+
+For example, a return with reported damage appears as:
+
+```text
+Loan audit for OSC-001:
+
+[1] RETURN — 2026-10-23
+    Asset: OSC-001
+    Borrower: A0123456X
+    Due: 2026-10-30
+    Faults: cracked screen
+    Event ID: E-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+    Loan ID: L-11111111-1111-1111-1111-111111111111
+```
+
+Each accepted loan creates a `LOAN` event and each accepted return creates a
+`RETURN` event. Their stored facts do not change when a loan is renewed, returned
+or marked lost. Different loans of the same equipment have different loan IDs;
+the related loan/return events share that loan ID. Rejected commands add no events.
+Renewal, loss, fault and maintenance records remain available through `history`.
+
+Correction evidence uses `REVERSE_LOAN` or `REVERSE_RETURN`, with the original
+event ID and a reason. Both events remain visible; this query does not apply a
+correction. The command workflow for making corrections is a separate feature.
+
+Older saved files have no complete event log, so LabLog does not invent past
+operations when loading them. `history ASSET_ID` still shows those loans. The
+first successful save retains their newly assigned loan IDs; later borrowing
+and return operations create actual events. An old loan returned after migration
+may therefore have a return event without a recorded issue event.
+
+Events and IDs survive restart, export and replacement import. Saving a failed
+operation does not produce a success message: LabLog stops and the previous
+snapshot remains intact, as with loan/return storage failures.
 
 ### Reporting loaned equipment lost: `lost`
 
@@ -473,6 +522,7 @@ the same day retain the order in which they were accepted.
 Unknown equipment produces an error; registered equipment with no supplied records
 produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
+Use `loan-audit [ASSET_ID]` for the separate borrowing/return event log.
 The application combines loan history with notes recorded through `reservation`,
 `fault`, and `maintenance`. Fault records survive restarts; reservation and
 maintenance notes last only for the session.
@@ -497,6 +547,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `active-loans [overdue]` | Main | List all active loans or only overdue loans |
 | `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |
 | `renew ASSET_ID d/YYYY-MM-DD` | Main | Extend an active loan and retain the change |
+| `loan-audit [ASSET_ID]` | Main | View stored borrowing/return events and related corrections |
 | `lost ASSET_ID` | Main | Record a loss while retaining the outstanding loan |
 | `history ASSET_ID` | Main | View equipment records, renewal events and loss reports |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
@@ -527,11 +578,12 @@ FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
 they include borrower contact details.
 
-Format 10 contains equipment, borrowers, complete loans and returns, structured
-renewal events, loss reports, history notes, faults with severity and repair details,
-reservations and waiting requests. Formats 2 through 9 remain readable. Formats before 10 load without loss reports.
-Older loans load without renewal events; their saved due date is treated as
-the original deadline. Legacy fault notes remain notes. Unknown future fields
+Format 11 contains equipment, borrowers, complete loans and returns, structured
+renewal events, loss reports, stable loan IDs, borrowing/return audit events,
+history notes, faults with severity and repair details, reservations and waiting
+requests. Formats 2 through 10 remain readable. Formats before 10 load without
+loss reports; formats before 9 have no renewal events and treat the saved due
+date as the original deadline. Formats before 11 have no event log. Legacy fault notes remain notes. Unknown future fields
 are rejected instead of silently discarded.
 
 ## Import application data (US62)
@@ -542,8 +594,10 @@ For example: import backups/lablog.properties --replace. Paths may contain space
 and may be enclosed in double quotes. A successful import takes effect immediately
 and survives restart. Missing --replace or invalid records cause an error.
 
-The main console now saves one format-10 file containing equipment, borrowers,
-loans, returns, renewal events, loss reports, structured faults, repairs, history notes, reservations and waiting requests. It also loads legacy equipment/loan data with
+The main console now saves one format-11 file containing equipment, borrowers,
+loans, returns, renewal events, loss reports, stable IDs and borrowing/return audit
+events, structured faults, repairs, history notes, reservations and waiting
+requests. It also loads legacy equipment/loan data with
 the sibling borrowers.properties and migrates on the next successful save.
 That old borrower file is retained, but is no longer read after migration.
 The standalone borrower console continues to use its own borrower file; it no
@@ -556,8 +610,8 @@ Imports reject unsupported versions, missing or unknown fields, duplicate
 property keys or equipment/borrower IDs, broken references, impossible dates,
 multiple active loans for one unit, and invalid contact details. Files must be
 valid UTF-8 regular files no larger than 10 MiB. Counts are bounded at 100,000
-records per section. Structured renewal events are supported; a general loan/return audit trail is
-not yet available. Invalid renewal chains or dates, and loss reports on returned
+records per section. Borrowing/return audit events and stable IDs are supported.
+Duplicate IDs, invalid event ownership and broken correction references are rejected. Invalid renewal chains or dates, and loss reports on returned
 loans or before the latest renewal, are rejected.
 
 Any validation or save failure reports an error and preserves current live and
