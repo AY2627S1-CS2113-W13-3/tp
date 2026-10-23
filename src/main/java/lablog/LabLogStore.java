@@ -29,12 +29,12 @@ public class LabLogStore {
         Properties records = new Properties();
         try (Reader reader = Files.newBufferedReader(this.file, StandardCharsets.UTF_8)) {
             records.load(reader);
-            if (!Set.of("1", "3", "4", "5", "6", "7", "8", "9").contains(required(records, "format"))) {
+            if (!Set.of("1", "3", "4", "5", "6", "7", "8", "9", "10").contains(required(records, "format"))) {
                 throw new IllegalArgumentException("Unsupported data format.");
             }
             Set<String> assets = readEquipment(records);
             readLoans(records, assets);
-            if (Set.of("3", "4", "5", "6", "7", "8", "9").contains(records.getProperty("format", ""))) {
+            if (Set.of("3", "4", "5", "6", "7", "8", "9", "10").contains(records.getProperty("format", ""))) {
                 readFaults(records);
             }
         } catch (IllegalArgumentException | DateTimeException exception) {
@@ -47,7 +47,7 @@ public class LabLogStore {
         file = null;
         Set<String> assets = readEquipment(records);
         readLoans(records, assets);
-        if (Set.of("3", "4", "5", "6", "7", "8", "9").contains(records.getProperty("format", ""))) {
+        if (Set.of("3", "4", "5", "6", "7", "8", "9", "10").contains(records.getProperty("format", ""))) {
             readFaults(records);
         }
     }
@@ -61,12 +61,12 @@ public class LabLogStore {
         int count = count(records, "fault.count");
         for (int index = 0; index < count; index++) {
             String key = "fault." + index + ".";
-            boolean hasResolution = Set.of("5", "6", "7", "8", "9").contains(records.getProperty("format", ""));
+            boolean hasResolution = Set.of("5", "6", "7", "8", "9", "10").contains(records.getProperty("format", ""));
             String resolved = hasResolution ? required(records, key + "resolved") : "";
             String repair = hasResolution ? required(records, key + "repair") : "";
             faults.add(new Fault(required(records, key + "id"), required(records, key + "asset"),
                     LocalDate.parse(required(records, key + "date")), required(records, key + "description"),
-                    Set.of("4", "5", "6", "7", "8", "9").contains(records.getProperty("format", ""))
+                    Set.of("4", "5", "6", "7", "8", "9", "10").contains(records.getProperty("format", ""))
                             ? Fault.Severity.valueOf(required(records, key + "severity"))
                             : Fault.Severity.UNSPECIFIED,
                     resolved.isEmpty() ? null : LocalDate.parse(resolved), repair));
@@ -112,7 +112,7 @@ public class LabLogStore {
                     || borrowerId.chars().anyMatch(Character::isWhitespace) || dueDate.isBefore(loanDate)) {
                 throw new IllegalArgumentException("Invalid loan identifiers or dates.");
             }
-            Loan loan = "9".equals(records.getProperty("format"))
+            Loan loan = Set.of("9", "10").contains(records.getProperty("format", ""))
                     ? LoanRenewalCodec.read(records, key, assetId, borrowerId, loanDate, dueDate)
                     : new Loan(assetId, borrowerId, loanDate, dueDate);
             String returned = required(records, key + "returned");
@@ -121,6 +121,12 @@ public class LabLogStore {
                 loan.markReturned(LocalDate.parse(returned), faults);
             } else if (!faults.isEmpty() || !activeAssets.add(assetId)) {
                 throw new IllegalArgumentException("Invalid active loan or return details.");
+            }
+            if ("10".equals(records.getProperty("format"))) {
+                String lost = required(records, key + "lost");
+                if (!lost.isEmpty()) {
+                    loan.markLost(LocalDate.parse(lost));
+                }
             }
             loans.addLoan(loan);
         }
@@ -153,7 +159,8 @@ public class LabLogStore {
     Properties toProperties() {
         Properties records = new Properties();
         boolean hasRenewals = loans.getLoans().stream().anyMatch(loan -> !loan.getRenewals().isEmpty());
-        records.setProperty("format", hasRenewals ? "9" : "5");
+        boolean hasLosses = loans.getLoans().stream().anyMatch(Loan::isLost);
+        records.setProperty("format", hasLosses ? "10" : hasRenewals ? "9" : "5");
         records.setProperty("equipment.count", Integer.toString(inventory.getEquipmentUnits().size()));
         records.setProperty("loan.count", Integer.toString(loans.getLoans().size()));
         int index = 0;
@@ -174,8 +181,11 @@ public class LabLogStore {
             records.setProperty(key + "due", loan.getDueDate().toString());
             records.setProperty(key + "returned", loan.isActive() ? "" : loan.getReturnDate().toString());
             records.setProperty(key + "faults", loan.getReturnFaults());
-            if (hasRenewals) {
+            if (hasRenewals || hasLosses) {
                 LoanRenewalCodec.write(records, key, loan);
+            }
+            if (hasLosses) {
+                records.setProperty(key + "lost", loan.isLost() ? loan.getLostDate().toString() : "");
             }
         }
         records.setProperty("fault.count", Integer.toString(faults.getFaults().size()));

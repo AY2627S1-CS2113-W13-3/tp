@@ -156,13 +156,14 @@ public class BorrowerCommands {
         }
         LocalDate today = LocalDate.now(clock);
         StringBuilder output = new StringBuilder("Active loans for " + label + ":\n"
-                + "Asset ID | Equipment | Issued | Due | Overdue\n");
+                + "Asset ID | Equipment | Issued | Due | Overdue | Status\n");
         for (Loan loan : active) {
             String name = equipmentNames.apply(loan.getAssetId());
             output.append(loan.getAssetId()).append(" | ")
                     .append(name == null ? "Unknown equipment" : name).append(" | ")
                     .append(loan.getLoanDate()).append(" | ").append(loan.getDueDate()).append(" | ")
-                    .append(today.isAfter(loan.getDueDate()) ? "yes" : "no").append('\n');
+                    .append(today.isAfter(loan.getDueDate()) ? "yes" : "no").append(" | ")
+                    .append(loan.isLost() ? "LOST" : "On loan").append('\n');
         }
         return output.append(active.size()).append(active.size() == 1 ? " active loan." : " active loans.").toString();
     }

@@ -20,17 +20,19 @@ public class WaitingRequestBook {
 
     private final Inventory inventory;
     private final BorrowerBook borrowers;
-    private final FaultBook faults;
     private final BookingAvailability availability;
     private final Clock clock;
     private final List<WaitingRequest> requests = new ArrayList<>();
     private Saver saver = proposed -> { };
 
+    /**
+     * Uses the shared availability policy for loss and fault restrictions.
+     * The fault-book parameter is retained for compatibility with existing callers.
+     */
     public WaitingRequestBook(Inventory inventory, BorrowerBook borrowers, FaultBook faults,
             BookingAvailability availability, Clock clock) {
         this.inventory = inventory;
         this.borrowers = borrowers;
-        this.faults = faults;
         this.availability = availability;
         this.clock = clock;
     }
@@ -50,7 +52,7 @@ public class WaitingRequestBook {
         borrowers.getBorrower(borrowerId);
         boolean suitable = inventory.getEquipmentUnits().stream()
                 .anyMatch(unit -> unit.getCategory().equalsIgnoreCase(request.category())
-                        && !faults.blocksLending(unit.getAssetId()));
+                        && availability.isOperational(unit.getAssetId()));
         if (!suitable) {
             throw new IllegalArgumentException("No operationally suitable equipment exists in that category.");
         }

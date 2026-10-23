@@ -68,11 +68,19 @@ public class HistoryCommands {
             if (assetId.equals(loan.getAssetId())) {
                 String details = "Borrower " + loan.getBorrowerId() + "; due " + loan.getDueDate()
                         + (loan.isActive() ? "; active" : "; returned " + loan.getReturnDate());
+                if (loan.isLost()) {
+                    details += "; LOST since " + loan.getLostDate();
+                }
                 if (!loan.isActive()) {
                     details += loan.getReturnFaults().isEmpty()
                             ? "; no faults reported on return" : "; faults: " + loan.getReturnFaults();
                 }
                 entries.add(new HistoryEntry(assetId, loan.getLoanDate(), HistoryEntry.Type.LOAN, details));
+                if (loan.isLost()) {
+                    entries.add(new HistoryEntry(assetId, loan.getLostDate(), HistoryEntry.Type.LOST,
+                            "Borrower " + loan.getBorrowerId() + "; equipment reported lost; due "
+                                    + loan.getDueDate()));
+                }
                 for (LoanRenewal event : loan.getRenewals()) {
                     entries.add(new HistoryEntry(assetId, event.date(), HistoryEntry.Type.RENEWAL,
                             "Borrower " + loan.getBorrowerId() + "; due changed from "

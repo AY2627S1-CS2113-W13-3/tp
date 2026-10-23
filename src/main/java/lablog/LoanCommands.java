@@ -168,6 +168,9 @@ public class LoanCommands {
      * Warns instead of lending a unit that someone else still has, naming who holds it.
      */
     private void rejectUnavailable(String assetId) {
+        if (loans.hasLostLoan(assetId)) {
+            throw new IllegalArgumentException("Equipment " + assetId + " is marked lost and cannot be loaned.");
+        }
         if (faults.blocksLending(assetId)) {
             throw new IllegalArgumentException("Equipment " + assetId
                     + " has an unresolved severe fault and cannot be loaned. Use history " + assetId + ".");

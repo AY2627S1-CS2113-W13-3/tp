@@ -19,6 +19,8 @@ public class Loan {
     // Events belong to this specific loan, even when an asset is lent again on the same day.
     private final List<LoanRenewal> renewals = new ArrayList<>();
     private LocalDate returnDate;
+    // Lost equipment remains outstanding; a loss is never treated as a return.
+    private LocalDate lostDate;
     // Empty means no faults were reported on return; it does not clear equipment faults.
     private String returnFaults = "";
 
@@ -73,6 +75,7 @@ public class Loan {
      * @throws IllegalArgumentException if inactive or any date would contradict the loan's history
      */
     public void renew(LocalDate newDueDate, LocalDate renewedOn) {
+        requireNotLost();
         if (!isActive()) {
             throw new IllegalArgumentException("Only an active loan can be renewed.");
         }
@@ -93,10 +96,45 @@ public class Loan {
         return returnFaults;
     }
 
+    public LocalDate getLostDate() {
+        return lostDate;
+    }
+
+    /** Returns whether this outstanding loan has been reported lost. */
+    public boolean isLost() {
+        return lostDate != null;
+    }
+
+    /**
+     * Records a loss without changing the borrower, deadline, issue date or renewal history.
+     *
+     * @param date local date of the loss report, no earlier than the loan or latest renewal
+     * @throws IllegalArgumentException if returned, already lost or the date contradicts existing events
+     */
+    public void markLost(LocalDate date) {
+        requireNotLost();
+        if (!isActive()) {
+            throw new IllegalArgumentException("Only an active loan can be marked lost.");
+        }
+        if (date == null || date.isBefore(loanDate)
+                || (!renewals.isEmpty() && date.isBefore(renewals.getLast().date()))) {
+            throw new IllegalArgumentException("Loss date must not precede the loan or its latest renewal.");
+        }
+        lostDate = date;
+    }
+
+    /** Stops ordinary lending transitions from silently clearing a loss report. */
+    private void requireNotLost() {
+        if (isLost()) {
+            throw new IllegalArgumentException("Equipment " + assetId
+                    + " is marked lost; it cannot be returned or renewed, or marked lost again.");
+        }
+    }
+
     /**
      * Returns whether this unit is still out with the borrower.
      *
-     * @return true if the unit has not been returned yet
+     * @return true if the unit has not been returned yet, including outstanding lost equipment
      */
     public boolean isActive() {
         return returnDate == null;
@@ -133,6 +171,7 @@ public class Loan {
      * @throws IllegalArgumentException if the loan or return details are invalid
      */
     void validateReturn(LocalDate returnDate, String faults) {
+        requireNotLost();
         if (!isActive()) {
             throw new IllegalArgumentException("This loan has already been returned.");
         }

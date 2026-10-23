@@ -32,6 +32,9 @@ public class BookingAvailability {
         if (!inventory.containsAssetId(assetId)) {
             throw new IllegalArgumentException("Equipment " + assetId + " was not found.");
         }
+        if (loans.hasLostLoan(assetId)) {
+            return Optional.of("Equipment " + assetId + " is marked lost and is unavailable.");
+        }
         if (faults.blocksLending(assetId)) {
             return Optional.of("Equipment " + assetId + " has an unresolved severe fault.");
         }
@@ -56,6 +59,11 @@ public class BookingAvailability {
             }
         }
         return Optional.empty();
+    }
+
+    /** Distinguishes operational equipment from units unavailable indefinitely through loss or severe faults. */
+    public boolean isOperational(String assetId) {
+        return !loans.hasLostLoan(assetId) && !faults.blocksLending(assetId);
     }
 
     /** Returns an immutable, deterministic snapshot of units free throughout the requested future period. */

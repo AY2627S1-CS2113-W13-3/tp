@@ -23,6 +23,7 @@ public class LabLog {
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
     private final RenewCommands renewals;
+    private final LostCommands lost;
     private final HelpCommands help = new HelpCommands();
     /** Present only for persistent CLI sessions; injected test sessions remain in memory. */
     private Path dataFile;
@@ -115,6 +116,7 @@ public class LabLog {
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers, faults,
                 reservations.getAvailability());
+        this.lost = new LostCommands(inventory, loans, clock);
         this.renewals = new RenewCommands(loans, reservations.getAvailability(), clock);
         this.borrowerCommands = new BorrowerCommands(borrowers, loans,
                 assetId -> inventory.getEquipmentUnits().stream()
@@ -411,7 +413,7 @@ public class LabLog {
                 }
                 continue;
             }
-            if (List.of("history", "return", "loan", "renew").contains(command)) {
+            if (List.of("history", "return", "loan", "renew", "lost").contains(command)) {
                 try {
                     String result = executeRecordCommand(command, input);
                     if (!command.equals("history") && !saveChanges(output)) {
@@ -492,7 +494,7 @@ public class LabLog {
      */
     private String executeRecordCommand(String command, String input) {
         // Only the record-command branch in run should call this helper.
-        assert List.of("history", "return", "loan", "renew").contains(command) : "Unexpected record command";
+        assert List.of("history", "return", "loan", "renew", "lost").contains(command) : "Unexpected record command";
         switch (command) {
         case "history":
             return history.execute(input);
@@ -502,6 +504,8 @@ public class LabLog {
             return loanCommands.execute(input);
         case "renew":
             return renewals.execute(input);
+        case "lost":
+            return lost.execute(input);
         default:
             throw new IllegalArgumentException("Unknown command: " + command);
         }
