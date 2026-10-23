@@ -1218,3 +1218,31 @@ WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,
 loan and reservation capacity, failed persistence, independent waiting state,
 restart/export/import, corrupt records and format-7 migration. The full Java 25
 suite also verifies older migration paths and all previous booking features.
+
+## Unavailability explanations (issue #84)
+
+`UnavailableReasonCommands` accepts `why-unavailable ASSET_ID [from/START to/END]`.
+It defaults to the injected clock's local date, or validates an explicit inclusive
+window with the existing DateWindow and BookingArguments helpers. The start must
+not precede today. Unknown equipment and invalid fields are rejected before any
+output claiming availability.
+
+`BookingAvailability.reasons` collects immutable explanations from the shared
+loan, reservation and fault books in loss/fault/reservation/loan order. It retains
+all matching records rather than hiding later blockers. The existing `conflict`
+method selects the first reason from that same collection, keeping lending,
+renewal, reservation and interval-availability validation on one rule path.
+Exclusion arguments still skip the caller's own reservation or loan. No cached
+status field or new persistence schema is introduced.
+
+The main console supplies the same BookingAvailability instance used by lending.
+Imports replace book contents without replacing their identities, so explanations
+reflect replacement records immediately. Queries do not invoke the saver. Loan
+return dates remain inclusive; overdue outstanding loans block indefinitely;
+losses and unresolved severe faults block every interval. The compact list/find
+labels remain unchanged and are not a substitute for an interval explanation.
+
+`UnavailableReasonCommandsTest` covers simultaneous blockers, identifiers and
+details, exclusion arguments, exact asset matching, cancellation and repair,
+return-day boundaries, indefinite overdue/loss restrictions, local time zones,
+invalid input, restart, import and unchanged saved bytes after queries.

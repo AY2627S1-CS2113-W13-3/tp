@@ -536,6 +536,36 @@ loan history, plus `data/borrowers.properties` for borrower records. Start the
 main JAR or `BorrowerCli` with the corresponding file path on the other computer.
 Files under `build/` are disposable and are removed by Gradle `clean`.
 
+### Explaining unavailable equipment: `why-unavailable`
+
+Use `why-unavailable ASSET_ID` to check one registered unit for today in the
+application's local time zone, or supply both dates to check a future interval:
+
+```text
+why-unavailable OSC-001
+why-unavailable OSC-001 from/2099-01-01 to/2099-01-02
+```
+
+Asset IDs are exact and case-sensitive. `from/` and `to/` may appear in either
+order, once each. Both are required when specifying dates; the start must be
+today or later and the end must be on or after the start. Invalid dates, unknown
+equipment, extra fields and duplicate fields produce an error without changes.
+
+The result shows every applicable reason: loss, each unresolved severe fault
+(with ID, date and description), overlapping reservations (with ID, borrower and
+dates), and overlapping loans (with ID, borrower, due date and return state).
+Multiple reasons can apply simultaneously. Resolved faults, cancelled bookings
+and records for other equipment are excluded. No blockers produces an explicit
+available-throughout-the-interval message.
+
+These are the same inclusive interval rules used by `available` and lending:
+the return day remains occupied, an overdue unreturned loan blocks future dates
+indefinitely, and losses or blocking faults apply regardless of the query dates.
+Consequently `list`/`find` may show a returned unit as available while this query
+explains its occupied return day or a reservation. Use this command for a full
+booking explanation. Queries do not reserve equipment or rewrite saved data.
+Repairs, cancellations, returns and imports are reflected on the next query.
+
 ## Command Summary
 
 | Input | Console | Purpose |
@@ -550,6 +580,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `loan-audit [ASSET_ID]` | Main | View stored borrowing/return events and related corrections |
 | `lost ASSET_ID` | Main | Record a loss while retaining the outstanding loan |
 | `history ASSET_ID` | Main | View equipment records, renewal events and loss reports |
+| `why-unavailable ASSET_ID [from/START to/END]` | Main | Explain all applicable booking blockers |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
 | `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
 | `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a dated history note |

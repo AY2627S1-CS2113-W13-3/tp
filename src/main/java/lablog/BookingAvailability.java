@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 import java.util.List;
 import java.util.Comparator;
+import java.util.ArrayList;
 
 /** Shared interval conflict rules for booking, lending, renewal and availability queries. */
 public class BookingAvailability {
@@ -29,19 +30,28 @@ public class BookingAvailability {
      * Unreturned overdue loans have no known end, so they block future intervals until returned.
      */
     public Optional<String> conflict(String assetId, DateWindow window, String ignoredReservationId, Loan ignoredLoan) {
+        return reasons(assetId, window, ignoredReservationId, ignoredLoan).stream().findFirst();
+    }
+
+    /** Collects all applicable blockers from the shared records, in loss/fault/reservation/loan order. */
+    public List<String> reasons(String assetId, DateWindow window, String ignoredReservationId, Loan ignoredLoan) {
         if (!inventory.containsAssetId(assetId)) {
             throw new IllegalArgumentException("Equipment " + assetId + " was not found.");
         }
+        List<String> reasons = new ArrayList<>();
         if (loans.hasLostLoan(assetId)) {
-            return Optional.of("Equipment " + assetId + " is marked lost and is unavailable.");
+            reasons.add("Equipment " + assetId + " is marked lost and is unavailable.");
         }
-        if (faults.blocksLending(assetId)) {
-            return Optional.of("Equipment " + assetId + " has an unresolved severe fault.");
+        for (Fault fault : faults.getUnresolvedSevereFaults()) {
+            if (fault.getAssetId().equals(assetId)) {
+                reasons.add("Equipment " + assetId + " has an unresolved severe fault. "
+                        + fault.getId() + " reported " + fault.getReportDate() + ": " + fault.getDescription());
+            }
         }
         for (Reservation item : reservations.getReservations()) {
             if (!item.isCancelled() && !item.id().equals(ignoredReservationId) && item.assetId().equals(assetId)
                     && item.window().overlaps(window)) {
-                return Optional.of("Conflicts with reservation " + item.id() + " for " + item.borrowerId()
+                reasons.add("Conflicts with reservation " + item.id() + " for " + item.borrowerId()
                         + " from " + item.window().start() + " through " + item.window().end() + ".");
             }
         }
@@ -54,11 +64,13 @@ public class BookingAvailability {
                 end = LocalDate.MAX;
             }
             if (new DateWindow(loan.getLoanDate(), end).overlaps(window)) {
-                return Optional.of("Conflicts with loan to " + loan.getBorrowerId() + " from " + loan.getLoanDate()
-                        + (end.equals(LocalDate.MAX) ? " (overdue and not returned)." : " through " + end + "."));
+                reasons.add("Conflicts with loan to " + loan.getBorrowerId() + " from " + loan.getLoanDate()
+                        + (end.equals(LocalDate.MAX) ? " (overdue and not returned)." : " through " + end + ".")
+                        + " Loan " + loan.getId() + (loan.isActive() ? "; outstanding; due " + loan.getDueDate()
+                                : "; returned " + loan.getReturnDate()) + ".");
             }
         }
-        return Optional.empty();
+        return List.copyOf(reasons);
     }
 
     /** Distinguishes operational equipment from units unavailable indefinitely through loss or severe faults. */
