@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * Displays a single equipment unit's loan, reservation, fault, and maintenance records.
+ * Displays one unit's loan, renewal, reservation, fault and maintenance records.
  */
 public class HistoryCommands {
     private final Inventory inventory;
@@ -60,7 +60,7 @@ public class HistoryCommands {
 
     /**
      * Builds fresh display entries so subsequent loan returns and source updates appear immediately.
-     * Same-day entries are ordered by type, then description, for consistent output.
+     * Same-day entries are ordered by type, then description; renewals retain their acceptance order.
      */
     private List<HistoryEntry> getHistory(String assetId) {
         List<HistoryEntry> entries = new ArrayList<>();
@@ -73,6 +73,11 @@ public class HistoryCommands {
                             ? "; no faults reported on return" : "; faults: " + loan.getReturnFaults();
                 }
                 entries.add(new HistoryEntry(assetId, loan.getLoanDate(), HistoryEntry.Type.LOAN, details));
+                for (LoanRenewal event : loan.getRenewals()) {
+                    entries.add(new HistoryEntry(assetId, event.date(), HistoryEntry.Type.RENEWAL,
+                            "Borrower " + loan.getBorrowerId() + "; due changed from "
+                                    + event.previousDueDate() + " to " + event.newDueDate()));
+                }
             }
         }
         for (HistoryEntry entry : otherHistory.get()) {
@@ -81,7 +86,8 @@ public class HistoryCommands {
             }
         }
         entries.sort(Comparator.comparing(HistoryEntry::getDate)
-                .thenComparing(HistoryEntry::getType).thenComparing(HistoryEntry::getDescription));
+                .thenComparing(HistoryEntry::getType)
+                .thenComparing(entry -> entry.getType() == HistoryEntry.Type.RENEWAL ? "" : entry.getDescription()));
         return entries;
     }
 }

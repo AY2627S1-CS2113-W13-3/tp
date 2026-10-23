@@ -22,6 +22,7 @@ public class LabLog {
     private final HistoryCommands history;
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
+    private final RenewCommands renewals;
     private final HelpCommands help = new HelpCommands();
     /** Present only for persistent CLI sessions; injected test sessions remain in memory. */
     private Path dataFile;
@@ -114,6 +115,7 @@ public class LabLog {
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers, faults,
                 reservations.getAvailability());
+        this.renewals = new RenewCommands(loans, reservations.getAvailability(), clock);
         this.borrowerCommands = new BorrowerCommands(borrowers, loans,
                 assetId -> inventory.getEquipmentUnits().stream()
                         .filter(unit -> unit.getAssetId().equals(assetId)).map(Equipment::getName)
@@ -275,7 +277,7 @@ public class LabLog {
     }
 
     /**
-     * Accepts equipment add/copy, help, loan, history or return commands, or exit at the
+     * Accepts equipment add/copy, help, loan, renew, history or return commands, or exit at the
      * initial prompt.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
@@ -409,7 +411,7 @@ public class LabLog {
                 }
                 continue;
             }
-            if (command.equals("history") || command.equals("return") || command.equals("loan")) {
+            if (List.of("history", "return", "loan", "renew").contains(command)) {
                 try {
                     String result = executeRecordCommand(command, input);
                     if (!command.equals("history") && !saveChanges(output)) {
@@ -490,7 +492,7 @@ public class LabLog {
      */
     private String executeRecordCommand(String command, String input) {
         // Only the record-command branch in run should call this helper.
-        assert List.of("history", "return", "loan").contains(command) : "Unexpected record command";
+        assert List.of("history", "return", "loan", "renew").contains(command) : "Unexpected record command";
         switch (command) {
         case "history":
             return history.execute(input);
@@ -498,6 +500,8 @@ public class LabLog {
             return returns.execute(input);
         case "loan":
             return loanCommands.execute(input);
+        case "renew":
+            return renewals.execute(input);
         default:
             throw new IllegalArgumentException("Unknown command: " + command);
         }

@@ -12,7 +12,7 @@ executable JAR. See `build.gradle` for dependency versions.
 
 The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
 or the optional command-line file path. It stores equipment, borrowers, loans,
-notes, structured faults and repairs in one format-8 UTF-8 properties snapshot. Save to a temporary file
+notes, structured faults and repairs in one format-9 UTF-8 properties snapshot. Save to a temporary file
 in the destination directory, then atomically replace the snapshot before
 printing success. Unsupported atomic replacement is reported as a save failure;
 there is no non-atomic fallback. Save failure stops the session to avoid further
@@ -25,7 +25,7 @@ overwritten. This store assumes one application process owns a data file;
 concurrent writers are not supported.
 
 `LabLog` is the Gradle application entry point. It routes equipment registration
-and copying, listing, active loans, history notes, help, loan, history, return,
+and copying, listing, active loans, history notes, help, loan, renew, history, return,
 and borrower commands to their handlers. The prompted and single-line equipment
 registration forms both validate before storing. Borrower commands share the
 main console's inventory and loan book. Borrowers are part of the complete
@@ -141,6 +141,69 @@ active-loan and overdue-only rules together. Empty results distinguish
 due-date and asset-ID ordering, time-zone boundaries, live returns, syntax errors,
 CLI recovery, and unchanged persisted records after loading. Help tests execute
 both documented examples against the handler.
+
+### Renewing active loans (issue #73)
+
+`RenewCommands` parses `renew ASSET_ID d/YYYY-MM-DD`, resolves an active loan
+from the shared `LoanBook`, and reads today's local date once from its injected
+`Clock`. The new deadline must be strictly later than the current one and no
+earlier than today. Overdue loans can therefore be renewed to today. The handler
+calls `BookingAvailability.requireAvailable` with the full proposed loan period
+and the original `Loan` as `ignoredLoan`. All other records and unresolved severe
+faults still apply; inclusive reservation endpoints conflict even for the same
+borrower. No deadline or event changes before validation succeeds.
+
+`Loan.renew` validates domain dates again, appends an immutable `LoanRenewal`
+containing the renewal date and previous/new deadlines, then updates the current
+deadline. Events retain acceptance order, including multiple changes on one day.
+The borrower and issue date remain unchanged. Return validation also rejects a
+return before the latest renewal. `HistoryCommands` derives `RENEWAL` rows from
+these events, preserving same-day event order. Current loan listings read the
+updated deadline from the same loan object.
+
+**Design choice:** Keep structured events within their owning loan. This avoids
+ambiguity when the same asset is returned and lent again, even on the same day.
+An immutable list snapshot prevents callers from changing earlier events.
+Storing only a display note or overwriting the deadline would lose the typed
+old/new values needed to inspect and validate the change. This is a renewal
+history model; the general borrowing/return correction audit is separate work.
+
+`LoanRenewalCodec` adds `loan.N.originalDue`, `loan.N.renewal.count`, and indexed
+`date`, `previousDue`, `newDue` fields in snapshot format 9. Decode replays each
+chain from its original deadline and verifies the final value equals `loan.N.due`.
+It rejects missing or unknown fields, invalid counts, backward dates, broken
+chains, shortened deadlines, and returns preceding renewals. Formats 2-8 load
+with no fabricated renewal events. Complete saves, exports and replacement imports
+preserve every event, including events on returned loans.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant App as LabLog
+    participant Renew as RenewCommands
+    participant Policy as BookingAvailability
+    participant Loan
+    User->>App: renew OSC-001 d/2026-11-05
+    App->>Renew: execute(input)
+    Renew->>Policy: requireAvailable(full period, ignoredLoan)
+    Policy-->>Renew: No conflict
+    Renew->>Loan: renew(newDue, today)
+    Loan->>Loan: Append event and update deadline
+    Renew-->>App: Confirmation
+    App->>App: Save complete snapshot
+    App-->>User: Print confirmation after save succeeds
+```
+
+Syntax, date and conflict failures leave both state and events unchanged. As with
+loan/return commands, a storage failure occurs after the in-memory update: the
+previous file remains intact, success is suppressed and the session stops.
+Restart reloads the previous saved state; no in-memory rollback is claimed.
+
+`RenewCommandsTest` and `LoanRenewalTest` use assertions and fixed clocks for
+successive changes, overdue/local-date boundaries, inactive loans, invalid input,
+reservation endpoints, severe faults, self-exclusion and history ordering.
+`RenewalPersistenceTest` covers restart/export/import, legacy migration, corrupt
+chains, return retention, unchanged files after rejection, and failed saves.
 
 ### Equipment returns
 
@@ -396,9 +459,10 @@ structured unresolved severe faults block new loans.
 * **Alternative: Read each feature's model directly.** This gives direct access
   to its details, but adds dependencies whenever new record types are introduced.
 
-History summarises current records; it is not an immutable audit trail of every
-change. Rebuilding entries makes updated details visible, but does not preserve
-previous versions of those details.
+History summarises current records and adds immutable renewal events. It is not
+a complete audit trail of every borrowing/return change. Rebuilding ordinary
+entries makes updated details visible without preserving all previous versions;
+renewal entries explicitly retain each previous and new deadline.
 
 #### Testing
 
@@ -426,6 +490,7 @@ returns, and lookups.
 |v1.0|laboratory technician|register borrowers|retain validated contact details|
 |v1.0|laboratory technician|view active loans and equipment history|track who has equipment and its past loans|
 |v1.0|laboratory technician|record returns and reported damage|close loans while retaining their history|
+|v2.0|laboratory technician|renew active loans while retaining deadline changes|extend borrowing without losing renewal history|
 |v2.0|laboratory technician|return multiple equipment units in one operation|process a group of returns without repeating the command|
 
 ## Non-Functional Requirements
@@ -537,10 +602,10 @@ unchanged loan objects, restart persistence, invalid fields, and failed saves.
 ## Versioned export schema (issue #90)
 
 ApplicationSnapshot captures the supported object graph and uses LabLogStore's
-equipment/loan serializer. UTF-8 properties format 8 retains borrower.count and
-note.count with indexed fields. audit.count is explicitly zero until an audit
-domain schema exists. The codec validates references and dates before writing
-a temporary file and atomically replacing its destination. The export command
+equipment/loan serializer. UTF-8 properties format 9 retains borrower.count and
+note.count with indexed fields and adds structured renewal chains within each loan.
+audit.count remains zero; a general borrowing/return audit schema is not yet
+supported. The codec validates references and dates before writing a temporary file and atomically replacing its destination. The export command
 requires a new file and protects the active data paths.
 
 Integration contract for domain owners: add full serialization, validation and
@@ -550,7 +615,7 @@ Import and envelope validation use the same codec as export.
 
 ## Import and single-file persistence (issue #91)
 
-LabLog.load reads complete formats 2 through 8 into detached books, or loads the legacy two-file
+LabLog.load reads complete formats 2 through 9 into detached books, or loads the legacy two-file
 installation without writing during startup. Main-console mutations persist
 one ApplicationSnapshot. BorrowerBook's Saver writes proposed contacts with
 the other current records before publishing the edit.
@@ -659,7 +724,7 @@ Live and export format 4 adds required `fault.N.severity` enum names. Live
 formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
 migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
 unknown severity in format 4 or later is corruption, not a migration default.
-The current writer uses format 8 as described below.
+The current writer uses format 9, retaining renewal events as described above.
 
 `FaultSeverityTest` covers all levels, description validation, immutable overview
 results, affected-unit isolation, date boundaries, reports during active loans,
@@ -722,7 +787,7 @@ adds the shared conflict policy without changing the interval contract.
 ## Shared conflict policy (issue #79)
 
 BookingAvailability.conflict/requireAvailable is the shared public boundary for
-reservations, loans, future renewal handlers and interval queries. All intervals
+reservations, loans, RenewCommands and interval queries. All intervals
 are inclusive. A renewal caller passes its original Loan as ignoredLoan and the
 proposed full loan period; an edit passes only its own reservation ID. Other
 records are still checked. Main-console LoanCommands is wired to this policy.
@@ -781,8 +846,8 @@ feature intentionally has no automatic allocation or request removal command.
 ApplicationSnapshot format 8 adds waiting.count and indexed id, borrower,
 category, from and to fields. Formats 2-7 decode with empty waiting lists. Schema
 history: 3 introduced faults, 4 severity, 5 repairs, 6 reservations, 7 cancellation,
-8 waiting demand. Every current save/export writes format 8 and retains all these
-records. Unknown fields and missing required fields remain errors.
+8 waiting demand, 9 loan renewal chains. Every current save/export writes format 9
+and retains all these records. Unknown fields and missing required fields remain errors.
 
 WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,
 loan and reservation capacity, failed persistence, independent waiting state,

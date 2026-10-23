@@ -10,7 +10,7 @@ import java.util.Objects;
 public class HistoryEntry {
     /** Identifies the feature that owns a history record. */
     public enum Type {
-        LOAN, RESERVATION, FAULT, MAINTENANCE
+        LOAN, RESERVATION, FAULT, MAINTENANCE, RENEWAL
     }
 
     private final String assetId;
@@ -19,10 +19,10 @@ public class HistoryEntry {
     private final String description;
 
     /**
-     * Creates an entry using the record's start or report date and its current details.
+     * Creates an entry using the record's start, report or event date and its details.
      *
      * @param assetId equipment identifier, matched exactly and case-sensitively
-     * @param date loan date, reservation start date, fault report date, or maintenance date
+     * @param date loan date, reservation start date, fault report date, maintenance date or renewal date
      * @param type feature that owns the record
      * @param description single-line details, including status and end dates where applicable
      * @throws IllegalArgumentException if the identifier or description is blank or contains control characters
