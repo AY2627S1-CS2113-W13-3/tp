@@ -12,7 +12,8 @@ executable JAR. See `build.gradle` for dependency versions.
 
 The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
 or the optional command-line file path. It stores equipment, borrowers, loans,
-notes, structured faults and repairs in one format-11 UTF-8 properties snapshot. Save to a temporary file
+notes, faults, repairs, reservations, waiting requests, renewals, losses and loan
+audit events in one format-11 UTF-8 properties snapshot. Save to a temporary file
 in the destination directory, then atomically replace the snapshot before
 printing success. Unsupported atomic replacement is reported as a save failure;
 there is no non-atomic fallback. Save failure stops the session to avoid further
@@ -33,7 +34,8 @@ snapshot; in-memory constructors remain available for tests.
 
 `BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
 and an initially empty `LoanBook`. `BorrowerCommands` handles registration,
-loan listings, and help. The main application wires those handlers to shared
+contact edits, loan listings, and help. Both consoles also support session-only
+command recall through `CommandHistory`. The main application wires those handlers to shared
 books; [borrower implementation notes](BorrowerImplementation.md) document the
 standalone console and original integration increment.
 
@@ -212,8 +214,9 @@ sequenceDiagram
     end
 ```
 
-**Lost loans remain active** until returned and appear with status `LOST`; other
-active rows show `On loan`. This keeps unresolved borrower responsibility visible.
+**Lost loans remain outstanding** and appear with status `LOST`; other
+active rows show `On loan`. This keeps unresolved borrower responsibility visible. Ordinary return and
+renewal commands reject lost loans; no recovery command is implemented.
 A due date before today is overdue; a loan due today is not. Injecting `Clock`
 makes this rule testable at local-date boundaries without changing the machine's
 clock. The injected equipment-name function avoids coupling the handler to the
@@ -240,8 +243,10 @@ not provide locking or prevent lost updates between concurrent processes.
 
 #### Failure handling, tests, and integration boundary
 
-The CLI catches `IllegalArgumentException` for invalid commands and `IOException`
-for save failures, prints an error, and continues accepting input. Startup load
+The standalone borrower CLI catches `IllegalArgumentException` for invalid
+commands and `IOException` for save failures, prints an error, and continues
+accepting input. The main console stops on a save failure to avoid further
+unsaved changes. Startup load
 errors stop the console because proceeding with an empty book could conceal
 existing data. Success is printed only after `addBorrower` returns.
 
@@ -1056,7 +1061,7 @@ failure policy; the previous saved data remains unchanged.
 
 Format 3 introduced `fault.count` and indexed `fault.N.id`, `asset`, `date`
 and `description` fields; formats 4 and 5 extend these records below. The current
-writer always saves one complete format-8 snapshot, including borrowers and notes.
+writer always saves one complete format-11 snapshot, including borrowers and notes.
 Legacy split-file installations migrate on save. Imports replace the existing
 shared fault book, so all handlers see replacement faults immediately.
 Derived fault history is excluded from exported notes to prevent duplication.
@@ -1218,3 +1223,20 @@ WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,
 loan and reservation capacity, failed persistence, independent waiting state,
 restart/export/import, corrupt records and format-7 migration. The full Java 25
 suite also verifies older migration paths and all previous booking features.
+
+## Current integration limits and packaged verification
+
+Equipment list/find labels use loan, loss and severe-fault records but do not
+yet consult reservations. BookingAvailability performs the complete interval
+check used by lending, renewal, reservations and the available command.
+The User Guide documents this distinction; do not treat the list label as a
+booking guarantee. Partial-text search, the daily combined overview, correction
+commands and lost-equipment recovery are not implemented.
+
+The packaged CLI runner exercises all command-help entries and a combined
+batch-loan, renewal, loss, return-audit, reservation, waiting-request and
+fault-repair workflow. It exports to a path containing spaces, imports into a
+new file and compares the queried records across fresh Java processes. It also
+checks that read-only queries do not rewrite the source snapshot. Run it after
+the shadowJar task; Gradle check and CI currently run JUnit/Checkstyle only.
+See the [verification report](../test/verification-report.md) for the checked revision and results.

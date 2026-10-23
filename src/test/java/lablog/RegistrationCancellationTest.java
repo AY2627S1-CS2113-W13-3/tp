@@ -21,7 +21,7 @@ class RegistrationCancellationTest {
                     + "help\nadd SAVED\nScope\nElectronics\nS1\nLab\nexit\n";
             new LabLog(inventory, new LoanBook(), List::of).run(new Scanner(input), new PrintStream(output));
             assertTrue(output.toString().contains("registration cancelled"));
-            assertTrue(output.toString().contains("Common Version 1 commands:"));
+            assertTrue(output.toString().contains("LabLog commands:"));
             assertEquals(1, inventory.getEquipmentUnits().size());
             assertEquals("SAVED", inventory.getEquipmentUnits().get(0).getAssetId());
         }

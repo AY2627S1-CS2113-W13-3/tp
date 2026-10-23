@@ -3,8 +3,8 @@
 ## Introduction
 
 LabLog helps laboratory technicians manage loanable electronics equipment and
-borrowers. The main console shares equipment, loans, and borrowers for registration,
-lending, returns, and loan lookups. A standalone borrower console remains available.
+borrowers. The main console shares equipment, borrowers, loans, reservations,
+waiting requests, faults, repairs and audit records across its commands. A standalone borrower console remains available.
 Both provide command help and examples.
 
 ## Quick Start
@@ -33,8 +33,9 @@ Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or C
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
-The main console saves equipment, loans, return dates, return faults and structured fault reports
-in `data/lablog.properties` after each successful change. It reloads them on
+The main console saves all equipment, borrower, loan, renewal, loss, audit,
+reservation, waiting-request, fault, repair and history-note records together
+in `data/lablog.properties` (snapshot format 11) after successful changes. It reloads them on
 startup. To select another file, run
 `java -jar build/libs/lablog.jar PATH/TO/lablog.properties`.
 A missing file starts a new collection. Invalid existing data stops startup
@@ -267,7 +268,7 @@ commands.
 
 Format: `help [COMMAND]`
 
-Enter `help` for the concise Version 1 command list, or supply one command name
+Enter `help` for the concise LabLog command list, or supply one command name
 to see its syntax, fields, and explained usage examples. Help is available in both consoles
 and does not change records. Command names are case-sensitive; unknown names
 and extra arguments produce an error and let you try again.
@@ -524,16 +525,31 @@ produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
 Use `loan-audit [ASSET_ID]` for the separate borrowing/return event log.
 The application combines loan history with notes recorded through `reservation`,
-`fault`, and `maintenance`. Fault records survive restarts; reservation and
-maintenance notes last only for the session.
+`fault`, and `maintenance`. These records and notes survive restarts and are
+included in snapshot exports. Only command recall history is session-only.
+
+## Current limitations
+
+- `list` and `find` derive their labels from loans, losses and severe faults;
+  they do not yet account for structured reservations. Use `available from/START
+  to/END` to check bookings for the entire intended interval before lending.
+- Partial-text equipment search and a combined daily operational overview are
+  not implemented.
+- `loan-audit` displays stored events, including supported correction records,
+  but there is no command to reverse an erroneous loan or return.
+- There is no lost-equipment recovery or automatic waiting-request allocation.
 
 ## FAQ
 
 **Q**: How do I transfer my data to another computer? 
 
-**A**: Close both consoles and copy `data/lablog.properties` for equipment and
-loan history, plus `data/borrowers.properties` for borrower records. Start the
-main JAR or `BorrowerCli` with the corresponding file path on the other computer.
+**A**: Export a snapshot with `export FILE`, or close the main console and copy
+its configured `data/lablog.properties` file. That single file includes borrowers
+and all main-console records. Start the main JAR with that path on the other
+computer, or use `import FILE --replace` to replace an existing collection.
+If you use the standalone `BorrowerCli` separately, close it and copy its own
+borrower file too; it is independent of the current main snapshot. The sibling
+borrower file is used by the main console only when migrating legacy split-file data.
 Files under `build/` are disposable and are removed by Gradle `clean`.
 
 ## Command Summary
@@ -555,7 +571,21 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a dated history note |
 | `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
 | `repair FAULT_ID d/DATE desc/DETAILS` | Main | Resolve a fault and retain its repair history |
-| `exit` | Main | End the session |
+| `edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]` | Main | Edit descriptive fields |
+| `move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION` | Main | Move selected units together |
+| `find ASSET_ID` | Main | Look up one exact asset ID |
+| `reserve ASSET_ID b/USER from/START to/END` | Main | Create a reservation |
+| `reservations` | Main | List bookings and their IDs |
+| `edit-reservation ID [b/USER] [from/START] [to/END]` | Main | Edit a booking |
+| `cancel-reservation ID reason/TEXT` | Main | Cancel and retain its history |
+| `available from/START to/END [category/CATEGORY]` | Main | Query the full requested interval |
+| `wait-request b/USER category/CATEGORY from/START to/END` | Main | Record unallocated demand |
+| `waiting-requests` | Main | List waiting demand |
+| `edit-borrower ID [n/NAME] [p/PHONE] [e/EMAIL]` | Both | Edit contacts |
+| `export FILE` | Main | Save a snapshot to a new file |
+| `import FILE --replace` | Main | Validate and replace all records |
+| `commands` / `recall INDEX` | Both | Display recent input without executing it |
+| `exit` | Both | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
 | `loans BORROWER_ID` | Both | List a registered borrower's active loans |
 
