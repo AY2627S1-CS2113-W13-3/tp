@@ -96,27 +96,46 @@ integration, and unchanged records/files when viewing help. `LabLogTest` checks
 that unavailable commands and invalid initial input do not consume subsequent
 commands as equipment details.
 
-### Issuing loans
+### Issuing single and batch loans (issue #71)
 
 `LoanCommands` receives the shared inventory, loan book, and a `Clock`.
-`loan ASSET_ID b/BORROWER_ID d/DUE_DATE` accepts the two prefixes in either
-order, once each. It checks the syntax, that the unit is registered, that the
-borrower ID is a single token, that the due date parses and is not in the past,
-and last that the unit has no active loan. The record is stored only after every
-check passes, so a rejected command never leaves a partial loan.
+`loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` accepts one or more
+whitespace-separated IDs, followed by both prefixes once each in either order.
+`readAssetIds` preserves selection order in a list and rejects duplicates using
+a set. The command reads today's local date once, checks all equipment references,
+validates the borrower and due date, and checks every selected unit's availability.
 
-Availability is derived from `LoanBook.findActiveLoan` rather than a status field
-on `Equipment`, so one place decides which units are out. The refusal names the
-current borrower and due date, which is why the lookup returns the loan itself
-rather than a boolean.
+Active-loan checks use `LoanBook.findActiveLoan`, retaining the warning naming
+the current borrower and due date. `FaultBook` rejects unresolved severe faults.
+The main console also supplies `BookingAvailability`, which applies the shared
+inclusive interval checks to reservations and historical loan occupancy. A
+reservation touching the due date is a conflict, including for the same borrower.
 
 `LabLog` supplies its shared `BorrowerBook` to `LoanCommands`, which rejects
 unregistered borrowers before recording a loan. The three-argument handler
 constructor remains available to standalone callers with their own validation.
 
-`LoanCommandsTest` covers the accepted command, prefix order, due dates at and
-before today, malformed dates, missing and repeated fields, unknown equipment,
-the refusal for a unit already out, and lending again after a return.
+Only after every check passes does the handler construct the complete list of
+new `Loan` objects and add them to the shared book. Every loan receives the same
+borrower, loan date, and due date. Single-unit confirmations retain the equipment
+name; batch confirmations list all selected IDs in input order.
+
+This two-phase approach gives validation atomicity: invalid input or an
+unavailable later selection creates no partial batch. Repeatedly calling the
+single-unit command would publish earlier loans before discovering a later
+failure. Existing loans and return details are retained as separate records.
+
+The existing CLI saves the complete snapshot once after the command returns and
+prints confirmation only after saving succeeds. On a storage failure the old
+saved snapshot remains intact and the session stops; the valid new loans have
+already been added in memory, with no in-memory rollback. This differs from
+validation failure, which never changes the shared loan book.
+
+`LoanCommandsTest` covers single and batch success, prefix and selection order,
+duplicates, date and time-zone boundaries, registered borrowers, and later-unit
+failures for unknown equipment, active loans, severe faults, and reservations.
+Help tests execute both examples. Storage tests verify shared consumer views
+after restart and unchanged snapshot bytes when a batch is rejected.
 
 ### Active and overdue loan listings (issue #74)
 
