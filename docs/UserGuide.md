@@ -269,16 +269,12 @@ to see its syntax, fields, and explained usage examples. Help is available in bo
 and does not change records. Command names are case-sensitive; unknown names
 and extra arguments produce an error and let you try again.
 
-For example, `help loan` displays:
+For example, `help loan` includes the following format and examples:
 
 ```text
-Issue a loan for an available equipment item.
-Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE
+Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE
 Example: loan OSC-001 b/A0123456X d/2026-09-18
-  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.
-  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.
-Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives the due date in YYYY-MM-DD format.
-The main console checks borrower IDs against registered borrowers before lending.
+Example: loan OSC-001 MIC-002 b/A0123456X d/2026-09-18
 ```
 
 Detailed help covers `add`, `copy`, `edit-equipment`, `move-equipment`, history-note commands,
@@ -306,19 +302,25 @@ Lines beginning with `Example:` contain commands you can type; the indented line
 explain their outcomes. Viewing an example never executes it. Replace sample IDs,
 contact details, and dates with your own when entering a command.
 
-### Issuing a loan: `loan`
+### Issuing one or more loans: `loan`
 
-At the initial prompt, enter `loan ASSET_ID b/BORROWER_ID d/DUE_DATE`:
+At the initial prompt, enter
+`loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE`:
 
 ```text
 loan OSC-001 b/A0123456X d/2026-10-30
+loan OSC-001 MIC-002 b/A0123456X d/2026-10-30
 ```
 
-LabLog confirms `Loaned OSC-001 (Oscilloscope) to A0123456X on 2026-10-13. Due
-2026-10-30.` The loan date is today's date according to the computer's clock and
-local time zone. The due date uses `YYYY-MM-DD` and must not be earlier than
-today. Both `b/` and `d/` are required exactly once and may appear in either
-order. Asset IDs are case-sensitive.
+These are alternative examples: use one unit or select several distinct units
+separated by spaces. All selected units share the borrower, loan date, and due
+date. A batch confirmation lists every selected asset ID, for example:
+`Loaned OSC-001, MIC-002 to A0123456X on 2026-10-23. Due 2026-10-30.`
+
+The loan date is today's date according to the computer's clock and local time
+zone. The due date uses `YYYY-MM-DD` and must not be earlier than today. Both
+`b/` and `d/` are required exactly once and may appear in either order after the
+asset IDs. Asset IDs are case-sensitive; repeated IDs are rejected.
 
 The equipment must be registered and must not already be out. Unknown equipment,
 malformed or past due dates, and missing, repeated, or unknown prefixes are
@@ -327,10 +329,22 @@ a message naming the current borrower and due date, so the same unit cannot be
 lent twice. Unresolved severe faults also prevent new loans, including after a
 return. Minor, moderate and unspecified faults do not block lending.
 
+The inclusive period from the loan date through its due date must also pass
+the shared booking checks. A reservation overlapping even the due date blocks
+the loan, including reservations made for the same borrower. Historical loans
+are checked using the existing shared availability policy.
+
+LabLog validates the entire selection before adding any loan. If any unit,
+borrower, date, or field is invalid, no loans from that command are recorded.
+In particular, an unavailable unit later in the selection does not cause the
+earlier units to be lent out. Existing loans and their history remain intact.
+
 Borrower IDs must already exist in the shared borrower book. The main console
-rejects unknown borrower IDs. Equipment and loan history are saved in the
-configured LabLog file; borrower records are saved in the sibling
-`borrowers.properties` file. Both are reloaded on restart.
+rejects unknown borrower IDs. A successful batch is saved once, together with
+equipment, borrowers, and loan history, in the complete LabLog snapshot and is
+reloaded on restart. If saving fails, the session stops and the previous saved
+snapshot remains available; restart after fixing file access, as described in
+Quick Start.
 
 ### Renewing an active loan: `renew`
 
@@ -445,7 +459,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
 | `list` | Main | List equipment and availability |
 | `active-loans [overdue]` | Main | List all active loans or only overdue loans |
-| `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
+| `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |
 | `renew ASSET_ID d/YYYY-MM-DD` | Main | Extend an active loan and retain the change |
 | `history ASSET_ID` | Main | View equipment records and renewal events |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |

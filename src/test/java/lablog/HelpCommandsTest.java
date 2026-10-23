@@ -95,11 +95,45 @@ class HelpCommandsTest {
         String detail = help.execute("  help\tloan  ");
         assertTrue(detail.startsWith("\n" + ".".repeat(60) + "\n"));
         assertTrue(detail.endsWith("\n" + ".".repeat(60) + "\n"));
-        assertTrue(detail.contains("Issue a loan for an available equipment item.\n"
-                + "Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE\n"
+        assertTrue(detail.contains("Issue loans for one or more available equipment units.\n"
+                + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
                 + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));
         assertTrue(detail.contains("Register the borrower with add-borrower"));
+    }
+
+    @Test
+    void execute_loanExamples_supportSingleAndBatchWithRegisteredBorrower() throws Exception {
+        String detail = help.execute("help loan");
+        assertTrue(detail.contains("an invalid batch records no loans"));
+        assertTrue(detail.contains("distinct, case-sensitive asset IDs"));
+        Clock clock = Clock.fixed(Instant.parse("2026-09-10T12:00:00Z"), ZoneOffset.UTC);
+        int count = 0;
+        for (String line : detail.split("\n")) {
+            if (!line.startsWith("Example: ")) {
+                continue;
+            }
+            String example = line.substring(9);
+            Inventory inventory = new Inventory();
+            inventory.addEquipment(new Equipment("OSC-001", "Scope", "Electronics", "S1", "Lab A"));
+            inventory.addEquipment(new Equipment("MIC-002", "Microscope", "Optics", "M2", "Lab B"));
+            LoanBook loans = new LoanBook();
+            BorrowerBook borrowers = new BorrowerBook();
+            borrowers.addBorrower(new Borrower("A0123456X", "Jamie", "91234567", "jamie@u.nus.edu"));
+
+            new LoanCommands(inventory, loans, clock, borrowers).execute(example);
+
+            assertEquals(example.contains("MIC-002") ? List.of("OSC-001", "MIC-002") : List.of("OSC-001"),
+                    loans.getLoans().stream().map(Loan::getAssetId).toList());
+            for (Loan loan : loans.getLoans()) {
+                assertEquals("A0123456X", loan.getBorrowerId());
+                assertEquals(LocalDate.of(2026, 9, 10), loan.getLoanDate());
+                assertEquals(LocalDate.of(2026, 9, 18), loan.getDueDate());
+                assertTrue(loan.isActive());
+            }
+            count++;
+        }
+        assertEquals(2, count);
     }
 
     @Test

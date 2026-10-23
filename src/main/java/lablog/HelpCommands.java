@@ -25,7 +25,7 @@ public class HelpCommands {
             + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
             + "active-loans [overdue] - List all active loans or only overdue loans (main console).\n"
-            + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
+            + "loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE - Issue one or more loans (main console).\n"
             + "renew ASSET_ID d/DUE_DATE - Extend an active loan and retain the change (main console).\n"
             + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
             + "return ASSET_ID ASSET_ID ... - Return multiple units (no faults/, main console).\n"
@@ -220,15 +220,20 @@ public class HelpCommands {
                     + "  Show return examples with and without reported faults.\n"
                     + "Fields: COMMAND is optional; omit it for the concise list.";
         case "loan":
-            return "Issue a loan for an available equipment item.\n"
-                    + "Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE\n"
+            return "Issue loans for one or more available equipment units.\n"
+                    + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
                     + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"
                     + "  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.\n"
                     + "  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.\n"
-                    + "Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; "
+                    + "Example: loan OSC-001 MIC-002 b/A0123456X d/2026-09-18\n"
+                    + "  Lend both selected units to the same borrower with the same dates.\n"
+                    + "Fields: Supply one or more distinct, case-sensitive asset IDs separated by spaces; "
+                    + "b/ identifies the borrower; "
                     + "d/ gives the due date in YYYY-MM-DD format.\n"
                     + "Register the borrower with add-borrower before issuing a loan.\n"
-                    + "The inclusive loan interval must not overlap a reservation, including your own.";
+                    + "The inclusive loan interval must not overlap a reservation, including your own.\n"
+                    + "Every unit must be registered, not on loan, and free of unresolved severe faults.\n"
+                    + "Validate every selection before adding loans; an invalid batch records no loans.";
         case "return":
             return "Return one or more equipment units on today's date (main console).\n"
                     + "Format: return ASSET_ID [faults/DESCRIPTION] (single unit)\n"
