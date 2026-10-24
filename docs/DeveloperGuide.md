@@ -287,15 +287,18 @@ sorts a copy of the matching units, so neither filtering nor sorting changes
 inventory order or stored records. All options are validated before returning
 an empty result, including when the inventory is empty.
 
-Status follows shared records: losses produce `lost`, other active loans `on-loan`;
-`available` requires neither an active loan nor an unresolved severe fault.
-Display-only reservation and legacy fault notes do not block loans. Filtering,
-sorting and display read the current loan and fault books rather than cached status.
+Status is the equipment's current operational status, not its availability for
+a requested date range. The precedence is `lost`, `on-loan`, `unavailable`,
+then `available`: a lost loan yields `lost`; otherwise an active loan yields
+`on-loan`; otherwise an unresolved severe fault yields `unavailable`; all
+remaining units are `available`. The listing reads the live loan and fault
+books. Actual reservations block loans for overlapping date ranges but do not
+change this undated status; display-only history notes do not participate in
+booking checks.
 
 `EquipmentListCommandsTest` covers each filter, case-insensitive field values,
 combined filters and sorting, option ordering, unchanged inventory order,
-status changes, invalid inputs, no matches, and the fact that
-reservation and fault notes do not change loan-derived status.
+status changes, invalid inputs, no matches, and severe-fault status filtering.
 
 ### Copying equipment
 
@@ -631,7 +634,9 @@ query excludes losses and severe faults from waiting-request capacity. Existing
 reservations remain historical/operational records and are not auto-cancelled.
 
 Equipment list/find display `Lost`; the equipment status filter accepts `lost`
-and excludes it from `on-loan` and `available`. Active-loan and borrower-loan
+and excludes it from `on-loan` and `available`. Severe faults use the
+`unavailable` status; `available` excludes both lost and severely faulted units.
+Active-loan and borrower-loan
 views keep the record and mark it `LOST`. Overdue-only filtering still depends
 on the due date, with `LOST` taking precedence in the displayed status. Borrower
 rows now have a separate Status column alongside Overdue. History retains the
@@ -1119,7 +1124,7 @@ after editing a recalled command.
 
 ### Sorting filtered equipment
 
-Use `list [category/VALUE] [location/VALUE] [status/available|on-loan|lost] [sort/FIELD]`.
+Use `list [category/VALUE] [location/VALUE] [status/available|on-loan|unavailable|lost] [sort/FIELD]`.
 Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
 `name`, `category`, `model`, `location`, and `availability`. For example,
 `list category/Electronics sort/name` sorts only matching units. Comparisons
