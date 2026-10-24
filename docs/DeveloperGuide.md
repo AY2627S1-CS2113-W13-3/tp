@@ -297,6 +297,18 @@ combined filters and sorting, option ordering, unchanged inventory order,
 status changes, invalid inputs, no matches, and the fact that
 reservation and fault notes do not change loan-derived status.
 
+### Equipment search (issue #68)
+
+`EquipmentSearchCommands` searches the shared inventory for case-insensitive
+substring matches in equipment names and models. It normalizes whitespace in
+the query and fields, preserves inventory order, and displays availability from
+the shared loan and fault books. Empty inventories and no matches have clear
+messages. The command is read-only; it does not persist or alter records.
+
+`EquipmentSearchCommandsTest` covers name and model matches, partial phrases,
+case and whitespace handling, empty and unmatched results, invalid input,
+console dispatch, and unchanged equipment and loan records.
+
 ### Copying equipment
 
 `EquipmentCopyCommands` finds the source by its exact asset ID, rejects unknown

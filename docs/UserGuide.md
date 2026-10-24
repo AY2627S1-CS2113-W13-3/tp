@@ -143,6 +143,18 @@ location, and current availability. For example, `find OSC-001` performs an
 exact, case-sensitive lookup. Unknown IDs produce an error, and the lookup does
 not change equipment or loan records.
 
+### Searching equipment by name or model: `search`
+
+Enter `search TEXT` to find equipment whose name or model contains the supplied
+text. Matching ignores case and collapses repeated spaces, so `search scope`
+matches both `Digital Oscilloscope` and a model such as `ScopeMate`. Results
+remain in inventory order and show current availability. Search only checks
+names and models; it does not search asset IDs, categories, or locations.
+
+An empty inventory reports `No equipment registered.` No matches reports the
+query that was searched. Search is read-only and does not change inventory or
+saved records.
+
 ### Recording equipment history notes
 
 Use `reservation ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION`, `fault` with the same
