@@ -44,6 +44,6 @@ class EquipmentValidationTest {
         assertEquals(1, inventory.getEquipmentUnits().size());
         assertEquals("GOOD", inventory.getEquipmentUnits().get(0).getAssetId());
         assertTrue(output.toString().contains("already exists"));
-        assertTrue(output.toString().contains("Common Version 1 commands:"));
+        assertTrue(output.toString().contains("LabLog commands:"));
     }
 }

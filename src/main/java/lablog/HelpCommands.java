@@ -7,11 +7,12 @@ public class HelpCommands {
     /** Records help requests at FINE level without including raw user input. */
     private static final Logger LOGGER = Logger.getLogger(HelpCommands.class.getName());
     private static final String USAGE = "Use: help [COMMAND]";
-    private static final String SUMMARY = "Common Version 1 commands:\n"
+    private static final String SUMMARY = "LabLog commands:\n"
             + "reserve ASSET_ID b/BORROWER_ID from/START to/END - Create a confirmed reservation.\n"
             + "edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END] - Edit a booking.\n"
             + "cancel-reservation RESERVATION_ID reason/TEXT - Cancel a booking and retain its history.\n"
             + "available from/START to/END [category/CATEGORY] - Find units free throughout an interval.\n"
+            + "why-unavailable ASSET_ID [from/START to/END] - Explain all booking blockers.\n"
             + "wait-request b/USER category/CATEGORY from/START to/END - Record unallocated demand.\n"
             + "waiting-requests - List waiting requests; these do not reserve units.\n"
             + "reservations - List reservations, status and IDs.\n"
@@ -157,7 +158,7 @@ public class HelpCommands {
                     + "Example: wait-request b/A0123456X category/Electronics from/2099-01-01 to/2099-01-02\n"
                     + "Rejects duplicate demand, unknown categories and available capacity. No automatic allocation.";
         case "waiting-requests":
-            return "Format: waiting-requests"
+            return "Format: waiting-requests\nExample: waiting-requests\nFields: None."
                     + "\nList saved demand with IDs, users, categories, periods and WAITING status.\n"
                     + "These are not confirmed reservations and remain waiting when capacity becomes available.";
         case "reserve":
@@ -180,6 +181,16 @@ public class HelpCommands {
                     + "Example: cancel-reservation R-123 reason/Experiment postponed\n"
                     + "Fields: reason/ is required once. Unknown IDs and repeated cancellations are rejected.\n"
                     + "The original period and borrower, cancellation date and reason survive restart and export.";
+        case "why-unavailable":
+            return "Explain all reasons a registered unit is unavailable for an inclusive date interval.\n"
+                    + "Format: why-unavailable ASSET_ID [from/START to/END]\n"
+                    + "Example: why-unavailable OSC-001\n"
+                    + "  Check today in the application's local time zone.\n"
+                    + "Example: why-unavailable OSC-001 from/2099-01-01 to/2099-01-02\n"
+                    + "Supply both dates or neither; start must be today or later and end must not precede start.\n"
+                    + "Shows losses, unresolved severe faults, overlapping reservations and loans.\n"
+                    + "Loan occupancy includes its return day; overdue unreturned loans block indefinitely.\n"
+                    + "Reads current records without changing or reserving equipment.";
         case "available":
             return "Find units free throughout an inclusive date interval without booking them.\n"
                     + "Format: available from/START to/END [category/CATEGORY]\n"
@@ -310,6 +321,7 @@ public class HelpCommands {
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Active loans determine on-loan status; "
                     + "unresolved severe faults and lost units exclude equipment from available results.\n"
+                    + "Reservations are not reflected in these labels; use available for an interval check.\n"
                     + "Example: list sort/name\n  Sort all registered units by name.\n"
                     + "Example: list category/Electronics location/Lab A status/available sort/name\n"
                     + "  Filter first, then sort the matching units. Options may appear in any order, once each.\n"
@@ -323,7 +335,9 @@ public class HelpCommands {
                     + "Format: find ASSET_ID\n"
                     + "Example: find OSC-001\n"
                     + "  Display the unit's name, category, model, location, and current availability.\n"
+                    + "Use why-unavailable ASSET_ID for booking reasons, including reservations.\n"
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.\n"
+                    + "Reservations are not reflected in this label; use available for an interval check.\n"
                     + "Unknown IDs produce an error. This lookup does not change records.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
