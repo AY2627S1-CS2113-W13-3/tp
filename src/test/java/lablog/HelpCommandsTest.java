@@ -29,7 +29,7 @@ class HelpCommandsTest {
         assertEquals(summary, help.execute("  help\t "));
         assertFalse(summary.contains("Example:"));
         for (String command : List.of("help", "loan", "return", "list", "edit-equipment", "move-equipment",
-                "find", "history", "copy", "add-borrower", "loans", "exit")) {
+                "find", "search", "history", "copy", "add-borrower", "loans", "exit")) {
             assertTrue(summary.contains(command));
             String detail = help.execute("help " + command);
             assertTrue(detail.contains("Format: " + command));
@@ -75,6 +75,16 @@ class HelpCommandsTest {
         assertTrue(detail.contains("Format: copy SOURCE_ASSET_ID NEW_ASSET_ID"));
         assertTrue(detail.contains("The new ID must be unique."));
         assertTrue(detail.contains("Loans and history are not copied"));
+    }
+
+    @Test
+    void execute_searchHelp_documentsCaseInsensitiveNameAndModelSearch() {
+        String detail = help.execute("help search");
+
+        assertTrue(detail.contains("Format: search TEXT"));
+        assertTrue(detail.contains("Match text anywhere in an equipment name or model, ignoring case."));
+        assertTrue(detail.contains("asset IDs, categories and locations are not searched."));
+        assertTrue(detail.contains("Search does not change inventory or saved records."));
     }
 
     @Test

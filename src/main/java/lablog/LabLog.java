@@ -49,6 +49,7 @@ public class LabLog {
     private final ActiveLoanCommands activeLoans;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
+    private final EquipmentSearchCommands equipmentSearch;
 
 
 
@@ -115,6 +116,7 @@ public class LabLog {
         });
         this.equipmentList = new EquipmentListCommands(inventory, loans, faults);
         this.equipmentFind = new EquipmentFindCommands(inventory, loans, faults);
+        this.equipmentSearch = new EquipmentSearchCommands(inventory, loans, faults);
         this.returns = new ReturnCommands(inventory, loans, clock);
         this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers, faults,
                 reservations.getAvailability());
@@ -420,6 +422,14 @@ public class LabLog {
             if (command.equals("find")) {
                 try {
                     output.println(equipmentFind.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("search")) {
+                try {
+                    output.println(equipmentSearch.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
