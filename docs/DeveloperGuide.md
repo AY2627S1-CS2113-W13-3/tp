@@ -297,17 +297,126 @@ combined filters and sorting, option ordering, unchanged inventory order,
 status changes, invalid inputs, no matches, and the fact that
 reservation and fault notes do not change loan-derived status.
 
-### Equipment search (issue #68)
+### Equipment search (US15, Kim Doyeon)
 
-`EquipmentSearchCommands` searches the shared inventory for case-insensitive
-substring matches in equipment names and models. It normalizes whitespace in
-the query and fields, preserves inventory order, and displays availability from
-the shared loan and fault books. Empty inventories and no matches have clear
-messages. The command is read-only; it does not persist or alter records.
+US15 helps a lab technician find a unit by a remembered part of its name or
+model. The command accepts a phrase rather than an asset ID, so it complements
+`find`, which deliberately performs an exact, case-sensitive ID lookup.
+For example, `search scope` can return both a unit named “Digital Oscilloscope”
+and a different unit whose model is “ScopeMate”. Search checks names and models
+only; it does not search asset IDs, categories or locations. It is read-only:
+searching does not edit an equipment record, change a loan, or write the
+snapshot file.
 
-`EquipmentSearchCommandsTest` covers name and model matches, partial phrases,
-case and whitespace handling, empty and unmatched results, invalid input,
-console dispatch, and unchanged equipment and loan records.
+#### Responsibilities and relationships
+
+`LabLog` owns the shared `Inventory`, `LoanBook`, and `FaultBook` used by the
+main console. It constructs one `EquipmentSearchCommands` with references to
+those same books and dispatches input beginning with `search` to that handler.
+The handler owns no records. It reads the current equipment snapshot, checks
+descriptive fields, and formats the matching rows. For each match, it derives
+availability from the live loan and fault books. This keeps the search output
+consistent with equipment listing, even after a loan, return, fault report, or
+repair in the same session.
+
+```mermaid
+classDiagram
+    LabLog ..> EquipmentSearchCommands : dispatches search
+    EquipmentSearchCommands --> Inventory : reads equipment snapshot
+    EquipmentSearchCommands --> LoanBook : derives loan status
+    EquipmentSearchCommands --> FaultBook : derives fault status
+    Inventory "1" --> "0..*" Equipment : stores in registration order
+    EquipmentSearchCommands ..> Equipment : matches and displays
+```
+
+This class view leaves out command history and snapshot persistence on purpose:
+neither participates in a search. The command shares the record books, rather
+than copying or maintaining a second search-specific collection. Because the
+inventory returns a snapshot, the handler can filter without exposing a
+mutable internal list.
+
+#### Parsing and matching
+
+The accepted form is `search TEXT`, where `TEXT` is non-empty and may contain
+spaces. The handler trims the command line, checks the command word boundary,
+and treats the remainder as one phrase. It collapses runs of whitespace in
+both the query and searchable fields, then converts them with
+`Locale.ROOT` before comparing. A candidate matches when its normalized name
+or model contains the normalized query. This gives case-insensitive substring
+matching that does not depend on the user's machine locale. Thus `search Ba`
+matches “Basys3”; `search b3` does not, because initials and acronym matching
+are outside the current US15 behavior.
+
+The handler scans equipment in the order returned by `Inventory` and does not
+sort the matches. This matches the default `list` order and makes results
+predictable without an extra ordering option. If the inventory is empty, the
+handler returns `No equipment registered.`; if it is non-empty but nothing
+matches, it returns a separate message containing the normalized query. A
+successful result uses the same columns as `list`: asset ID, name, category,
+model, location, and current availability.
+
+The scan is linear in the number of equipment units, with each comparison
+bounded by the lengths of the name, model, and query. A precomputed search
+index could reduce lookup time for a very large inventory, but would introduce
+another representation to update after registration, edits, imports, and
+future replacement workflows. For this small command-line inventory, scanning
+the authoritative snapshot is simpler and cannot become stale. Adding search
+options to `list` was also considered. A separate command keeps free-form
+phrases distinct from `list`'s structured exact-value filters and sort options.
+
+#### Availability, errors, and verification
+
+Availability is evaluated only for matching units and follows the shared
+priority rule: a lost unit is displayed as `Lost`; otherwise an active loan is
+`On loan`; otherwise an unresolved severe fault is `Unavailable: severe fault`;
+all remaining units are `Available`. Reservations do not affect this
+undated display. Since the handler does not cache status, an earlier search
+cannot leave stale values for a later one.
+
+Malformed syntax and an empty phrase raise `IllegalArgumentException` with
+usage guidance. `LabLog` catches that expected validation exception at the
+command boundary, prints an error, and continues the console loop. The code
+does not use Java assertions for input checks: assertions can be disabled at
+runtime, so user mistakes must continue to be rejected through ordinary
+validation. Nor does the handler catch unexpected runtime failures; allowing
+programming errors to surface is preferable to presenting them as normal
+no-match results. At present, invalid searches are reported to the console but
+do not produce a search-specific `FINE` log entry.
+
+```mermaid
+sequenceDiagram
+    actor Technician
+    participant Console as LabLog
+    participant Search as EquipmentSearchCommands
+    participant Inventory
+    participant Loans as LoanBook
+    participant Faults as FaultBook
+    Technician->>Console: search scope
+    Console->>Search: execute(input)
+    Search->>Search: validate phrase and normalize case/spacing
+    Search->>Inventory: getEquipmentUnits()
+    Inventory-->>Search: ordered equipment snapshot
+    loop each unit in snapshot
+        Search->>Search: compare name and model with query
+        opt unit matches
+            Search->>Loans: check lost and active loan
+            Search->>Faults: check unresolved severe fault
+        end
+    end
+    Search-->>Console: matching rows or empty-result message
+    Console-->>Technician: display result
+```
+
+The sequence omits exception details and formatting calls; both are local to
+the command boundary and do not change records. The diagram emphasizes the
+important data-flow property: only matching rows request availability, and no
+message is sent to a persistence component.
+
+`EquipmentSearchCommandsTest` covers partial matches in names and models,
+case-insensitive and multi-word queries, whitespace normalization, empty and
+unmatched results, malformed input, inventory order, live loan display,
+console recovery, and unchanged equipment and loan records. `HelpCommandsTest`
+checks that the syntax and behavior described by `help search` remain available.
 
 ### Copying equipment
 
