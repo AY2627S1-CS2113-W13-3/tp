@@ -6,7 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Scanner;
 
@@ -182,7 +185,54 @@ class EquipmentListCommandsTest {
     }
 
     @Test
-    void execute_reservationAndFaultNotes_doNotChangeLoanStatus() {
+    void execute_unavailableStatus_selectsSeverelyFaultedEquipment() {
+        Inventory inventory = new Inventory();
+        inventory.addEquipment(new Equipment("OSC-001", "Scope", "Electronics", "S1", "Lab A"));
+        FaultBook faults = new FaultBook(inventory);
+        faults.report("OSC-001", LocalDate.of(2026, 10, 20), "Cracked screen", Fault.Severity.SEVERE);
+        EquipmentListCommands commands = new EquipmentListCommands(inventory, new LoanBook(), faults);
+
+        assertTrue(commands.execute("list status/unavailable")
+                .contains("OSC-001 | Scope | Electronics | S1 | Lab A | Unavailable: severe fault"));
+        assertTrue(commands.execute("list status/unavailable location/lab a")
+                .contains("OSC-001 | Scope"));
+        assertEquals("No equipment matches the supplied filters.", commands.execute("list status/available"));
+    }
+
+    @Test
+    void execute_activeLoanTakesPrecedenceOverSevereFault() {
+        Inventory inventory = new Inventory();
+        inventory.addEquipment(new Equipment("OSC-001", "Scope", "Electronics", "S1", "Lab A"));
+        LoanBook loans = new LoanBook();
+        loans.addLoan(new Loan("OSC-001", "A0123456X", LocalDate.of(2026, 10, 24),
+                LocalDate.of(2026, 10, 28)));
+        FaultBook faults = new FaultBook(inventory);
+        faults.report("OSC-001", LocalDate.of(2026, 10, 24), "Cracked screen", Fault.Severity.SEVERE);
+        EquipmentListCommands commands = new EquipmentListCommands(inventory, loans, faults);
+
+        assertTrue(commands.execute("list status/on-loan").contains("OSC-001 | Scope"));
+        assertEquals("No equipment matches the supplied filters.", commands.execute("list status/unavailable"));
+    }
+
+    @Test
+    void execute_realReservationDoesNotChangeUndatedOperationalStatus() throws Exception {
+        Inventory inventory = new Inventory();
+        inventory.addEquipment(new Equipment("OSC-001", "Scope", "Electronics", "S1", "Lab A"));
+        LoanBook loans = new LoanBook();
+        FaultBook faults = new FaultBook(inventory);
+        BorrowerBook borrowers = new BorrowerBook();
+        borrowers.addBorrower(new Borrower("A0123456X", "Jamie", "91234567", "jamie@u.nus.edu"));
+        Clock clock = Clock.fixed(Instant.parse("2026-10-24T12:00:00Z"), ZoneOffset.UTC);
+        ReservationBook reservations = new ReservationBook(inventory, borrowers, loans, faults, clock);
+        reservations.reserve("OSC-001", "A0123456X", new DateWindow(
+                LocalDate.of(2026, 10, 25), LocalDate.of(2026, 10, 26)));
+        EquipmentListCommands commands = new EquipmentListCommands(inventory, loans, faults);
+
+        assertTrue(commands.execute("list status/available").contains("OSC-001 | Scope"));
+    }
+
+    @Test
+    void execute_legacyReservationAndFaultNotes_doNotChangeOperationalStatus() {
         Inventory inventory = new Inventory();
         LoanBook loans = new LoanBook();
         inventory.addEquipment(new Equipment("OSC-001", "Scope", "Electronics", "S1", "Lab A"));

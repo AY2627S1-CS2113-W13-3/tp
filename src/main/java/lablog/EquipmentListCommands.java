@@ -9,14 +9,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
-/** Lists and sorts registered units with availability derived from current loans. */
+/** Lists and sorts registered units with operational status derived from live records. */
 public class EquipmentListCommands {
     private static final String SUPPORTED_SORT_FIELDS =
             "asset-id, name, category, model, location, availability";
     private static final Set<String> SORT_FIELDS = Set.of(
             "asset-id", "name", "category", "model", "location", "availability");
     private static final String USAGE = "Use: list [category/VALUE] [location/VALUE]"
-            + " [status/available|on-loan|lost] [sort/FIELD]";
+            + " [status/available|on-loan|unavailable|lost] [sort/FIELD]";
     private static final Set<String> OPTION_FIELDS = Set.of("category", "location", "status", "sort");
 
     private final Inventory inventory;
@@ -97,8 +97,9 @@ public class EquipmentListCommands {
             }
             if (field.equals("status")) {
                 value = value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "-");
-                if (!Set.of("available", "on-loan", "lost").contains(value)) {
-                    throw new IllegalArgumentException("Status must be available, on-loan or lost. " + USAGE);
+                if (!Set.of("available", "on-loan", "unavailable", "lost").contains(value)) {
+                    throw new IllegalArgumentException(
+                            "Status must be available, on-loan, unavailable or lost. " + USAGE);
                 }
             }
             if (field.equals("sort") && !SORT_FIELDS.contains(value)) {
