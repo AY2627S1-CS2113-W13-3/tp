@@ -44,7 +44,8 @@ class CliSmokeTests(unittest.TestCase):
 
     def test_main_help_examples_and_recovery(self):
         commands = ("help", "add", "copy", "edit-equipment", "move-equipment", "list", "find",
-                    "active-loans", "loan", "renew", "lost", "return", "loan-audit", "history",
+                    "active-loans", "loan", "renew", "lost", "return", "loan-audit",
+                    "reverse-loan", "reverse-return", "history",
                     "reserve", "reservations", "edit-reservation", "cancel-reservation", "available",
                     "wait-request", "waiting-requests", "reservation", "maintenance", "fault", "repair",
                     "add-borrower", "edit-borrower", "loans", "export", "import", "commands", "recall", "exit")

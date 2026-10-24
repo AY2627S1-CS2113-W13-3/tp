@@ -578,8 +578,10 @@ included in snapshot exports. Only command recall history is session-only.
   to/END` to check bookings for the entire intended interval before lending.
 - Partial-text equipment search and a combined daily operational overview are
   not implemented.
-- `loan-audit` displays stored events, including supported correction records,
-  but there is no command to reverse an erroneous loan or return.
+- `loan-audit` displays stored events, including correction records. Use
+  `reverse-loan` or `reverse-return` with an event ID and reason to correct a
+  mistaken issue or return; dependency and availability checks may reject a
+  correction.
 - There is no lost-equipment recovery or automatic waiting-request allocation.
 
 ## FAQ
