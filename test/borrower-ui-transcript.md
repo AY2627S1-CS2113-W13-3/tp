@@ -1,8 +1,9 @@
 # Borrower console test results
+The command path below uses <run-id> for the disposable file selected by the runner.
 Output comparisons preserve the final prompt space; code blocks omit it for Markdown formatting.
 ## Case 1: add, duplicate rejection, and list
 
-Command: java -cp build/classes/java/main lablog.BorrowerCli C:\Users\zepht\OneDrive\Documents\NUS\Curriculum\Y2S1\CS2113\tp\build\ui-borrowers-17736ad21e0c446aa37c2e1090b8b333.properties
+Command: java -cp build/classes/java/main lablog.BorrowerCli build/ui-borrowers-<run-id>.properties
 
 Input:
 ```text
@@ -13,7 +14,7 @@ loans A0123456X
 
 Actual output:
 ```text
-LabLog borrower console. Use add-borrower or loans. Send EOF to exit.
+LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.
 lablog> Added borrower A0123456X: Jamie Tan.
 Phone: 91234567 | Email: jamie@u.nus.edu
 lablog> Error: Borrower ID A0123456X already exists. Choose a different borrower ID.
@@ -25,7 +26,7 @@ Exit code: 0. Stderr: (empty)
 PASS: exact match after normalizing line endings.
 ## Case 2: reload persisted borrower
 
-Command: java -cp build/classes/java/main lablog.BorrowerCli C:\Users\zepht\OneDrive\Documents\NUS\Curriculum\Y2S1\CS2113\tp\build\ui-borrowers-17736ad21e0c446aa37c2e1090b8b333.properties
+Command: java -cp build/classes/java/main lablog.BorrowerCli build/ui-borrowers-<run-id>.properties
 
 Input:
 ```text
@@ -34,7 +35,7 @@ loans A0123456X
 
 Actual output:
 ```text
-LabLog borrower console. Use add-borrower or loans. Send EOF to exit.
+LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.
 lablog> No active loans for A0123456X - Jamie Tan.
 lablog>
 ```

@@ -16,7 +16,7 @@ class ConsolePromptTest {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         new LabLog().run(new Scanner("help loan\nhelp return\nexit\n"), new PrintStream(output));
         String text = output.toString();
-        assertEquals(1, text.split("Common Version 1 commands:", -1).length - 1);
+        assertEquals(1, text.split("LabLog commands:", -1).length - 1);
         assertEquals(3, text.split("lablog> ", -1).length - 1);
         assertFalse(text.contains("Enter asset ID, help"));
     }

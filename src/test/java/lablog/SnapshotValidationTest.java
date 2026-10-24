@@ -110,7 +110,7 @@ class SnapshotValidationTest {
             Properties records = sample().toProperties();
             records.setProperty(key, "must not be silently discarded");
             try (Writer writer = Files.newBufferedWriter(source)) {
-                records.store(writer, "unsupported format-2 field");
+                records.store(writer, "unsupported snapshot field");
             }
             String original = Files.readString(source);
             IOException decoded = assertThrows(IOException.class, () -> ApplicationSnapshot.decode(records));

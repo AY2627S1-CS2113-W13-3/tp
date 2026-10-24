@@ -7,7 +7,7 @@ public class HelpCommands {
     /** Records help requests at FINE level without including raw user input. */
     private static final Logger LOGGER = Logger.getLogger(HelpCommands.class.getName());
     private static final String USAGE = "Use: help [COMMAND]";
-    private static final String SUMMARY = "Common Version 1 commands:\n"
+    private static final String SUMMARY = "LabLog commands:\n"
             + "reserve ASSET_ID b/BORROWER_ID from/START to/END - Create a confirmed reservation.\n"
             + "edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END] - Edit a booking.\n"
             + "cancel-reservation RESERVATION_ID reason/TEXT - Cancel a booking and retain its history.\n"
@@ -157,7 +157,7 @@ public class HelpCommands {
                     + "Example: wait-request b/A0123456X category/Electronics from/2099-01-01 to/2099-01-02\n"
                     + "Rejects duplicate demand, unknown categories and available capacity. No automatic allocation.";
         case "waiting-requests":
-            return "Format: waiting-requests"
+            return "Format: waiting-requests\nExample: waiting-requests\nFields: None."
                     + "\nList saved demand with IDs, users, categories, periods and WAITING status.\n"
                     + "These are not confirmed reservations and remain waiting when capacity becomes available.";
         case "reserve":
@@ -313,6 +313,7 @@ public class HelpCommands {
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Active loans determine on-loan status; "
                     + "unresolved severe faults and lost units exclude equipment from available results.\n"
+                    + "Reservations are not reflected in these labels; use available for an interval check.\n"
                     + "Example: list sort/name\n  Sort all registered units by name.\n"
                     + "Example: list category/Electronics location/Lab A status/available sort/name\n"
                     + "  Filter first, then sort the matching units. Options may appear in any order, once each.\n"
@@ -328,6 +329,7 @@ public class HelpCommands {
                     + "  Display the unit's name, category, model, location, and current availability.\n"
                     + "Use why-unavailable ASSET_ID for booking reasons, including reservations.\n"
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.\n"
+                    + "Reservations are not reflected in this label; use available for an interval check.\n"
                     + "Unknown IDs produce an error. This lookup does not change records.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
