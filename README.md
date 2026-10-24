@@ -71,6 +71,11 @@ Use `loan-audit` or `loan-audit OSC-001` to inspect recorded borrowing/return
 events and their stable IDs. Older files retain their loans without invented
 historical events; `history` continues to show those records.
 
+To correct a mistaken transaction, copy its full event ID from `loan-audit` and
+use `reverse-loan EVENT_ID reason/TEXT` or `reverse-return EVENT_ID reason/TEXT`.
+Both retain the original evidence. Dependent actions and shared availability
+checks can block a correction; see the User Guide for the rules.
+
 To return multiple loaned units together, enter `return OSC-001 OSC-002`.
 All selected units must pass validation before any loan is changed; duplicate
 IDs or an invalid selection reject the entire batch. To report damage, return

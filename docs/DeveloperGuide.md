@@ -26,7 +26,8 @@ overwritten. This store assumes one application process owns a data file;
 concurrent writers are not supported.
 
 `LabLog` is the Gradle application entry point. It routes equipment registration
-and copying, listing, active loans, history notes, help, loan, renew, lost, loan-audit, history, return,
+and copying, listing, active loans, history notes, help, loan, renew, lost, loan-audit,
+reverse-loan, reverse-return, history, return,
 and borrower commands to their handlers. The prompted and single-line equipment
 registration forms both validate before storing. Borrower commands share the
 main console's inventory and loan book. Borrowers are part of the complete
@@ -489,8 +490,8 @@ dates and correction relationships before records are published. Corrections
 reference an earlier original event on the same loan, preserve its payload and
 require a reason; duplicate reversals, forward references and inconsistent event
 ordering are rejected. Original events remain present. The model can display and
-round-trip correction evidence; applying a reversal and validating operational
-dependencies is issue #76, not a mutation performed by this query.
+round-trip correction evidence. `LoanCorrectionCommands` applies reversals and
+validates operational dependencies (issue #76); the audit query remains read-only.
 
 Formats 2-10 load with an empty event log and fresh loan IDs. The first successful
 save persists those IDs. Restoring uses `replaceAll(loans, events)` rather than
@@ -527,6 +528,91 @@ cover immutable facts, repeated lending, same-day/batch order, invalid operation
 legacy migration, ID stability, restart/export/import, correction references,
 corrupt input and failed saves with assertions. Coverage is collected with a
 temporary JaCoCo init script without changing the project's build configuration.
+
+### Correcting erroneous loans and returns (issue #76)
+
+`LoanCorrectionCommands` accepts `reverse-loan EVENT_ID reason/TEXT` and
+`reverse-return EVENT_ID reason/TEXT`. It parses one exact original event ID and
+one non-empty reason, and dates the correction with the injected local `Clock`.
+An asset ID alone is ambiguous when equipment has several historical loans;
+the event ID identifies the specific operation to correct. Invalid syntax,
+unknown IDs, an incorrect event type and repeated reversals are rejected.
+
+`LoanBook.reverse` resolves the original and checks later dependencies before
+changing shared state. Reversing an issue requires an outstanding, non-lost loan
+with no renewals. If it was returned, that return must be reversed first. A later
+effective loan of the same equipment blocks correction even after its return.
+Audit acceptance order distinguishes same-day transactions. Legacy loans without
+issue evidence on or after the affected event's date are conservatively treated
+as dependencies; the application cannot infer their intra-day order.
+
+For a return reversal, `BookingAvailability.requireAvailable` checks the full
+original loan-to-due interval while excluding only the target loan. An overdue
+loan is checked through `LocalDate.MAX`, because reopening it restores an
+outstanding loan without a known end. Other loans, inclusive reservation
+endpoints and unresolved severe faults still block the operation. Independent
+bookings and fault records remain unchanged; a correction cannot silently clear
+them. Renewals and loss reversals are outside this command's scope.
+
+**State and atomicity:** The book copies the target loan, applies the proposed
+transition to that detached copy, prepares an immutable correction event and
+validates the complete proposed loan/event graph. Only then does it mutate the
+existing shared loan and append the event. This preserves object identity for
+other handlers and leaves both collections unchanged after rejection. As with
+ordinary loan/return commands, persistence happens before printing success; a
+failed atomic save leaves the previous file intact and stops the session, without
+rolling back the in-memory transition.
+
+An issue reversal marks the loan as reversed instead of deleting it or pretending
+it was returned. `Loan.isActive` excludes reversed loans, all active-loan and
+equipment status consumers share that result, and `BookingAvailability` skips
+their intervals. `HistoryCommands` labels the original loan `REVERSED`; the audit
+view contains the dated reason and reference. A return reversal clears current
+return date/faults but retains borrower, identity, deadline and renewals. Original
+fault evidence remains in the ledger; a subsequent accepted return creates a
+fresh event with a new ID.
+
+Format 11 already represents `REVERSE_LOAN` and `REVERSE_RETURN`, so no new schema
+field is needed. `LoanAuditCodec` validates references, effective return details
+and active-loan uniqueness. On restore, `LoanBook.replaceAll` derives reversal
+flags from validated correction evidence before publishing the records. This
+allows a retained reversed loan and a new active loan for the same asset to
+round-trip safely. Reversed loans without their correction evidence are rejected.
+Legacy loans cannot acquire invented issue events; a newly recorded return on a
+legacy loan can still be reversed.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant App as LabLog
+    participant Command as LoanCorrectionCommands
+    participant Book as LoanBook
+    participant Policy as BookingAvailability
+    User->>App: reverse-return EVENT_ID reason/TEXT
+    App->>Command: execute(input)
+    Command->>Book: reverse(eventId, RETURN, today, reason, policy)
+    Book->>Book: Check original, prior corrections and later loans
+    Book->>Policy: requireAvailable(interval, ignoredLoan)
+    alt Dependency or availability conflict
+        Book-->>App: Reject without changes
+        App-->>User: Explain rejection
+    else Valid correction
+        Book->>Book: Validate detached loan and appended event
+        Book->>Book: Reopen shared loan and append correction
+        Book-->>App: Confirmation
+        App->>App: Save loans and evidence together
+        App-->>User: Print success after save
+    end
+```
+
+`LoanCorrectionCommandsTest` uses assertions and fixed clocks for both transitions,
+same-day ordering, dependent actions, overdue reservations, fault conflicts,
+repeated corrections, legacy evidence and shared status/history. Persistence
+tests cover restart/export/import, unchanged batch members and rejected files,
+projection validation, legacy migration and save failures. Existing audit tests
+also verify that corrective evidence agrees with the restored current state.
+`LoanBook.validateActionDate` prevents subsequent returns, renewals or loss reports
+from being backdated before accepted audit events if the local clock changes.
 
 ### Reporting loaned equipment lost (issue #75)
 
@@ -605,7 +691,7 @@ The main operations are:
 * `Loan#markReturned(returnDate, faults)` calls the same validation method before
   assigning the return fields. The one-argument overload records a return without
   reported faults.
-* `Loan#isActive()` reports whether the return date is absent. Recording a return
+* `Loan#isActive()` reports whether the loan is neither returned nor reversed. Recording a return
   makes the loan inactive without changing a separate equipment status field.
 
 `LabLog` normally supplies `Clock.systemDefaultZone()`. Tests can inject a fixed

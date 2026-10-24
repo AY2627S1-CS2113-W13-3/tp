@@ -282,7 +282,7 @@ Example: loan OSC-001 MIC-002 b/A0123456X d/2026-09-18
 ```
 
 Detailed help covers `add`, `copy`, `edit-equipment`, `move-equipment`, history-note commands,
-`active-loans`, `loan-audit`, `list`, `find`,
+`active-loans`, `loan-audit`, `reverse-loan`, `reverse-return`, `list`, `find`,
 `loan`, `renew`, `lost`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
 commands belonging to the main or borrower console; viewing help does not make
 a command available in the other console.
@@ -415,7 +415,7 @@ Renewal, loss, fault and maintenance records remain available through `history`.
 
 Correction evidence uses `REVERSE_LOAN` or `REVERSE_RETURN`, with the original
 event ID and a reason. Both events remain visible; this query does not apply a
-correction. The command workflow for making corrections is a separate feature.
+correction. Use `reverse-loan` or `reverse-return` to apply an explicit correction.
 
 Older saved files have no complete event log, so LabLog does not invent past
 operations when loading them. `history ASSET_ID` still shows those loans. The
@@ -426,6 +426,49 @@ may therefore have a return event without a recorded issue event.
 Events and IDs survive restart, export and replacement import. Saving a failed
 operation does not produce a success message: LabLog stops and the previous
 snapshot remains intact, as with loan/return storage failures.
+
+### Correcting a mistaken loan or return
+
+First run `loan-audit [ASSET_ID]` and copy the complete **Event ID** of the original
+`LOAN` or `RETURN` event. Use that event ID rather than the asset ID or loan ID:
+
+```text
+reverse-loan E-123 reason/Equipment was not handed over
+reverse-return E-456 reason/Equipment has not been returned
+```
+
+The example IDs are placeholders; replace them with IDs from your own audit output.
+Both commands require one case-sensitive event ID and one non-empty, single-line
+`reason/` field. The correction uses today's local date and must not precede that
+loan's recorded actions. Each original event can be reversed only once.
+
+* `reverse-loan` cancels the effect of an erroneous issue. The loan remains in
+  `history` as `REVERSED` and no longer blocks availability or appears in active
+  loan lists. A return must be reversed first; renewed or lost loans cannot be
+  cancelled by this command.
+* `reverse-return` reopens the same loan, retaining its borrower, deadline and
+  renewal history. Current return date/fault details are cleared, while their
+  original audit evidence stays intact. The equipment becomes outstanding again.
+  A later genuine return creates a new `RETURN` event.
+
+A later effective loan of the same equipment blocks either correction, even if
+that later loan has since been returned. Correct later mistakes first; do not
+reverse genuine transactions just to bypass this protection. Reopening also
+checks shared availability for the original loan-to-due interval, or indefinitely
+if overdue. Overlapping reservations (including endpoints), other loans and
+unresolved severe faults block reopening. Other reservations and fault records
+are never automatically cancelled or cleared.
+
+Successful output identifies the correction event and echoes the reason.
+`loan-audit` retains both the original and corrective events with their related
+IDs; restart, export and import preserve them. Older loans without an original
+`LOAN` event cannot be cancelled using `reverse-loan`, but a return recorded after
+migration can be reversed. Legacy same-day loan ordering without issue evidence
+is treated conservatively as a possible dependency.
+
+Rejected corrections change no records. If saving fails, the session stops without
+a success message and the previous saved snapshot remains intact. Restart from
+that saved state before continuing.
 
 ### Reporting loaned equipment lost: `lost`
 
@@ -564,6 +607,8 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |
 | `renew ASSET_ID d/YYYY-MM-DD` | Main | Extend an active loan and retain the change |
 | `loan-audit [ASSET_ID]` | Main | View stored borrowing/return events and related corrections |
+| `reverse-loan EVENT_ID reason/TEXT` | Main | Correct a mistaken loan and retain its original evidence |
+| `reverse-return EVENT_ID reason/TEXT` | Main | Correct a mistaken return after dependency and availability checks |
 | `lost ASSET_ID` | Main | Record a loss while retaining the outstanding loan |
 | `history ASSET_ID` | Main | View equipment records, renewal events and loss reports |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |

@@ -103,7 +103,6 @@ public class LabLogStore {
 
     /** Restores returns and rejects broken references or multiple active loans for one unit. */
     private void readLoans(Properties records, Set<String> assets) {
-        Set<String> activeAssets = new HashSet<>();
         List<Loan> restored = new ArrayList<>();
         int count = count(records, "loan.count");
         for (int index = 0; index < count; index++) {
@@ -123,7 +122,7 @@ public class LabLogStore {
             String faults = required(records, key + "faults");
             if (!returned.isEmpty()) {
                 loan.markReturned(LocalDate.parse(returned), faults);
-            } else if (!faults.isEmpty() || !activeAssets.add(assetId)) {
+            } else if (!faults.isEmpty()) {
                 throw new IllegalArgumentException("Invalid active loan or return details.");
             }
             if (Set.of("10", "11").contains(records.getProperty("format", ""))) {
@@ -183,7 +182,7 @@ public class LabLogStore {
             records.setProperty(key + "borrower", loan.getBorrowerId());
             records.setProperty(key + "date", loan.getLoanDate().toString());
             records.setProperty(key + "due", loan.getDueDate().toString());
-            records.setProperty(key + "returned", loan.isActive() ? "" : loan.getReturnDate().toString());
+            records.setProperty(key + "returned", loan.getReturnDate() == null ? "" : loan.getReturnDate().toString());
             records.setProperty(key + "faults", loan.getReturnFaults());
             records.setProperty(key + "id", loan.getId());
             LoanRenewalCodec.write(records, key, loan);
