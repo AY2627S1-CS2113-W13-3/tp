@@ -1414,6 +1414,34 @@ loan and reservation capacity, failed persistence, independent waiting state,
 restart/export/import, corrupt records and format-7 migration. The full Java 25
 suite also verifies older migration paths and all previous booking features.
 
+## Daily operational overview (issue #88)
+
+`OverviewCommands` receives the existing ReservationBook, LoanBook, FaultBook and
+Clock. `LabLog` wires the same book instances used by the command handlers and
+snapshot replacement. The `overview` command is read-only and has no arguments.
+It calculates LocalDate.now(clock) once per invocation so all daily predicates
+use the same local date, even at midnight.
+
+Reservation rows require a non-cancelled period containing today inclusively.
+Overdue rows use Loan.isActive() and a due date strictly before today, matching
+ActiveLoanCommands; returned/reversed loans are excluded and outstanding lost
+loans remain included. Severe rows use FaultBook.getUnresolvedSevereFaults(),
+matching the shared lending restriction without inferring state from history
+text. Future-dated severe reports remain blockers and are therefore displayed.
+
+Each section sorts a derived list without changing source order. Reservations
+sort by asset/record ID, overdue loans by due date/asset/record ID, and faults by
+report date/asset/record ID. Counts represent records rather than distinct units.
+No cached summary, availability flag or new serialization fields are needed.
+Imports retain shared book identities, so the next query sees replacement data.
+Maintenance scheduling is excluded; the view explicitly states that limitation
+and never interprets maintenance notes as scheduled work.
+
+OverviewCommandsTest covers empty sections, invalid input, reservation endpoints,
+cancellation, overdue boundaries, losses, reversed/returned loans, multiple
+severe faults, repairs, renewal updates, midnight time zones, restart/import and
+unchanged saved bytes after queries.
+
 ## Unavailability explanations (issue #84)
 
 `UnavailableReasonCommands` accepts `why-unavailable ASSET_ID [from/START to/END]`.
@@ -1448,9 +1476,9 @@ Equipment list/find labels use loan, loss and severe-fault records but do not
 yet consult reservations. BookingAvailability performs the complete interval
 check used by lending, renewal, reservations and the available command.
 The User Guide documents this distinction; do not treat the list label as a
-booking guarantee. Partial-text search, the daily combined overview and
-lost-equipment recovery are not implemented. Explicit loan and return corrections
-are supported by `reverse-loan` and `reverse-return`.
+booking guarantee. Partial-text search and lost-equipment recovery are not
+implemented. Explicit loan and return corrections are supported by
+`reverse-loan` and `reverse-return`.
 
 The packaged CLI runner exercises all command-help entries and a combined
 batch-loan, renewal, loss, return-audit, reservation, waiting-request and

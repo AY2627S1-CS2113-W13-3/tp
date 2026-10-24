@@ -576,8 +576,7 @@ included in snapshot exports. Only command recall history is session-only.
 - `list` and `find` derive their labels from loans, losses and severe faults;
   they do not yet account for structured reservations. Use `available from/START
   to/END` to check bookings for the entire intended interval before lending.
-- Partial-text equipment search and a combined daily operational overview are
-  not implemented.
+- Partial-text equipment search is not implemented.
 - `loan-audit` displays stored events, including correction records. Use
   `reverse-loan` or `reverse-return` with an event ID and reason to correct a
   mistaken issue or return; dependency and availability checks may reject a
@@ -597,7 +596,39 @@ borrower file too; it is independent of the current main snapshot. The sibling
 borrower file is used by the main console only when migrating legacy split-file data.
 Files under `build/` are disposable and are removed by Gradle `clean`.
 
-### Explaining unavailable equipment: `why-unavailable`
+## Daily operational overview
+
+Enter `overview` in the main console to view three sections for the application's
+current local date:
+
+```text
+overview
+```
+
+- **Today's reservations:** non-cancelled bookings whose inclusive period covers
+  today, including bookings that started earlier or end today. Rows show booking
+  ID, equipment ID, borrower ID and dates, ordered by equipment ID then booking ID.
+- **Overdue loans:** outstanding loans due strictly before today, ordered by due
+  date, equipment ID then loan ID. Loans due today, returned loans and reversed
+  issues are excluded. Outstanding lost loans remain included when overdue and
+  are labelled `LOST (overdue)`.
+- **Unresolved severe faults:** each blocking severe report, with fault ID,
+  equipment ID, report date and description, ordered by report date, equipment ID
+  then fault ID. Repaired, minor, moderate and unspecified faults are excluded.
+  Future-dated severe reports are included because they already block lending
+  under the shared fault rules.
+
+Each section includes a record count and a clear message when empty. Equipment
+can appear in multiple sections, and multiple severe reports are shown separately.
+Reservations remain listed even if equipment later becomes lost or develops a
+fault; the overview does not cancel bookings or certify availability.
+
+The command takes no arguments and does not change or save records. Each call
+reflects current bookings, returns, renewals, reversals, repairs and imports.
+Maintenance scheduling is outside the approved scope: maintenance history notes
+are not treated as due-maintenance tasks, and no maintenance schedule is invented.
+
+## Explaining unavailable equipment: `why-unavailable`
 
 Use `why-unavailable ASSET_ID` to check one registered unit for today in the
 application's local time zone, or supply both dates to check a future interval:
@@ -636,6 +667,7 @@ Repairs, cancellations, returns and imports are reflected on the next query.
 | `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
 | `list` | Main | List equipment and availability |
 | `active-loans [overdue]` | Main | List all active loans or only overdue loans |
+| `overview` | Main | Show today's reservations, overdue loans and unresolved severe faults |
 | `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |
 | `renew ASSET_ID d/YYYY-MM-DD` | Main | Extend an active loan and retain the change |
 | `loan-audit [ASSET_ID]` | Main | View stored borrowing/return events and related corrections |
