@@ -265,11 +265,6 @@ a name lookup that returns null. It cannot see loans from a different process.
 The [borrower implementation notes](BorrowerImplementation.md) describe the
 original standalone increment.
 
-**Editing the diagrams.** The class and sequence diagrams above are Mermaid
-source blocks in this Markdown file. Edit participant names, messages, or
-relationships directly and preview the guide on GitHub; no flattened image
-replacement is required.
-
 ### Equipment listing, filters, and sorting
 
 `EquipmentListCommands` accepts `list` with optional `category/`, `location/`,
@@ -297,7 +292,7 @@ combined filters and sorting, option ordering, unchanged inventory order,
 status changes, invalid inputs, no matches, and the fact that
 reservation and fault notes do not change loan-derived status.
 
-### Equipment search (US15, Kim Doyeon)
+### Equipment search (US15)
 
 US15 helps a lab technician find a unit by a remembered part of its name or
 model. The command accepts a phrase rather than an asset ID, so it complements
@@ -327,7 +322,15 @@ classDiagram
     EquipmentSearchCommands --> FaultBook : derives fault status
     Inventory "1" --> "0..*" Equipment : stores in registration order
     EquipmentSearchCommands ..> Equipment : matches and displays
+    class EquipmentSearchCommands {
+        +execute(input) String
+        -normalize(text) String
+        -availabilityOf(unit) String
+    }
 ```
+
+The class diagram is Mermaid source in this guide, so its relationships can be
+edited directly here.
 
 This class view leaves out command history and snapshot persistence on purpose:
 neither participates in a search. The command shares the record books, rather
@@ -383,29 +386,9 @@ programming errors to surface is preferable to presenting them as normal
 no-match results. At present, invalid searches are reported to the console but
 do not produce a search-specific `FINE` log entry.
 
-```mermaid
-sequenceDiagram
-    actor Technician
-    participant Console as LabLog
-    participant Search as EquipmentSearchCommands
-    participant Inventory
-    participant Loans as LoanBook
-    participant Faults as FaultBook
-    Technician->>Console: search scope
-    Console->>Search: execute(input)
-    Search->>Search: validate phrase and normalize case/spacing
-    Search->>Inventory: getEquipmentUnits()
-    Inventory-->>Search: ordered equipment snapshot
-    loop each unit in snapshot
-        Search->>Search: compare name and model with query
-        opt unit matches
-            Search->>Loans: check lost and active loan
-            Search->>Faults: check unresolved severe fault
-        end
-    end
-    Search-->>Console: matching rows or empty-result message
-    Console-->>Technician: display result
-```
+![Sequence diagram for equipment search](images/EquipmentSearchSequence.png)
+
+Editable diagram source: [EquipmentSearchSequence.puml](diagrams/EquipmentSearchSequence.puml).
 
 The sequence omits exception details and formatting calls; both are local to
 the command boundary and do not change records. The diagram emphasizes the
