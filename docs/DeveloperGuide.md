@@ -1481,8 +1481,8 @@ Equipment list/find labels use loan, loss and severe-fault records but do not
 yet consult reservations. BookingAvailability performs the complete interval
 check used by lending, renewal, reservations and the available command.
 The User Guide documents this distinction; do not treat the list label as a
-booking guarantee. Partial-text search and lost-equipment recovery are not
-implemented. Explicit loan and return corrections are supported by
+booking guarantee. Lost-equipment recovery is not implemented. Explicit loan
+and return corrections are supported by
 `reverse-loan` and `reverse-return`.
 
 The packaged CLI runner exercises all command-help entries and a combined

@@ -25,6 +25,7 @@ public class HelpCommands {
             + "Edit equipment details (main console).\n"
             + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
             + "find ASSET_ID - Show one registered equipment unit (main console).\n"
+            + "search TEXT - Search equipment names and models by partial text (main console).\n"
             + "active-loans [overdue] - List all active loans or only overdue loans (main console).\n"
             + "overview - Show today's reservations, overdue loans and unresolved severe faults (main console).\n"
             + "loan-audit [ASSET_ID] - View recorded borrowing/return events (main console).\n"
@@ -341,6 +342,14 @@ public class HelpCommands {
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.\n"
                     + "Reservations are not reflected in this label; use available for an interval check.\n"
                     + "Unknown IDs produce an error. This lookup does not change records.";
+        case "search":
+            return "Search equipment names and models using partial text (main console).\n"
+                    + "Format: search TEXT\n"
+                    + "Example: search scope\n"
+                    + "  Match text anywhere in an equipment name or model, ignoring case.\n"
+                    + "  Results keep inventory order and show current availability.\n"
+                    + "Fields: TEXT is a non-empty phrase; asset IDs, categories and locations are not searched.\n"
+                    + "No matches are reported clearly. Search does not change inventory or saved records.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"

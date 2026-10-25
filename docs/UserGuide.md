@@ -147,6 +147,18 @@ location, and current availability. For example, `find OSC-001` performs an
 exact, case-sensitive lookup. Unknown IDs produce an error, and the lookup does
 not change equipment or loan records.
 
+### Searching equipment by name or model: `search`
+
+Enter `search TEXT` to find equipment whose name or model contains the supplied
+text. Matching ignores case and collapses repeated spaces, so `search scope`
+matches both `Digital Oscilloscope` and a model such as `ScopeMate`. Results
+remain in inventory order and show current availability. Search only checks
+names and models; it does not search asset IDs, categories, or locations.
+
+An empty inventory reports `No equipment registered.` No matches reports the
+query that was searched. Search is read-only and does not change inventory or
+saved records.
+
 ### Recording equipment history notes
 
 Use `reservation ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION`, `fault` with the same
@@ -579,7 +591,6 @@ included in snapshot exports. Only command recall history is session-only.
 - `list` and `find` derive their labels from loans, losses and severe faults;
   they do not yet account for structured reservations. Use `available from/START
   to/END` to check bookings for the entire intended interval before lending.
-- Partial-text equipment search is not implemented.
 - `loan-audit` displays stored events, including correction records. Use
   `reverse-loan` or `reverse-return` with an event ID and reason to correct a
   mistaken issue or return; dependency and availability checks may reject a
