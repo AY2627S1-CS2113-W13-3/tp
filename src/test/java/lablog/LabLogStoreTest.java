@@ -223,7 +223,7 @@ class LabLogStoreTest {
         application.run(new Scanner("add OSC-001\nScope\nElectronics\nS1\nLab\nhelp\n"), new PrintStream(output));
         assertTrue(output.toString().contains("Changes could not be saved"));
         assertFalse(output.toString().contains("Equipment added to inventory."));
-        assertEquals(1, output.toString().split("Common Version 1 commands:", -1).length - 1);
+        assertEquals(1, output.toString().split("LabLog commands:", -1).length - 1);
         assertEquals("keep", Files.readString(file.resolve("keep.txt")));
         try (var files = Files.list(directory)) {
             assertEquals(1, files.count());

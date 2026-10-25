@@ -12,7 +12,8 @@ executable JAR. See `build.gradle` for dependency versions.
 
 The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
 or the optional command-line file path. It stores equipment, borrowers, loans,
-notes, structured faults and repairs in one format-11 UTF-8 properties snapshot. Save to a temporary file
+notes, faults, repairs, reservations, waiting requests, renewals, losses and loan
+audit events in one format-11 UTF-8 properties snapshot. Save to a temporary file
 in the destination directory, then atomically replace the snapshot before
 printing success. Unsupported atomic replacement is reported as a save failure;
 there is no non-atomic fallback. Save failure stops the session to avoid further
@@ -34,7 +35,8 @@ snapshot; in-memory constructors remain available for tests.
 
 `BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
 and an initially empty `LoanBook`. `BorrowerCommands` handles registration,
-loan listings, and help. The main application wires those handlers to shared
+contact edits, loan listings, and help. Both consoles also support session-only
+command recall through `CommandHistory`. The main application wires those handlers to shared
 books; [borrower implementation notes](BorrowerImplementation.md) document the
 standalone console and original integration increment.
 
@@ -213,8 +215,9 @@ sequenceDiagram
     end
 ```
 
-**Lost loans remain active** until returned and appear with status `LOST`; other
-active rows show `On loan`. This keeps unresolved borrower responsibility visible.
+**Lost loans remain outstanding** and appear with status `LOST`; other
+active rows show `On loan`. This keeps unresolved borrower responsibility visible. Ordinary return and
+renewal commands reject lost loans; no recovery command is implemented.
 A due date before today is overdue; a loan due today is not. Injecting `Clock`
 makes this rule testable at local-date boundaries without changing the machine's
 clock. The injected equipment-name function avoids coupling the handler to the
@@ -241,8 +244,10 @@ not provide locking or prevent lost updates between concurrent processes.
 
 #### Failure handling, tests, and integration boundary
 
-The CLI catches `IllegalArgumentException` for invalid commands and `IOException`
-for save failures, prints an error, and continues accepting input. Startup load
+The standalone borrower CLI catches `IllegalArgumentException` for invalid
+commands and `IOException` for save failures, prints an error, and continues
+accepting input. The main console stops on a save failure to avoid further
+unsaved changes. Startup load
 errors stop the console because proceeding with an empty book could conceal
 existing data. Success is printed only after `addBorrower` returns.
 
@@ -264,11 +269,6 @@ returned loan. `LabLogTest` checks borrower dispatch and registered-borrower loa
 a name lookup that returns null. It cannot see loans from a different process.
 The [borrower implementation notes](BorrowerImplementation.md) describe the
 original standalone increment.
-
-**Editing the diagrams.** The class and sequence diagrams above are Mermaid
-source blocks in this Markdown file. Edit participant names, messages, or
-relationships directly and preview the guide on GitHub; no flattened image
-replacement is required.
 
 ### Equipment listing, filters, and sorting
 
@@ -299,6 +299,115 @@ booking checks.
 `EquipmentListCommandsTest` covers each filter, case-insensitive field values,
 combined filters and sorting, option ordering, unchanged inventory order,
 status changes, invalid inputs, no matches, and severe-fault status filtering.
+
+### Equipment search (US15)
+
+US15 helps a lab technician find a unit by a remembered part of its name or
+model. The command accepts a phrase rather than an asset ID, so it complements
+`find`, which deliberately performs an exact, case-sensitive ID lookup.
+For example, `search scope` can return both a unit named “Digital Oscilloscope”
+and a different unit whose model is “ScopeMate”. Search checks names and models
+only; it does not search asset IDs, categories or locations. It is read-only:
+searching does not edit an equipment record, change a loan, or write the
+snapshot file.
+
+#### Responsibilities and relationships
+
+`LabLog` owns the shared `Inventory`, `LoanBook`, and `FaultBook` used by the
+main console. It constructs one `EquipmentSearchCommands` with references to
+those same books and dispatches input beginning with `search` to that handler.
+The handler owns no records. It reads the current equipment snapshot, checks
+descriptive fields, and formats the matching rows. For each match, it derives
+availability from the live loan and fault books. This keeps the search output
+consistent with equipment listing, even after a loan, return, fault report, or
+repair in the same session.
+
+```mermaid
+classDiagram
+    LabLog ..> EquipmentSearchCommands : dispatches search
+    EquipmentSearchCommands --> Inventory : reads equipment snapshot
+    EquipmentSearchCommands --> LoanBook : derives loan status
+    EquipmentSearchCommands --> FaultBook : derives fault status
+    Inventory "1" --> "0..*" Equipment : stores in registration order
+    EquipmentSearchCommands ..> Equipment : matches and displays
+    class EquipmentSearchCommands {
+        +execute(input) String
+        -normalize(text) String
+        -availabilityOf(unit) String
+    }
+```
+
+The class diagram is Mermaid source in this guide, so its relationships can be
+edited directly here.
+
+This class view leaves out command history and snapshot persistence on purpose:
+neither participates in a search. The command shares the record books, rather
+than copying or maintaining a second search-specific collection. Because the
+inventory returns a snapshot, the handler can filter without exposing a
+mutable internal list.
+
+#### Parsing and matching
+
+The accepted form is `search TEXT`, where `TEXT` is non-empty and may contain
+spaces. The handler trims the command line, checks the command word boundary,
+and treats the remainder as one phrase. It collapses runs of whitespace in
+both the query and searchable fields, then converts them with
+`Locale.ROOT` before comparing. A candidate matches when its normalized name
+or model contains the normalized query. This gives case-insensitive substring
+matching that does not depend on the user's machine locale. Thus `search Ba`
+matches “Basys3”; `search b3` does not, because initials and acronym matching
+are outside the current US15 behavior.
+
+The handler scans equipment in the order returned by `Inventory` and does not
+sort the matches. This matches the default `list` order and makes results
+predictable without an extra ordering option. If the inventory is empty, the
+handler returns `No equipment registered.`; if it is non-empty but nothing
+matches, it returns a separate message containing the normalized query. A
+successful result uses the same columns as `list`: asset ID, name, category,
+model, location, and current availability.
+
+The scan is linear in the number of equipment units, with each comparison
+bounded by the lengths of the name, model, and query. A precomputed search
+index could reduce lookup time for a very large inventory, but would introduce
+another representation to update after registration, edits, imports, and
+future replacement workflows. For this small command-line inventory, scanning
+the authoritative snapshot is simpler and cannot become stale. Adding search
+options to `list` was also considered. A separate command keeps free-form
+phrases distinct from `list`'s structured exact-value filters and sort options.
+
+#### Availability, errors, and verification
+
+Availability is evaluated only for matching units and follows the shared
+priority rule: a lost unit is displayed as `Lost`; otherwise an active loan is
+`On loan`; otherwise an unresolved severe fault is `Unavailable: severe fault`;
+all remaining units are `Available`. Reservations do not affect this
+undated display. Since the handler does not cache status, an earlier search
+cannot leave stale values for a later one.
+
+Malformed syntax and an empty phrase raise `IllegalArgumentException` with
+usage guidance. `LabLog` catches that expected validation exception at the
+command boundary, prints an error, and continues the console loop. The code
+does not use Java assertions for input checks: assertions can be disabled at
+runtime, so user mistakes must continue to be rejected through ordinary
+validation. Nor does the handler catch unexpected runtime failures; allowing
+programming errors to surface is preferable to presenting them as normal
+no-match results. At present, invalid searches are reported to the console but
+do not produce a search-specific `FINE` log entry.
+
+![Sequence diagram for equipment search](images/EquipmentSearchSequence.png)
+
+Editable diagram source: [EquipmentSearchSequence.puml](diagrams/EquipmentSearchSequence.puml).
+
+The sequence omits exception details and formatting calls; both are local to
+the command boundary and do not change records. The diagram emphasizes the
+important data-flow property: only matching rows request availability, and no
+message is sent to a persistence component.
+
+`EquipmentSearchCommandsTest` covers partial matches in names and models,
+case-insensitive and multi-word queries, whitespace normalization, empty and
+unmatched results, malformed input, inventory order, live loan display,
+console recovery, and unchanged equipment and loan records. `HelpCommandsTest`
+checks that the syntax and behavior described by `help search` remain available.
 
 ### Copying equipment
 
@@ -1147,7 +1256,7 @@ failure policy; the previous saved data remains unchanged.
 
 Format 3 introduced `fault.count` and indexed `fault.N.id`, `asset`, `date`
 and `description` fields; formats 4 and 5 extend these records below. The current
-writer always saves one complete format-8 snapshot, including borrowers and notes.
+writer always saves one complete format-11 snapshot, including borrowers and notes.
 Legacy split-file installations migrate on save. Imports replace the existing
 shared fault book, so all handlers see replacement faults immediately.
 Derived fault history is excluded from exported notes to prevent duplication.
@@ -1309,3 +1418,77 @@ WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,
 loan and reservation capacity, failed persistence, independent waiting state,
 restart/export/import, corrupt records and format-7 migration. The full Java 25
 suite also verifies older migration paths and all previous booking features.
+
+## Daily operational overview (issue #88)
+
+`OverviewCommands` receives the existing ReservationBook, LoanBook, FaultBook and
+Clock. `LabLog` wires the same book instances used by the command handlers and
+snapshot replacement. The `overview` command is read-only and has no arguments.
+It calculates LocalDate.now(clock) once per invocation so all daily predicates
+use the same local date, even at midnight.
+
+Reservation rows require a non-cancelled period containing today inclusively.
+Overdue rows use Loan.isActive() and a due date strictly before today, matching
+ActiveLoanCommands; returned/reversed loans are excluded and outstanding lost
+loans remain included. Severe rows use FaultBook.getUnresolvedSevereFaults(),
+matching the shared lending restriction without inferring state from history
+text. Future-dated severe reports remain blockers and are therefore displayed.
+
+Each section sorts a derived list without changing source order. Reservations
+sort by asset/record ID, overdue loans by due date/asset/record ID, and faults by
+report date/asset/record ID. Counts represent records rather than distinct units.
+No cached summary, availability flag or new serialization fields are needed.
+Imports retain shared book identities, so the next query sees replacement data.
+Maintenance scheduling is excluded; the view explicitly states that limitation
+and never interprets maintenance notes as scheduled work.
+
+OverviewCommandsTest covers empty sections, invalid input, reservation endpoints,
+cancellation, overdue boundaries, losses, reversed/returned loans, multiple
+severe faults, repairs, renewal updates, midnight time zones, restart/import and
+unchanged saved bytes after queries.
+
+## Unavailability explanations (issue #84)
+
+`UnavailableReasonCommands` accepts `why-unavailable ASSET_ID [from/START to/END]`.
+It defaults to the injected clock's local date, or validates an explicit inclusive
+window with the existing DateWindow and BookingArguments helpers. The start must
+not precede today. Unknown equipment and invalid fields are rejected before any
+output claiming availability.
+
+`BookingAvailability.reasons` collects immutable explanations from the shared
+loan, reservation and fault books in loss/fault/reservation/loan order. It retains
+all matching records rather than hiding later blockers. The existing `conflict`
+method selects the first reason from that same collection, keeping lending,
+renewal, reservation and interval-availability validation on one rule path.
+Exclusion arguments still skip the caller's own reservation or loan. No cached
+status field or new persistence schema is introduced.
+
+The main console supplies the same BookingAvailability instance used by lending.
+Imports replace book contents without replacing their identities, so explanations
+reflect replacement records immediately. Queries do not invoke the saver. Loan
+return dates remain inclusive; overdue outstanding loans block indefinitely;
+losses and unresolved severe faults block every interval. The compact list/find
+labels remain unchanged and are not a substitute for an interval explanation.
+
+`UnavailableReasonCommandsTest` covers simultaneous blockers, identifiers and
+details, exclusion arguments, exact asset matching, cancellation and repair,
+return-day boundaries, indefinite overdue/loss restrictions, local time zones,
+invalid input, restart, import and unchanged saved bytes after queries.
+
+## Current integration limits and packaged verification
+
+Equipment list/find labels use loan, loss and severe-fault records but do not
+yet consult reservations. BookingAvailability performs the complete interval
+check used by lending, renewal, reservations and the available command.
+The User Guide documents this distinction; do not treat the list label as a
+booking guarantee. Partial-text search and lost-equipment recovery are not
+implemented. Explicit loan and return corrections are supported by
+`reverse-loan` and `reverse-return`.
+
+The packaged CLI runner exercises all command-help entries and a combined
+batch-loan, renewal, loss, return-audit, reservation, waiting-request and
+fault-repair workflow. It exports to a path containing spaces, imports into a
+new file and compares the queried records across fresh Java processes. It also
+checks that read-only queries do not rewrite the source snapshot. Run it after
+the shadowJar task; Gradle check and CI currently run JUnit/Checkstyle only.
+See the [verification report](../test/verification-report.md) for the checked revision and results.
