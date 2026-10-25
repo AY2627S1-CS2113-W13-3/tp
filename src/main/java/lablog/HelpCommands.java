@@ -321,7 +321,7 @@ public class HelpCommands {
                     + "Example: list category/Electronics location/Lab A status/available\n"
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Active loans determine on-loan status; "
-                    + "unresolved severe faults and lost units exclude equipment from available results.\n"
+                    + "unresolved severe faults and lost units are unavailable.\n"
                     + "Reservations are not reflected in these labels; use available for an interval check.\n"
                     + "Example: list sort/name\n  Sort all registered units by name.\n"
                     + "Example: list category/Electronics location/Lab A status/available sort/name\n"
