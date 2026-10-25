@@ -114,17 +114,20 @@ location, and availability for each registered unit. Add any combination of
 category, location, and status filters:
 
 ```text
-list [category/VALUE] [location/VALUE] [status/available|on-loan|lost] [sort/FIELD]
+list [category/VALUE] [location/VALUE] [status/available|on-loan|unavailable|lost] [sort/FIELD]
 ```
 
 For example, `list category/Electronics location/Lab A status/available` shows
-electronics stored in Lab A that are not currently on loan. Category and
+electronics stored in Lab A that are currently available. Category and
 location values match exactly, ignoring case; when combined, all supplied
-filters must match. Status is `lost` for a reported loss, `on-loan` for an
-ordinary active loan, and `available` only when it has neither an active loan
-nor an unresolved severe
-fault. Severe faults display `Unavailable: severe fault` and are excluded from
-`status/available` results. Reservation and legacy fault notes do not block loans.
+filters must match. This status is current operational status, not availability
+for a requested date range. Status precedence is `lost`, `on-loan`,
+`unavailable`, then `available`: lost equipment is `lost`; equipment with an
+active loan is `on-loan`; equipment with an unresolved severe fault and no
+higher-priority status is `unavailable`; otherwise it is `available`.
+Unavailable equipment displays `Unavailable: severe fault`. A reservation does
+not change this undated operational status; reservations block loans only when
+their date ranges overlap.
 Add `sort/FIELD` to sort the matching units in ascending order by `asset-id`,
 `name`, `category`, `model`, `location`, or `availability`. For example,
 `list sort/name` sorts all units, while
@@ -784,7 +787,7 @@ contact details, so avoid displaying it when sharing your screen.
 
 ### Sorting filtered equipment
 
-Use `list [category/VALUE] [location/VALUE] [status/available|on-loan|lost] [sort/FIELD]`.
+Use `list [category/VALUE] [location/VALUE] [status/available|on-loan|unavailable|lost] [sort/FIELD]`.
 Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
 `name`, `category`, `model`, `location`, and `availability`. For example,
 `list category/Electronics sort/name` sorts only matching units. Comparisons

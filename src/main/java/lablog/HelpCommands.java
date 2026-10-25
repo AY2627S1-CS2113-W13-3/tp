@@ -316,11 +316,12 @@ public class HelpCommands {
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
         case "list":
             return "List registered equipment and current availability (main console).\n"
-                    + "Format: list [category/VALUE] [location/VALUE] [status/available|on-loan|lost] [sort/FIELD]\n"
+                    + "Format: list [category/VALUE] [location/VALUE] "
+                    + "[status/available|on-loan|unavailable|lost] [sort/FIELD]\n"
                     + "Example: list category/Electronics location/Lab A status/available\n"
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Active loans determine on-loan status; "
-                    + "unresolved severe faults and lost units exclude equipment from available results.\n"
+                    + "unresolved severe faults and lost units are unavailable.\n"
                     + "Reservations are not reflected in these labels; use available for an interval check.\n"
                     + "Example: list sort/name\n  Sort all registered units by name.\n"
                     + "Example: list category/Electronics location/Lab A status/available sort/name\n"
@@ -328,7 +329,8 @@ public class HelpCommands {
                     + "Supported sort fields: asset-id, name, category, model, location, availability.\n"
                     + "Sorting is ascending and case-insensitive; ties use asset ID, then exact ID case.\n"
                     + "Sorting does not change inventory order; omitting sort/ preserves registration order.\n"
-                    + "Fields: category/ and location/ match exact values; status/ is available, on-loan or lost; "
+                    + "Fields: category/ and location/ match exact values; status/ is available, on-loan, "
+                    + "unavailable or lost; "
                     + "sort/FIELD selects one supported field.";
         case "find":
             return "Show one registered equipment unit by its exact asset ID.\n"
