@@ -588,7 +588,6 @@ included in snapshot exports. Only command recall history is session-only.
 - `list` and `find` derive their labels from loans, losses and severe faults;
   they do not yet account for structured reservations. Use `available from/START
   to/END` to check bookings for the entire intended interval before lending.
-- Partial-text equipment search is not implemented.
 - `loan-audit` displays stored events, including correction records. Use
   `reverse-loan` or `reverse-return` with an event ID and reason to correct a
   mistaken issue or return; dependency and availability checks may reject a
