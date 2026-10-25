@@ -12,7 +12,8 @@ executable JAR. See `build.gradle` for dependency versions.
 
 The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
 or the optional command-line file path. It stores equipment, borrowers, loans,
-notes, structured faults and repairs in one format-11 UTF-8 properties snapshot. Save to a temporary file
+notes, faults, repairs, reservations, waiting requests, renewals, losses and loan
+audit events in one format-11 UTF-8 properties snapshot. Save to a temporary file
 in the destination directory, then atomically replace the snapshot before
 printing success. Unsupported atomic replacement is reported as a save failure;
 there is no non-atomic fallback. Save failure stops the session to avoid further
@@ -34,7 +35,8 @@ snapshot; in-memory constructors remain available for tests.
 
 `BorrowerCli` is a separate entry point backed by a persistent `BorrowerBook`
 and an initially empty `LoanBook`. `BorrowerCommands` handles registration,
-loan listings, and help. The main application wires those handlers to shared
+contact edits, loan listings, and help. Both consoles also support session-only
+command recall through `CommandHistory`. The main application wires those handlers to shared
 books; [borrower implementation notes](BorrowerImplementation.md) document the
 standalone console and original integration increment.
 
@@ -213,8 +215,9 @@ sequenceDiagram
     end
 ```
 
-**Lost loans remain active** until returned and appear with status `LOST`; other
-active rows show `On loan`. This keeps unresolved borrower responsibility visible.
+**Lost loans remain outstanding** and appear with status `LOST`; other
+active rows show `On loan`. This keeps unresolved borrower responsibility visible. Ordinary return and
+renewal commands reject lost loans; no recovery command is implemented.
 A due date before today is overdue; a loan due today is not. Injecting `Clock`
 makes this rule testable at local-date boundaries without changing the machine's
 clock. The injected equipment-name function avoids coupling the handler to the
@@ -241,8 +244,10 @@ not provide locking or prevent lost updates between concurrent processes.
 
 #### Failure handling, tests, and integration boundary
 
-The CLI catches `IllegalArgumentException` for invalid commands and `IOException`
-for save failures, prints an error, and continues accepting input. Startup load
+The standalone borrower CLI catches `IllegalArgumentException` for invalid
+commands and `IOException` for save failures, prints an error, and continues
+accepting input. The main console stops on a save failure to avoid further
+unsaved changes. Startup load
 errors stop the console because proceeding with an empty book could conceal
 existing data. Success is printed only after `addBorrower` returns.
 
@@ -1246,7 +1251,7 @@ failure policy; the previous saved data remains unchanged.
 
 Format 3 introduced `fault.count` and indexed `fault.N.id`, `asset`, `date`
 and `description` fields; formats 4 and 5 extend these records below. The current
-writer always saves one complete format-8 snapshot, including borrowers and notes.
+writer always saves one complete format-11 snapshot, including borrowers and notes.
 Legacy split-file installations migrate on save. Imports replace the existing
 shared fault book, so all handlers see replacement faults immediately.
 Derived fault history is excluded from exported notes to prevent duplication.
@@ -1408,3 +1413,77 @@ WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,
 loan and reservation capacity, failed persistence, independent waiting state,
 restart/export/import, corrupt records and format-7 migration. The full Java 25
 suite also verifies older migration paths and all previous booking features.
+
+## Daily operational overview (issue #88)
+
+`OverviewCommands` receives the existing ReservationBook, LoanBook, FaultBook and
+Clock. `LabLog` wires the same book instances used by the command handlers and
+snapshot replacement. The `overview` command is read-only and has no arguments.
+It calculates LocalDate.now(clock) once per invocation so all daily predicates
+use the same local date, even at midnight.
+
+Reservation rows require a non-cancelled period containing today inclusively.
+Overdue rows use Loan.isActive() and a due date strictly before today, matching
+ActiveLoanCommands; returned/reversed loans are excluded and outstanding lost
+loans remain included. Severe rows use FaultBook.getUnresolvedSevereFaults(),
+matching the shared lending restriction without inferring state from history
+text. Future-dated severe reports remain blockers and are therefore displayed.
+
+Each section sorts a derived list without changing source order. Reservations
+sort by asset/record ID, overdue loans by due date/asset/record ID, and faults by
+report date/asset/record ID. Counts represent records rather than distinct units.
+No cached summary, availability flag or new serialization fields are needed.
+Imports retain shared book identities, so the next query sees replacement data.
+Maintenance scheduling is excluded; the view explicitly states that limitation
+and never interprets maintenance notes as scheduled work.
+
+OverviewCommandsTest covers empty sections, invalid input, reservation endpoints,
+cancellation, overdue boundaries, losses, reversed/returned loans, multiple
+severe faults, repairs, renewal updates, midnight time zones, restart/import and
+unchanged saved bytes after queries.
+
+## Unavailability explanations (issue #84)
+
+`UnavailableReasonCommands` accepts `why-unavailable ASSET_ID [from/START to/END]`.
+It defaults to the injected clock's local date, or validates an explicit inclusive
+window with the existing DateWindow and BookingArguments helpers. The start must
+not precede today. Unknown equipment and invalid fields are rejected before any
+output claiming availability.
+
+`BookingAvailability.reasons` collects immutable explanations from the shared
+loan, reservation and fault books in loss/fault/reservation/loan order. It retains
+all matching records rather than hiding later blockers. The existing `conflict`
+method selects the first reason from that same collection, keeping lending,
+renewal, reservation and interval-availability validation on one rule path.
+Exclusion arguments still skip the caller's own reservation or loan. No cached
+status field or new persistence schema is introduced.
+
+The main console supplies the same BookingAvailability instance used by lending.
+Imports replace book contents without replacing their identities, so explanations
+reflect replacement records immediately. Queries do not invoke the saver. Loan
+return dates remain inclusive; overdue outstanding loans block indefinitely;
+losses and unresolved severe faults block every interval. The compact list/find
+labels remain unchanged and are not a substitute for an interval explanation.
+
+`UnavailableReasonCommandsTest` covers simultaneous blockers, identifiers and
+details, exclusion arguments, exact asset matching, cancellation and repair,
+return-day boundaries, indefinite overdue/loss restrictions, local time zones,
+invalid input, restart, import and unchanged saved bytes after queries.
+
+## Current integration limits and packaged verification
+
+Equipment list/find labels use loan, loss and severe-fault records but do not
+yet consult reservations. BookingAvailability performs the complete interval
+check used by lending, renewal, reservations and the available command.
+The User Guide documents this distinction; do not treat the list label as a
+booking guarantee. Partial-text search and lost-equipment recovery are not
+implemented. Explicit loan and return corrections are supported by
+`reverse-loan` and `reverse-return`.
+
+The packaged CLI runner exercises all command-help entries and a combined
+batch-loan, renewal, loss, return-audit, reservation, waiting-request and
+fault-repair workflow. It exports to a path containing spaces, imports into a
+new file and compares the queried records across fresh Java processes. It also
+checks that read-only queries do not rewrite the source snapshot. Run it after
+the shadowJar task; Gradle check and CI currently run JUnit/Checkstyle only.
+See the [verification report](../test/verification-report.md) for the checked revision and results.

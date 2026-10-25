@@ -3,8 +3,8 @@
 ## Introduction
 
 LabLog helps laboratory technicians manage loanable electronics equipment and
-borrowers. The main console shares equipment, loans, and borrowers for registration,
-lending, returns, and loan lookups. A standalone borrower console remains available.
+borrowers. The main console shares equipment, borrowers, loans, reservations,
+waiting requests, faults, repairs and audit records across its commands. A standalone borrower console remains available.
 Both provide command help and examples.
 
 ## Quick Start
@@ -33,8 +33,9 @@ Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or C
 on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
 different path after `lablog.BorrowerCli` to select another file.
 
-The main console saves equipment, loans, return dates, return faults and structured fault reports
-in `data/lablog.properties` after each successful change. It reloads them on
+The main console saves all equipment, borrower, loan, renewal, loss, audit,
+reservation, waiting-request, fault, repair and history-note records together
+in `data/lablog.properties` (snapshot format 11) after successful changes. It reloads them on
 startup. To select another file, run
 `java -jar build/libs/lablog.jar PATH/TO/lablog.properties`.
 A missing file starts a new collection. Invalid existing data stops startup
@@ -279,7 +280,7 @@ commands.
 
 Format: `help [COMMAND]`
 
-Enter `help` for the concise Version 1 command list, or supply one command name
+Enter `help` for the concise LabLog command list, or supply one command name
 to see its syntax, fields, and explained usage examples. Help is available in both consoles
 and does not change records. Command names are case-sensitive; unknown names
 and extra arguments produce an error and let you try again.
@@ -579,17 +580,95 @@ produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
 
 Use `loan-audit [ASSET_ID]` for the separate borrowing/return event log.
 The application combines loan history with notes recorded through `reservation`,
-`fault`, and `maintenance`. Fault records survive restarts; reservation and
-maintenance notes last only for the session.
+`fault`, and `maintenance`. These records and notes survive restarts and are
+included in snapshot exports. Only command recall history is session-only.
+
+## Current limitations
+
+- `list` and `find` derive their labels from loans, losses and severe faults;
+  they do not yet account for structured reservations. Use `available from/START
+  to/END` to check bookings for the entire intended interval before lending.
+- Partial-text equipment search is not implemented.
+- `loan-audit` displays stored events, including correction records. Use
+  `reverse-loan` or `reverse-return` with an event ID and reason to correct a
+  mistaken issue or return; dependency and availability checks may reject a
+  correction.
+- There is no lost-equipment recovery or automatic waiting-request allocation.
 
 ## FAQ
 
 **Q**: How do I transfer my data to another computer? 
 
-**A**: Close both consoles and copy `data/lablog.properties` for equipment and
-loan history, plus `data/borrowers.properties` for borrower records. Start the
-main JAR or `BorrowerCli` with the corresponding file path on the other computer.
+**A**: Export a snapshot with `export FILE`, or close the main console and copy
+its configured `data/lablog.properties` file. That single file includes borrowers
+and all main-console records. Start the main JAR with that path on the other
+computer, or use `import FILE --replace` to replace an existing collection.
+If you use the standalone `BorrowerCli` separately, close it and copy its own
+borrower file too; it is independent of the current main snapshot. The sibling
+borrower file is used by the main console only when migrating legacy split-file data.
 Files under `build/` are disposable and are removed by Gradle `clean`.
+
+## Daily operational overview
+
+Enter `overview` in the main console to view three sections for the application's
+current local date:
+
+```text
+overview
+```
+
+- **Today's reservations:** non-cancelled bookings whose inclusive period covers
+  today, including bookings that started earlier or end today. Rows show booking
+  ID, equipment ID, borrower ID and dates, ordered by equipment ID then booking ID.
+- **Overdue loans:** outstanding loans due strictly before today, ordered by due
+  date, equipment ID then loan ID. Loans due today, returned loans and reversed
+  issues are excluded. Outstanding lost loans remain included when overdue and
+  are labelled `LOST (overdue)`.
+- **Unresolved severe faults:** each blocking severe report, with fault ID,
+  equipment ID, report date and description, ordered by report date, equipment ID
+  then fault ID. Repaired, minor, moderate and unspecified faults are excluded.
+  Future-dated severe reports are included because they already block lending
+  under the shared fault rules.
+
+Each section includes a record count and a clear message when empty. Equipment
+can appear in multiple sections, and multiple severe reports are shown separately.
+Reservations remain listed even if equipment later becomes lost or develops a
+fault; the overview does not cancel bookings or certify availability.
+
+The command takes no arguments and does not change or save records. Each call
+reflects current bookings, returns, renewals, reversals, repairs and imports.
+Maintenance scheduling is outside the approved scope: maintenance history notes
+are not treated as due-maintenance tasks, and no maintenance schedule is invented.
+
+## Explaining unavailable equipment: `why-unavailable`
+
+Use `why-unavailable ASSET_ID` to check one registered unit for today in the
+application's local time zone, or supply both dates to check a future interval:
+
+```text
+why-unavailable OSC-001
+why-unavailable OSC-001 from/2099-01-01 to/2099-01-02
+```
+
+Asset IDs are exact and case-sensitive. `from/` and `to/` may appear in either
+order, once each. Both are required when specifying dates; the start must be
+today or later and the end must be on or after the start. Invalid dates, unknown
+equipment, extra fields and duplicate fields produce an error without changes.
+
+The result shows every applicable reason: loss, each unresolved severe fault
+(with ID, date and description), overlapping reservations (with ID, borrower and
+dates), and overlapping loans (with ID, borrower, due date and return state).
+Multiple reasons can apply simultaneously. Resolved faults, cancelled bookings
+and records for other equipment are excluded. No blockers produces an explicit
+available-throughout-the-interval message.
+
+These are the same inclusive interval rules used by `available` and lending:
+the return day remains occupied, an overdue unreturned loan blocks future dates
+indefinitely, and losses or blocking faults apply regardless of the query dates.
+Consequently `list`/`find` may show a returned unit as available while this query
+explains its occupied return day or a reservation. Use this command for a full
+booking explanation. Queries do not reserve equipment or rewrite saved data.
+Repairs, cancellations, returns and imports are reflected on the next query.
 
 ## Command Summary
 
@@ -600,6 +679,7 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
 | `list` | Main | List equipment and availability |
 | `active-loans [overdue]` | Main | List all active loans or only overdue loans |
+| `overview` | Main | Show today's reservations, overdue loans and unresolved severe faults |
 | `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |
 | `renew ASSET_ID d/YYYY-MM-DD` | Main | Extend an active loan and retain the change |
 | `loan-audit [ASSET_ID]` | Main | View stored borrowing/return events and related corrections |
@@ -607,12 +687,27 @@ Files under `build/` are disposable and are removed by Gradle `clean`.
 | `reverse-return EVENT_ID reason/TEXT` | Main | Correct a mistaken return after dependency and availability checks |
 | `lost ASSET_ID` | Main | Record a loss while retaining the outstanding loan |
 | `history ASSET_ID` | Main | View equipment records, renewal events and loss reports |
+| `why-unavailable ASSET_ID [from/START to/END]` | Main | Explain all applicable booking blockers |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
 | `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
 | `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a dated history note |
 | `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
 | `repair FAULT_ID d/DATE desc/DETAILS` | Main | Resolve a fault and retain its repair history |
-| `exit` | Main | End the session |
+| `edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]` | Main | Edit descriptive fields |
+| `move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION` | Main | Move selected units together |
+| `find ASSET_ID` | Main | Look up one exact asset ID |
+| `reserve ASSET_ID b/USER from/START to/END` | Main | Create a reservation |
+| `reservations` | Main | List bookings and their IDs |
+| `edit-reservation ID [b/USER] [from/START] [to/END]` | Main | Edit a booking |
+| `cancel-reservation ID reason/TEXT` | Main | Cancel and retain its history |
+| `available from/START to/END [category/CATEGORY]` | Main | Query the full requested interval |
+| `wait-request b/USER category/CATEGORY from/START to/END` | Main | Record unallocated demand |
+| `waiting-requests` | Main | List waiting demand |
+| `edit-borrower ID [n/NAME] [p/PHONE] [e/EMAIL]` | Both | Edit contacts |
+| `export FILE` | Main | Save a snapshot to a new file |
+| `import FILE --replace` | Main | Validate and replace all records |
+| `commands` / `recall INDEX` | Both | Display recent input without executing it |
+| `exit` | Both | End the session |
 | `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
 | `loans BORROWER_ID` | Both | List a registered borrower's active loans |
 

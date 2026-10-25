@@ -44,9 +44,11 @@ public class LabLog {
     private final ReservationBook reservations;
     private final ReservationCommands reservationCommands;
     private final AvailableEquipmentCommands availableEquipment;
+    private final UnavailableReasonCommands unavailableReasons;
     private final WaitingRequestBook waiting;
     private final WaitingRequestCommands waitingCommands;
     private final ActiveLoanCommands activeLoans;
+    private final OverviewCommands overview;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
     private final EquipmentSearchCommands equipmentSearch;
@@ -101,12 +103,14 @@ public class LabLog {
         this.waiting = new WaitingRequestBook(inventory, borrowers, faults, reservations.getAvailability(), clock);
         this.waitingCommands = new WaitingRequestCommands(waiting);
         this.availableEquipment = new AvailableEquipmentCommands(reservations.getAvailability());
+        this.unavailableReasons = new UnavailableReasonCommands(reservations.getAvailability(), clock);
         this.equipmentAdd = new EquipmentAddCommands(inventory);
         this.equipmentCopy = new EquipmentCopyCommands(inventory);
         this.equipmentEdit = new EquipmentEditCommands(inventory);
         this.equipmentMove = new EquipmentMoveCommands(inventory);
         this.historyRecords = new HistoryRecordCommands(inventory, faults);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
+        this.overview = new OverviewCommands(reservations, loans, faults, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
             List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
             entries.addAll(historyRecords.getEntries());
@@ -343,9 +347,10 @@ public class LabLog {
                 }
                 continue;
             }
-            if (command.equals("available")) {
+            if (command.equals("available") || command.equals("why-unavailable")) {
                 try {
-                    output.println(availableEquipment.execute(input));
+                    output.println(command.equals("available") ? availableEquipment.execute(input)
+                            : unavailableReasons.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -379,9 +384,9 @@ public class LabLog {
                 }
                 continue;
             }
-            if (command.equals("active-loans")) {
+            if (command.equals("active-loans") || command.equals("overview")) {
                 try {
-                    output.println(activeLoans.execute(input));
+                    output.println(command.equals("overview") ? overview.execute(input) : activeLoans.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
