@@ -12,12 +12,15 @@ import java.time.DateTimeException;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
+import java.util.List;
+import java.util.ArrayList;
 
-/** Loads and atomically saves equipment and complete loan history as one snapshot. */
+/** Loads and atomically saves equipment, complete loan history and structured fault reports. */
 public class LabLogStore {
     private final Path file;
     private final Inventory inventory = new Inventory();
     private final LoanBook loans = new LoanBook();
+    private final FaultBook faults = new FaultBook(inventory);
 
     /** Loads a snapshot, treating a missing file as a new installation. */
     public LabLogStore(Path file) throws IOException {
@@ -28,13 +31,48 @@ public class LabLogStore {
         Properties records = new Properties();
         try (Reader reader = Files.newBufferedReader(this.file, StandardCharsets.UTF_8)) {
             records.load(reader);
-            if (!required(records, "format").equals("1")) {
+            if (!Set.of("1", "3", "4", "5", "6", "7", "8", "9", "10", "11").contains(required(records, "format"))) {
                 throw new IllegalArgumentException("Unsupported data format.");
             }
             Set<String> assets = readEquipment(records);
             readLoans(records, assets);
+            if (Set.of("3", "4", "5", "6", "7", "8", "9", "10", "11").contains(records.getProperty("format", ""))) {
+                readFaults(records);
+            }
         } catch (IllegalArgumentException | DateTimeException exception) {
             throw new IOException("Invalid LabLog data: " + exception.getMessage(), exception);
+        }
+    }
+
+    /** Decodes equipment and loans already read by the import boundary. */
+    LabLogStore(Properties records) {
+        file = null;
+        Set<String> assets = readEquipment(records);
+        readLoans(records, assets);
+        if (Set.of("3", "4", "5", "6", "7", "8", "9", "10", "11").contains(records.getProperty("format", ""))) {
+            readFaults(records);
+        }
+    }
+
+    public FaultBook getFaults() {
+        return faults;
+    }
+
+    /** Reads structured reports with duplicate-ID and equipment-reference validation. */
+    private void readFaults(Properties records) {
+        int count = count(records, "fault.count");
+        for (int index = 0; index < count; index++) {
+            String key = "fault." + index + ".";
+            boolean hasResolution = Set.of("5", "6", "7", "8", "9", "10", "11")
+                    .contains(records.getProperty("format", ""));
+            String resolved = hasResolution ? required(records, key + "resolved") : "";
+            String repair = hasResolution ? required(records, key + "repair") : "";
+            faults.add(new Fault(required(records, key + "id"), required(records, key + "asset"),
+                    LocalDate.parse(required(records, key + "date")), required(records, key + "description"),
+                    Set.of("4", "5", "6", "7", "8", "9", "10", "11").contains(records.getProperty("format", ""))
+                            ? Fault.Severity.valueOf(required(records, key + "severity"))
+                            : Fault.Severity.UNSPECIFIED,
+                    resolved.isEmpty() ? null : LocalDate.parse(resolved), repair));
         }
     }
 
@@ -65,7 +103,7 @@ public class LabLogStore {
 
     /** Restores returns and rejects broken references or multiple active loans for one unit. */
     private void readLoans(Properties records, Set<String> assets) {
-        Set<String> activeAssets = new HashSet<>();
+        List<Loan> restored = new ArrayList<>();
         int count = count(records, "loan.count");
         for (int index = 0; index < count; index++) {
             String key = "loan." + index + ".";
@@ -77,16 +115,26 @@ public class LabLogStore {
                     || borrowerId.chars().anyMatch(Character::isWhitespace) || dueDate.isBefore(loanDate)) {
                 throw new IllegalArgumentException("Invalid loan identifiers or dates.");
             }
-            Loan loan = new Loan(assetId, borrowerId, loanDate, dueDate);
+            Loan loan = Set.of("9", "10", "11").contains(records.getProperty("format", ""))
+                    ? LoanRenewalCodec.read(records, key, assetId, borrowerId, loanDate, dueDate)
+                    : new Loan(assetId, borrowerId, loanDate, dueDate);
             String returned = required(records, key + "returned");
             String faults = required(records, key + "faults");
             if (!returned.isEmpty()) {
                 loan.markReturned(LocalDate.parse(returned), faults);
-            } else if (!faults.isEmpty() || !activeAssets.add(assetId)) {
+            } else if (!faults.isEmpty()) {
                 throw new IllegalArgumentException("Invalid active loan or return details.");
             }
-            loans.addLoan(loan);
+            if (Set.of("10", "11").contains(records.getProperty("format", ""))) {
+                String lost = required(records, key + "lost");
+                if (!lost.isEmpty()) {
+                    loan.markLost(LocalDate.parse(lost));
+                }
+            }
+            restored.add(loan);
         }
+        loans.replaceAll(restored, "11".equals(records.getProperty("format"))
+                ? LoanAuditCodec.read(records, restored) : List.of());
     }
 
     /** Requires explicit fields so truncated files cannot silently load as empty records. */
@@ -101,16 +149,21 @@ public class LabLogStore {
     /** Parses a nonnegative record count from the snapshot header. */
     private static int count(Properties records, String key) {
         int count = Integer.parseInt(required(records, key));
-        if (count < 0) {
-            throw new IllegalArgumentException("Negative record count.");
+        if (count < 0 || count > 100000) {
+            throw new IllegalArgumentException("Record count must be between 0 and 100000.");
         }
         return count;
     }
 
     /** Writes a complete temporary snapshot and replaces the previous file only after success. */
     public void save() throws IOException {
+        write(toProperties());
+    }
+
+    /** Reuses the established equipment and loan schema inside a complete snapshot. */
+    Properties toProperties() {
         Properties records = new Properties();
-        records.setProperty("format", "1");
+        records.setProperty("format", "11");
         records.setProperty("equipment.count", Integer.toString(inventory.getEquipmentUnits().size()));
         records.setProperty("loan.count", Integer.toString(loans.getLoans().size()));
         int index = 0;
@@ -129,9 +182,30 @@ public class LabLogStore {
             records.setProperty(key + "borrower", loan.getBorrowerId());
             records.setProperty(key + "date", loan.getLoanDate().toString());
             records.setProperty(key + "due", loan.getDueDate().toString());
-            records.setProperty(key + "returned", loan.isActive() ? "" : loan.getReturnDate().toString());
+            records.setProperty(key + "returned", loan.getReturnDate() == null ? "" : loan.getReturnDate().toString());
             records.setProperty(key + "faults", loan.getReturnFaults());
+            records.setProperty(key + "id", loan.getId());
+            LoanRenewalCodec.write(records, key, loan);
+            records.setProperty(key + "lost", loan.isLost() ? loan.getLostDate().toString() : "");
         }
+        LoanAuditCodec.write(records, loans.getAuditEvents());
+        records.setProperty("fault.count", Integer.toString(faults.getFaults().size()));
+        index = 0;
+        for (Fault fault : faults.getFaults()) {
+            String key = "fault." + index++ + ".";
+            records.setProperty(key + "id", fault.getId());
+            records.setProperty(key + "asset", fault.getAssetId());
+            records.setProperty(key + "date", fault.getReportDate().toString());
+            records.setProperty(key + "description", fault.getDescription());
+            records.setProperty(key + "severity", fault.getSeverity().name());
+            records.setProperty(key + "resolved", fault.isResolved() ? fault.getResolutionDate().toString() : "");
+            records.setProperty(key + "repair", fault.getRepairDetails());
+        }
+        return records;
+    }
+
+    /** Atomically saves proposed records before the caller changes live data. */
+    void write(Properties records) throws IOException {
         Files.createDirectories(file.getParent());
         Path temporary = Files.createTempFile(file.getParent(), "lablog-", ".tmp");
         try {

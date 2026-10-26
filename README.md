@@ -2,12 +2,14 @@
 
 LabLog is a command-line application for laboratory technicians who manage
 loanable electronics equipment. It supports equipment and borrower registration,
-loans and returns, active-loan listings, and equipment history.
+equipment copying, editing and relocation; single-unit and batch lending/returns;
+renewals, loss reports, overdue listings and loan audit queries; reservations,
+waiting requests, fault reports and repairs; validated import/export; and command recall.
 
 ## Command help
 
 Enter `help` in either the main LabLog console or the standalone borrower console
-for a concise list of common Version 1 commands. Enter `help COMMAND`, such as
+for a concise list of current LabLog commands. Enter `help COMMAND`, such as
 `help loan`, for its syntax, fields, and explained usage examples. `help return`
 shows returns with and without reported faults; `help add-borrower` demonstrates
 both the usual and reordered fields. Help displays these examples without
@@ -21,13 +23,15 @@ command or the prompted `add ASSET_ID` form.
 The borrower console provides:
 
 * `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` registers a borrower, rejects duplicate IDs, and saves validated contact details.
+* `edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL]` updates validated contacts without changing the borrower ID.
+* `commands` and `recall INDEX` display recent session input for explicit resubmission.
 * `loans BORROWER_ID` lists a registered borrower's active loans, ordered by due date and then asset ID. Returned loans are excluded, and a loan is overdue only after its due date.
 
 Borrower IDs follow the form `A0123456X`: an uppercase letter, seven digits, and an uppercase letter. Names contain 1-100 characters, phone numbers contain exactly eight digits, and email addresses use `u.nus.edu`. All three prefixes are required, may appear in any order, and must occur only once.
 
 The standalone borrower console remains available for borrower registration and
 lookup, and starts with its own empty loan book. In the main console, borrower
-records are shared with loan commands and persist beside the LabLog data file.
+records are shared with loan commands and persist in the complete LabLog snapshot.
 
 ## Setting up in IntelliJ IDEA
 
@@ -35,7 +39,7 @@ Prerequisite: JDK 25. Configure both the project SDK and Gradle JVM to use Java 
 
 1. **Ensure JDK 25 is defined as an SDK**, as described [here](https://www.jetbrains.com/help/idea/sdk.html#set-up-jdk).
 1. **Import the project _as a Gradle project_**, as described [here](https://se-education.org/guides/tutorials/intellijImportGradleProject.html).
-1. **Verify the setup**: Run the Gradle `classes` task, then run `lablog.BorrowerCli.main()` using the repository root as the working directory. Set its program argument to `build/borrowers-demo.properties` for a disposable demonstration.
+1. **Verify the setup**: Run the Gradle `classes` task, then run `lablog.LabLog.main()` using the repository root as the working directory. Set its program argument to `build/lablog-demo.properties` for a disposable demonstration.
 
 **Warning:** Keep the `src\main\java` folder as the root folder for Java files (i.e., don't rename those folders or move Java files to another folder outside of this folder path), as this is the default location some tools (e.g., Gradle) expect to find Java files.
 
@@ -55,6 +59,30 @@ a borrower with `add-borrower` before using
 `loan OSC-001 b/A0123456X d/2026-10-30` to lend it. Use `history OSC-001` to
 check its history, or `exit` to close.
 
+To extend an active loan, use `renew OSC-001 d/2026-11-05`. The new date must
+be later than its current deadline and no earlier than today. Shared booking
+checks apply, and `history OSC-001` retains each successful deadline change.
+
+To report loaned equipment lost, use `lost OSC-001`. It remains outstanding
+with status `LOST` and stays unavailable; ordinary return and renewal are blocked.
+Use `list status/lost` to find lost units and `history OSC-001` for the report.
+
+Use `loan-audit` or `loan-audit OSC-001` to inspect recorded borrowing/return
+events and their stable IDs. Older files retain their loans without invented
+historical events; `history` continues to show those records.
+
+To correct a mistaken transaction, copy its full event ID from `loan-audit` and
+use `reverse-loan EVENT_ID reason/TEXT` or `reverse-return EVENT_ID reason/TEXT`.
+Both retain the original evidence. Dependent actions and shared availability
+checks can block a correction; see the User Guide for the rules.
+
+To return multiple loaned units together, enter `return OSC-001 OSC-002`.
+All selected units must pass validation before any loan is changed; duplicate
+IDs or an invalid selection reject the entire batch. To report damage, return
+the affected unit individually, for example `return OSC-003 faults/cracked screen`.
+Batch returns do not accept `faults/`. See the [User Guide](docs/UserGuide.md)
+for full return rules and examples.
+
 To build and run the executable JAR:
 
 ```powershell
@@ -64,10 +92,11 @@ java -jar build/libs/lablog.jar
 
 The main console supports registration, help, loans, history, active-loan lists,
 returns, and borrower commands, so a fresh session can complete a loan/return
-workflow. Equipment, loans, and return details are saved to
-`data/lablog.properties`; borrower records are saved to
-`data/borrowers.properties`. Both are reloaded on startup. Pass another data-file
-path after the JAR name to use it for equipment and loan records. Use only one
+workflow. The main console saves equipment, borrowers, loans, returns, faults, repairs and history
+notes, renewal events, loss reports, borrowing/return audit events, reservations and waiting requests together in `data/lablog.properties` (format 11). Legacy format-1 installations
+load the sibling borrower file and migrate on their next successful save. The
+old borrower file is retained as a backup and ignored after migration. Pass another data-file
+path after the JAR name to select the complete application snapshot. Use only one
 main-console process per data file.
 
 ## Running the borrower console
@@ -118,11 +147,15 @@ Run the JUnit and Checkstyle checks with Java 25:
 .\gradlew.bat test checkstyleMain checkstyleTest
 ```
 
-Tests cover borrower validation and persistence, loan issuing and the refusal to
-lend a unit that is already out, active-loan lookup, overdue dates, returns and
-fault descriptions, history ordering, help examples, unchanged records during
-help, and console input recovery. Return/history tests supply shared loan records
+Tests cover equipment copy/edit/move and validation, borrower edits, batch loans
+and returns, renewals, losses, audit events, overdue boundaries, reservations and
+conflicts, waiting demand, fault severity and repairs, snapshot migration and
+invalid-import preservation, command recall, help and console recovery. Return/history tests supply shared loan records
 directly, which keeps them independent of the loan command.
+Batch-return tests check successful updates, duplicate selections, rejected fault
+descriptions, and unchanged records when a later selection is invalid. A
+main-console persistence test verifies that both returns and their history remain
+available after reloading the saved data.
 See the [JUnit tutorial](https://se-education.org/guides/tutorials/junit.html) for background.
 
 ### Console tests
@@ -145,8 +178,12 @@ use Python 3 with Java 25 on `PATH`:
 python test/run-cli-smoke-tests.py
 ```
 
-This runner uses temporary borrower files under `build/` and verifies help,
-registration, rejected commands, history, and persistence in separate processes.
+This runner uses temporary application and borrower files under `build/`. It
+checks help for every supported command, registration, rejected commands,
+recall, and persistence across fresh processes. The integrated scenario also
+checks batch lending, renewal, loss, return audit, reservations, waiting requests,
+fault repairs and snapshot export/import. See the
+[verification report](test/verification-report.md) for the checked revision and results.
 
 ## Checkstyle
 

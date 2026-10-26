@@ -21,6 +21,6 @@ class BorrowerExitTest {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         BorrowerCli.run(new Scanner("exit extra\n  exit  \nhelp\n"), new PrintStream(output), commands);
         assertTrue(output.toString().contains("Error:"));
-        assertFalse(output.toString().contains("Common Version 1 commands:"));
+        assertFalse(output.toString().contains("LabLog commands:"));
     }
 }
