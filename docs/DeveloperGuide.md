@@ -151,7 +151,7 @@ sequenceDiagram
     Commands->>Record: new Borrower(id, name, phone, email)
     Record-->>Commands: validated record
     Commands->>Book: addBorrower(record)
-    Book->>Book: reject duplicate ID; prepare updated map
+    Book->>Book: reject duplicate ID, prepare updated map
     Book->>Book: persist(updated)
     Book->>Snapshot: Saver callback captures proposed borrowers and shared records
     Snapshot->>Disk: write temporary snapshot and atomically replace destination
@@ -205,7 +205,7 @@ sequenceDiagram
     Borrowers-->>Commands: registered borrower
     Commands->>Loans: getLoans()
     Loans-->>Commands: current loan records
-    Commands->>Commands: filter active loans by ID; sort fresh list
+    Commands->>Commands: filter active loans by ID, sort fresh list
     alt no matching active loans
         Commands-->>CLI: no-active-loans message
     else matching active loans
@@ -409,10 +409,10 @@ sequenceDiagram
     participant Faults as FaultBook
     User->>CLI: search scope
     CLI->>Commands: execute(input)
-    Commands->>Commands: validate phrase; normalize case and whitespace
+    Commands->>Commands: validate phrase, normalize case and whitespace
     Commands->>Equipment: getEquipmentUnits()
     Equipment-->>Commands: equipment snapshot in registration order
-    Commands->>Commands: filter by name or model; preserve order
+    Commands->>Commands: filter by name or model, preserve order
     loop each matching unit
         Commands->>Loans: hasLostLoan(assetId)
         Loans-->>Commands: lost status
@@ -884,7 +884,7 @@ sequenceDiagram
     Commands->>Time: obtain today's local date
     Time-->>Commands: today
     Commands->>Loans: returnLoans(selectedLoans, today, faults)
-    Loans->>Loans: validate selections; prepare return audit evidence
+    Loans->>Loans: validate selections, prepare return audit evidence
     Loans->>Loans: record returns and audit events
     Loans-->>Commands: returns completed
     Commands-->>CLI: confirmation text
@@ -1044,7 +1044,7 @@ sequenceDiagram
     Commands->>Commands: validate command syntax
     Commands->>Equipment: getEquipmentUnits()
     Equipment-->>Commands: equipment snapshot
-    Commands->>Commands: resolve exact asset ID; reject unknown equipment
+    Commands->>Commands: resolve exact asset ID, reject unknown equipment
     Commands->>Commands: getHistory(assetId)
     Commands->>Loans: getLoans()
     Loans-->>Commands: loan records
@@ -1054,7 +1054,7 @@ sequenceDiagram
     Commands->>Source: get()
     Source-->>Commands: additional history entries
     Commands->>Commands: include entries matching the asset ID
-    Commands->>Commands: sort by date, type and description; retain renewal order
+    Commands->>Commands: sort by date, type and description, retain renewal order
     alt no matching entries
         Commands-->>CLI: empty-history message
     else matching entries exist
