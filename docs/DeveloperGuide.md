@@ -8,6 +8,11 @@ executable JAR. See `build.gradle` for dependency versions.
 
 ## Design & implementation
 
+Diagrams use inline Mermaid with its default theme, plain class names, and
+labelled relationships or messages. Class diagrams show responsibilities and
+dependencies; sequence diagrams show command flows. Edit the Mermaid blocks in
+this guide directly to keep each diagram beside its explanation.
+
 ### Entry points and shared records
 
 The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
@@ -394,9 +399,36 @@ programming errors to surface is preferable to presenting them as normal
 no-match results. At present, invalid searches are reported to the console but
 do not produce a search-specific `FINE` log entry.
 
-![Sequence diagram for equipment search](images/EquipmentSearchSequence.png)
-
-Editable diagram source: [EquipmentSearchSequence.puml](diagrams/EquipmentSearchSequence.puml).
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as LabLog
+    participant Commands as EquipmentSearchCommands
+    participant Equipment as Inventory
+    participant Loans as LoanBook
+    participant Faults as FaultBook
+    User->>CLI: search scope
+    CLI->>Commands: execute(input)
+    Commands->>Commands: validate phrase; normalize case and whitespace
+    Commands->>Equipment: getEquipmentUnits()
+    Equipment-->>Commands: equipment snapshot in registration order
+    Commands->>Commands: filter by name or model; preserve order
+    loop each matching unit
+        Commands->>Loans: hasLostLoan(assetId)
+        Loans-->>Commands: lost status
+        opt no lost loan
+            Commands->>Loans: hasActiveLoan(assetId)
+            Loans-->>Commands: active loan status
+        end
+        opt no lost or active loan
+            Commands->>Faults: blocksLending(assetId)
+            Faults-->>Commands: severe fault status
+        end
+        Commands->>Commands: append row with availability
+    end
+    Commands-->>CLI: formatted rows or empty-result message
+    CLI-->>User: display result
+```
 
 The sequence omits exception details and formatting calls; both are local to
 the command boundary and do not change records. The diagram emphasizes the
@@ -832,9 +864,33 @@ The following sequence diagram summarises the successful single-unit return
 path. Parsing, the preliminary validation pass, and individual accessor calls
 are omitted for readability; `markReturned` also validates before updating.
 
-![Sequence diagram for returning equipment](images/ReturnEquipment.png)
-
-Editable diagram source: [ReturnEquipment.puml](diagrams/ReturnEquipment.puml).
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as LabLog
+    participant Commands as ReturnCommands
+    participant Equipment as Inventory
+    participant Loans as LoanBook
+    participant Time as Clock
+    User->>CLI: return OSC-001 faults/Damaged cable
+    CLI->>Commands: execute(input)
+    Commands->>Commands: validate syntax and optional faults field
+    Commands->>Equipment: getEquipmentUnits()
+    Equipment-->>Commands: equipment snapshot
+    Commands->>Commands: check asset exists
+    Commands->>Loans: getLoans()
+    Loans-->>Commands: loan records
+    Commands->>Commands: require exactly one active loan for the asset
+    Commands->>Time: obtain today's local date
+    Time-->>Commands: today
+    Commands->>Loans: returnLoans(selectedLoans, today, faults)
+    Loans->>Loans: validate selections; prepare return audit evidence
+    Loans->>Loans: record returns and audit events
+    Loans-->>Commands: returns completed
+    Commands-->>CLI: confirmation text
+    Note over CLI: In persistent sessions, save changes before displaying success
+    CLI-->>User: display confirmation
+```
 
 #### Batch return flow and atomicity
 
@@ -975,9 +1031,37 @@ Assume `OSC-001` has a loan that has been returned with the fault description
 The following sequence diagram shows a history request for registered equipment.
 Individual field accessors are omitted for readability.
 
-![Sequence diagram for viewing equipment history](images/EquipmentHistory.png)
-
-Editable diagram source: [EquipmentHistory.puml](diagrams/EquipmentHistory.puml).
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as LabLog
+    participant Commands as HistoryCommands
+    participant Equipment as Inventory
+    participant Loans as LoanBook
+    participant Source as Other-history supplier
+    User->>CLI: history OSC-001
+    CLI->>Commands: execute(input)
+    Commands->>Commands: validate command syntax
+    Commands->>Equipment: getEquipmentUnits()
+    Equipment-->>Commands: equipment snapshot
+    Commands->>Commands: resolve exact asset ID; reject unknown equipment
+    Commands->>Commands: getHistory(assetId)
+    Commands->>Loans: getLoans()
+    Loans-->>Commands: loan records
+    loop each loan matching the asset ID
+        Commands->>Commands: create loan, renewal and loss history entries
+    end
+    Commands->>Source: get()
+    Source-->>Commands: additional history entries
+    Commands->>Commands: include entries matching the asset ID
+    Commands->>Commands: sort by date, type and description; retain renewal order
+    alt no matching entries
+        Commands-->>CLI: empty-history message
+    else matching entries exist
+        Commands-->>CLI: formatted history and record count
+    end
+    CLI-->>User: display result
+```
 
 A malformed command is rejected with usage guidance. Unknown equipment produces
 an error before history is collected. Registered equipment with no matching
