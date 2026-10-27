@@ -1129,16 +1129,59 @@ returns, and lookups.
 
 ## User Stories
 
-|Version| As a ... | I want to ... | So that I can ...|
-|--------|----------|---------------|------------------|
-|v1.0|new user|see usage instructions|refer to them when I forget how to use the application|
-|v1.0|laboratory technician|register borrowers|retain validated contact details|
-|v1.0|laboratory technician|view active loans and equipment history|track who has equipment and its past loans|
-|v1.0|laboratory technician|record returns and reported damage|close loans while retaining their history|
-|v2.0|laboratory technician|inspect chronological borrowing and return evidence|trace operations without erasing originals|
-|v2.0|laboratory technician|mark loaned equipment lost|retain borrower history and prevent lending missing equipment|
-|v2.0|laboratory technician|renew active loans while retaining deadline changes|extend borrowing without losing renewal history|
-|v2.0|laboratory technician|return multiple equipment units in one operation|process a group of returns without repeating the command|
+The following v1.0 rows summarize the original baseline. The v2.0 table lists
+all 33 stories in the approved allocation; US identifiers refer to the team's
+planning sheet, not GitHub issue numbers. US08, US12 and US13 build on existing
+location and registration validation support rather than introducing it anew.
+
+| Version | As a ... | I want to ... | So that I can ... |
+| --- | --- | --- | --- |
+| v1.0 | new user | see usage instructions | refer to them when I forget how to use the application |
+| v1.0 | laboratory technician | register borrowers | retain validated contact details |
+| v1.0 | laboratory technician | view active loans and equipment history | track who has equipment and its past loans |
+| v1.0 | laboratory technician | record returns and reported damage | close loans while retaining their history |
+
+For each v2.0 story, the user is a laboratory technician.
+
+| Story | I want to ... | So that I can ... |
+| --- | --- | --- |
+| US06 | copy equipment details to a new asset ID | register identical units without retyping their details |
+| US07 | edit equipment details | correct records while preserving their references |
+| US08 | record and update storage locations | locate each equipment unit |
+| US09 | move several units together | keep locations consistent after a bulk move |
+| US12 | receive clear validation errors | correct invalid or incomplete equipment details |
+| US13 | be prevented from reusing asset IDs | identify every unit unambiguously |
+| US14 | find equipment by exact asset ID | answer a query about one unit |
+| US15 | search equipment using partial text | find units when I remember only part of a name or model |
+| US16 | filter equipment by category, location and status | identify units suitable for my task |
+| US17 | sort equipment by a chosen field | review many records efficiently |
+| US18 | view all applicable unavailability reasons | understand why a unit cannot be booked |
+| US21 | edit borrower contact details | keep contact information current |
+| US25 | issue several units in one operation | serve a borrower without repeating commands |
+| US28 | return several units in one operation | process a group of returns consistently |
+| US30 | renew an active loan | extend borrowing while retaining deadline changes |
+| US31 | list overdue loans in due-date order | prioritize follow-up on outstanding equipment |
+| US32 | mark a loaned unit as lost | retain borrower history and prevent lending missing equipment |
+| US33 | reverse an erroneous loan or return with an audit record | correct mistakes without erasing evidence |
+| US34 | reserve equipment for a period | prepare for a future session |
+| US35 | be warned about overlapping reservations or loans | avoid conflicting bookings |
+| US36 | edit a reservation period or intended borrower | adapt a booking when plans change |
+| US37 | cancel a reservation | release its interval while retaining cancellation history |
+| US38 | find units available throughout a time window | select equipment for the whole intended session |
+| US39 | record a waiting request for a fully booked category | retain demand that cannot yet be fulfilled |
+| US40 | report a fault against equipment | retain an identifiable defect record |
+| US41 | record fault severity and description | assess defects and identify severe lending restrictions |
+| US44 | record a repair and resolve a fault | retain repair history and remove resolved fault restrictions |
+| US58 | view today's reservations, overdue loans and unresolved severe faults | review the day's operational work |
+| US60 | inspect chronological borrowing and return evidence | trace operations and corrections without erasing originals |
+| US61 | export application data | keep a portable backup of supported records |
+| US62 | import valid application data | restore or transfer the complete collection |
+| US63 | receive an error for invalid imports without losing current data | correct the file safely |
+| US64 | recall and adapt recent commands | reuse input without executing it accidentally |
+
+US58 excludes due-maintenance scheduling: maintenance notes are historical
+records, not a schedule. US60 covers borrowing and returning, including related
+corrections; it is not a general audit of every inventory-changing action.
 
 ## Non-Functional Requirements
 
@@ -1256,8 +1299,9 @@ references, joined to stable loan IDs. The codec validates references and dates
 before writing a temporary file and atomically replacing its destination.
 The export command requires a new file and protects the active data paths.
 
-Integration contract for domain owners: add full serialization, validation and
-round-trip tests for new reservation/audit models, then bump the version.
+Reservations, waiting requests and loan audit events already have structured
+serialization, validation and round-trip coverage. Future domain extensions
+must update that schema and its tests, and bump the format when necessary.
 Do not serialize HistoryEntry display text as a substitute for full domain data.
 Import and envelope validation use the same codec as export.
 
@@ -1329,7 +1373,9 @@ Sorting a copied snapshot preserves the stored registration order.
 `Fault` holds an immutable ID, registered asset ID, report date and description.
 `FaultBook` owns the records and checks equipment references and duplicate IDs.
 Reports use UUID-based `F-...` IDs to avoid a separate persistent counter.
-`getFaults()` returns an immutable snapshot for future overview consumers;
+`getFaults()` returns an immutable snapshot of the fault records;
+`getUnresolvedSevereFaults()` supplies the implemented daily overview and
+shared availability checks;
 `Fault.toHistoryEntry()` includes the ID without storing duplicated history text.
 Issues #86 and #87 add severity, lending restrictions and repair transitions below.
 
@@ -1366,7 +1412,8 @@ loans and returns remain valid; a return does not resolve a fault.
 `LabLog` supplies the same fault book to reporting, loan, list and find handlers.
 `LoanCommands` rejects severe faults before adding a loan. Listings show `On loan`
 for active loans, otherwise `Unavailable: severe fault` for affected units.
-Overview presentation is not implemented by this change; repairs are described below.
+The implemented `OverviewCommands` lists unresolved severe faults alongside
+today's reservations and overdue loans. Repairs are described below.
 
 Live and export format 4 adds required `fault.N.severity` enum names. Live
 formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
