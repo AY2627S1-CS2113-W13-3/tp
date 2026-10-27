@@ -1,0 +1,58 @@
+@startuml
+title Searching equipment by name or model
+hide footbox
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+participant ":LabLog" as App
+participant ":EquipmentSearchCommands" as Search
+participant ":Inventory" as Inventory
+participant ":LoanBook" as Loans
+participant ":FaultBook" as Faults
+
+[-> App : search scope
+activate App
+App -> Search : execute(input)
+activate Search
+note right of Search
+Validate phrase and normalize
+case and whitespace.
+end note
+Search -> Inventory : getEquipmentUnits()
+activate Inventory
+Inventory --> Search : ordered equipment snapshot
+deactivate Inventory
+note right of Search
+Filter by name or model.
+Preserve snapshot order.
+end note
+loop Each matching unit
+    Search -> Loans : hasLostLoan(assetId)
+    activate Loans
+    Loans --> Search : lost status
+    deactivate Loans
+    opt No lost loan
+        Search -> Loans : hasActiveLoan(assetId)
+        activate Loans
+        Loans --> Search : active loan status
+        deactivate Loans
+    end
+    opt No lost or active loan
+        Search -> Faults : blocksLending(assetId)
+        activate Faults
+        Faults --> Search : severe fault status
+        deactivate Faults
+    end
+    note right of Search
+Format this unit's row
+with its availability.
+    end note
+end
+Search --> App : formatted result
+deactivate Search
+App -->[ : display result
+deactivate App
+legend bottom
+Matching-equipment path shown; empty inventories and no matches return a message.
+Search reads shared session books without changing records or saving data.
+endlegend
+@enduml

@@ -97,10 +97,10 @@ class BorrowerCommandsTest {
         returned.markReturned(issued);
         loans.addLoan(returned);
         assertEquals("Active loans for " + ID + " - Jamie Tan:\n"
-                + "Asset ID | Equipment | Issued | Due | Overdue\n"
-                + "OLD-001 | Unknown equipment | 2026-09-14 | 2026-09-15 | yes\n"
-                + "OSC-001 | Digital Oscilloscope | 2026-09-14 | 2026-09-16 | no\n"
-                + "OSC-002 | Second Scope | 2026-09-14 | 2026-09-16 | no\n"
+                + "Asset ID | Equipment | Issued | Due | Overdue | Status\n"
+                + "OLD-001 | Unknown equipment | 2026-09-14 | 2026-09-15 | yes | On loan\n"
+                + "OSC-001 | Digital Oscilloscope | 2026-09-14 | 2026-09-16 | no | On loan\n"
+                + "OSC-002 | Second Scope | 2026-09-14 | 2026-09-16 | no | On loan\n"
                 + "3 active loans.", commands.execute("loans " + ID));
         assertEquals("OSC-002", loans.getLoans().get(0).getAssetId());
     }
