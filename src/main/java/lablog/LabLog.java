@@ -297,8 +297,7 @@ public class LabLog {
      * @param output destination for prompts and results
      */
     public void run(Scanner scanner, PrintStream output) {
-        output.println("Welcome to LabLog!");
-        output.println("Manage your laboratory equipment and loans here.");
+        ConsoleWelcome.print(output);
         output.println(help.execute("help"));
         while (true) {
             output.print("lablog> ");
