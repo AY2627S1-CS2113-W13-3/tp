@@ -108,7 +108,7 @@ class HelpCommandsTest {
         assertTrue(detail.endsWith("\n" + ".".repeat(60) + "\n"));
         assertTrue(detail.contains("Issue loans for one or more available equipment units.\n"
                 + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
-                + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"));
+                + "Example: loan OSC-001 b/A0123456X d/2099-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));
         assertTrue(detail.contains("Register the borrower with add-borrower"));
     }
@@ -139,7 +139,7 @@ class HelpCommandsTest {
             for (Loan loan : loans.getLoans()) {
                 assertEquals("A0123456X", loan.getBorrowerId());
                 assertEquals(LocalDate.of(2026, 9, 10), loan.getLoanDate());
-                assertEquals(LocalDate.of(2026, 9, 18), loan.getDueDate());
+                assertEquals(LocalDate.of(2099, 9, 18), loan.getDueDate());
                 assertTrue(loan.isActive());
             }
             count++;

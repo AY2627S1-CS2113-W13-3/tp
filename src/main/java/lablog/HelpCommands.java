@@ -357,10 +357,10 @@ public class HelpCommands {
         case "loan":
             return "Issue loans for one or more available equipment units.\n"
                     + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
-                    + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"
-                    + "  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.\n"
+                    + "Example: loan OSC-001 b/A0123456X d/2099-09-18\n"
+                    + "  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2099.\n"
                     + "  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.\n"
-                    + "Example: loan OSC-001 MIC-002 b/A0123456X d/2026-09-18\n"
+                    + "Example: loan OSC-001 MIC-002 b/A0123456X d/2099-09-18\n"
                     + "  Lend both selected units to the same borrower with the same dates.\n"
                     + "Fields: Supply one or more distinct, case-sensitive asset IDs separated by spaces; "
                     + "b/ identifies the borrower; "
