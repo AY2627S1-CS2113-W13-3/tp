@@ -381,7 +381,7 @@ dates, references, duplicate IDs/keys, unknown fields, invalid audit data,
 invalid UTF-8 and oversized input. Dispatcher-level cases verify saved content
 and active-loan listings remain unchanged after each invalid import.
 
-The PR #96 follow-up is covered by
+Unknown-property rejection is covered by
 SnapshotValidationTest.decode_unknownProperties_rejectsBeforeReserialization.
 It supplies valid snapshot records plus unknown top-level, per-record and
 out-of-range indexed properties. Both direct decode and read-then-write must
@@ -633,8 +633,8 @@ console.
 
 #### Borrower registration and active-loan listings
 
-This enhancement implements issues #10 and #11: registering a student's contact
-details and finding the equipment they currently hold. The design separates
+This enhancement supports registering a student's contact details and finding
+the equipment they currently hold. The design separates
 console interaction, command parsing, validated records, and storage so both `LabLog` and
 `BorrowerCli` can reuse the handlers. The main console supplies shared borrower,
 loan, and equipment records; the standalone console keeps an initially empty loan
@@ -1008,8 +1008,8 @@ ambiguity when the same asset is returned and lent again, even on the same day.
 An immutable list snapshot prevents callers from changing earlier events.
 Storing only a display note or overwriting the deadline would lose the typed
 old/new values needed to inspect and validate the change. This is a renewal
-history model; issue #77 adds borrowing/return evidence and issue #76 supplies
-the correction workflow.
+history model; the loan audit trail retains borrowing/return evidence, and
+the loan correction commands provide the correction workflow.
 
 `LoanRenewalCodec` adds `loan.N.originalDue`, `loan.N.renewal.count`, and indexed
 `date`, `previousDue`, `newDue` fields in snapshot format 9. Decode replays each
@@ -1367,7 +1367,7 @@ reference an earlier original event on the same loan, preserve its payload and
 require a reason; duplicate reversals, forward references and inconsistent event
 ordering are rejected. Original events remain present. The model can display and
 round-trip correction evidence. `LoanCorrectionCommands` applies reversals and
-validates operational dependencies (issue #76); the audit query remains read-only.
+validates operational dependencies; the audit query remains read-only.
 
 Formats 2-10 load with an empty event log and fresh loan IDs. The first successful
 save persists those IDs. Restoring uses `replaceAll(loans, events)` rather than
@@ -1662,7 +1662,8 @@ Reports use UUID-based `F-...` IDs to avoid a separate persistent counter.
 `getUnresolvedSevereFaults()` supplies the implemented daily overview and
 shared availability checks;
 `Fault.toHistoryEntry()` includes the ID without storing duplicated history text.
-Issues #86 and #87 add severity, lending restrictions and repair transitions below.
+The fault severity and repair sections below describe severity, lending
+restrictions and repair transitions.
 
 `HistoryRecordCommands` retains the existing fault command syntax and date rules
 (including past and future dates). `LabLog` shares the store's fault book and saves
