@@ -42,13 +42,28 @@ executable JAR. See `build.gradle` for dependency versions.
 5. Build the executable JAR with `.\gradlew.bat shadowJar`; it is written to
    `build/libs/lablog.jar`.
 
-**Diagrams in this guide** are inline Mermaid blocks, so each diagram can be
-edited beside its explanation. They follow the UML notation in the course
-textbook. Sequence diagrams name instances `:Class`, use solid arrows for calls
-and dashed arrows for returns, and mark static method calls with `«class»`. Class
-diagrams write members as `name: Type`, show composition with a filled diamond at
-the whole, and draw each association as a line rather than also as an attribute.
-Object diagrams underline `name:Class` and list `attribute = value`.
+**Diagrams in this guide** are inline Mermaid blocks, edited beside their
+explanations, following the [course UML conventions](https://se-education.org/se-book/uml/index.html).
+Class diagrams use these conventions consistently:
+
+* Solid arrows show stored references and their navigability; dashed arrows show
+  temporary use or creation dependencies. Collection membership alone does not
+  imply composition or exclusive lifetime ownership.
+* Association labels name the Java fields. Target multiplicities are `1`, `0..1`
+  or `0..*`. Omitted source multiplicities are unspecified, not implicitly `1`.
+  Handler and policy diagrams show the main-console wiring, with shared books.
+* Selected attributes use `name: Type`; operations use
+  `name(parameter: Type): ReturnType`, including `void`. `+` means public and `-`
+  means private. Mermaid inserts the return-type colon when rendering, so its
+  source uses `operation(...) ReturnType`. Static operations are underlined; interfaces and enumerations
+  use stereotypes. An association is not repeated as an attribute.
+* Members irrelevant to a diagram are omitted. Mermaid 10.9.1 still draws empty
+  attribute/operation compartments; these do not mean the class has no members.
+  The Model diagram deliberately focuses on relationships.
+
+Sequence diagrams name instances `:Class`, use solid arrows for calls and dashed
+arrows for returns, and mark static method calls with `«class»`. Object diagrams
+underline `name:Class` and list `attribute = value`.
 
 ## Design
 
@@ -154,22 +169,24 @@ handler and leave out these shared steps.
 
 ### Model
 
-Books own the live collections. Records are immutable, except `Loan`, whose
+Books hold the live collections. The same records can also be referenced by
+snapshots and other consumers, so membership is shown as an association rather
+than exclusive composition. Records are immutable, except `Loan`, whose
 return, renewal, loss and reversal state changes over time.
 
 ```mermaid
 classDiagram
     direction LR
-    Inventory "1" *--> "*" Equipment
-    BorrowerBook "1" *--> "*" Borrower
-    LoanBook "1" *--> "*" Loan
-    LoanBook "1" *--> "*" LoanAuditEvent
-    Loan "1" *--> "*" LoanRenewal
-    FaultBook "1" *--> "*" Fault
-    Fault --> "1" Severity
-    ReservationBook "1" *--> "*" Reservation
-    WaitingRequestBook "1" *--> "*" WaitingRequest
-    class Severity {
+    Inventory --> "0..*" Equipment : equipmentUnits
+    BorrowerBook --> "0..*" Borrower : borrowers
+    LoanBook --> "0..*" Loan : loans
+    LoanBook --> "0..*" LoanAuditEvent : audit
+    Loan --> "0..*" LoanRenewal : renewals
+    FaultBook --> "0..*" Fault : faults
+    Fault --> "1" Severity : severity
+    ReservationBook --> "0..*" Reservation : reservations
+    WaitingRequestBook --> "0..*" WaitingRequest : requests
+    class Severity["Fault.Severity"] {
         <<enumeration>>
         UNSPECIFIED
         MINOR
@@ -305,12 +322,12 @@ names and models only.
 ```mermaid
 classDiagram
     direction LR
-    LabLog "1" --> "1" EquipmentSearchCommands
-    EquipmentSearchCommands --> "1" Inventory
-    EquipmentSearchCommands --> "1" LoanBook
-    EquipmentSearchCommands --> "1" FaultBook
-    Inventory "1" *--> "*" Equipment
-    EquipmentSearchCommands ..> Equipment
+    LabLog --> "1" EquipmentSearchCommands : equipmentSearch
+    EquipmentSearchCommands --> "1" Inventory : inventory
+    EquipmentSearchCommands --> "1" LoanBook : loans
+    EquipmentSearchCommands --> "1" FaultBook : faults
+    Inventory --> "0..*" Equipment : equipmentUnits
+    EquipmentSearchCommands ..> Equipment : reads
     class EquipmentSearchCommands {
         +execute(input: String) String
         -normalize(value: String) String
@@ -363,29 +380,29 @@ by ID, so `edit-borrower` replaces one record without touching any loan.
 ```mermaid
 classDiagram
     direction LR
-    LabLog "1" --> "1" BorrowerCommands
-    BorrowerCli ..> BorrowerCommands
-    BorrowerCommands --> "1" BorrowerBook
-    BorrowerCommands --> "1" LoanBook
-    BorrowerCommands --> "1" Clock
+    LabLog --> "1" BorrowerCommands : borrowerCommands
+    BorrowerCli ..> BorrowerCommands : creates
+    BorrowerCommands --> "1" BorrowerBook : borrowers
+    BorrowerCommands --> "1" LoanBook : loans
+    BorrowerCommands --> "1" Clock : clock
     BorrowerCommands --> "1" Function : equipmentNames
-    BorrowerBook "1" *--> "*" Borrower
-    BorrowerBook --> "0..1" Saver
-    LoanBook "1" *--> "*" Loan
-    class Saver {
+    BorrowerBook --> "0..*" Borrower : borrowers
+    BorrowerBook --> "0..1" Saver : saver
+    LoanBook --> "0..*" Loan : loans
+    class Saver["BorrowerBook.Saver"] {
         <<interface>>
-        +save(proposed: List~Borrower~)
+        +save(proposed: List~Borrower~) void
     }
     class Borrower {
         -borrowerId: String
         -name: String
         -phone: String
         -email: String
-        +validateId(borrowerId: String)$
+        +validateId(borrowerId: String) void$
     }
     class BorrowerBook {
-        +addBorrower(borrower: Borrower)
-        +updateBorrower(borrower: Borrower)
+        +addBorrower(borrower: Borrower) void
+        +updateBorrower(borrower: Borrower) void
         +getBorrower(borrowerId: String) Borrower
     }
     class BorrowerCommands {
@@ -839,11 +856,12 @@ creates it, and the two refer to each other.
 ```mermaid
 classDiagram
     direction LR
-    ReservationBook "1" <--> "1" BookingAvailability
-    WaitingRequestBook --> "1" BookingAvailability
-    BookingAvailability --> "1" Inventory
-    BookingAvailability --> "1" LoanBook
-    BookingAvailability --> "1" FaultBook
+    ReservationBook --> "1" BookingAvailability : availability
+    BookingAvailability --> "1" ReservationBook : reservations
+    WaitingRequestBook --> "1" BookingAvailability : availability
+    BookingAvailability --> "1" Inventory : inventory
+    BookingAvailability --> "1" LoanBook : loans
+    BookingAvailability --> "1" FaultBook : faults
 ```
 
 All ranges are inclusive, so touching endpoints conflict:
