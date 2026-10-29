@@ -3,53 +3,63 @@
 ## Table of contents
 
 * [Acknowledgements](#acknowledgements)
-* [Design & implementation](#design--implementation)
+* [Design](#design)
   * [Architecture](#architecture)
+  * [How a command is executed](#how-a-command-is-executed)
   * [Entry points and shared records](#entry-points-and-shared-records)
-  * [Borrower registration and active-loan listings (Zeph)](#borrower-registration-and-active-loan-listings-zeph)
-  * [Equipment listing, filters, and sorting](#equipment-listing-filters-and-sorting)
-  * [Equipment search (US15)](#equipment-search-us15)
-  * [Copying equipment](#copying-equipment)
-  * [Help and command examples](#help-and-command-examples)
-  * [Loan lifecycle](#loan-lifecycle)
-  * [Issuing single and batch loans (issue #71)](#issuing-single-and-batch-loans-issue-71)
-  * [Active and overdue loan listings (issue #74)](#active-and-overdue-loan-listings-issue-74)
-  * [Renewing active loans (issue #73)](#renewing-active-loans-issue-73)
-  * [Borrowing and return audit trail (issue #77)](#borrowing-and-return-audit-trail-issue-77)
-  * [Correcting erroneous loans and returns (issue #76)](#correcting-erroneous-loans-and-returns-issue-76)
-  * [Reporting loaned equipment lost (issue #75)](#reporting-loaned-equipment-lost-issue-75)
-  * [Equipment returns](#equipment-returns)
+  * [Model](#model)
+  * [Storage](#storage)
+    * [Versioned export schema](#versioned-export-schema)
+    * [Import and single-file persistence](#import-and-single-file-persistence)
+    * [Import envelope validation](#import-envelope-validation)
+* [Implementation](#implementation)
+  * [Equipment records](#equipment-records)
+    * [Equipment listing, filters, and sorting](#equipment-listing-filters-and-sorting)
+    * [Equipment search](#equipment-search)
+    * [Exact equipment lookup](#exact-equipment-lookup)
+    * [Copying equipment](#copying-equipment)
+    * [Equipment detail editing](#equipment-detail-editing)
+    * [Bulk equipment location updates](#bulk-equipment-location-updates)
+  * [Borrowers](#borrowers)
+    * [Borrower registration and active-loan listings](#borrower-registration-and-active-loan-listings)
+    * [Borrower contact editing](#borrower-contact-editing)
+  * [Loans](#loans)
+    * [Loan lifecycle](#loan-lifecycle)
+    * [Issuing single and batch loans](#issuing-single-and-batch-loans)
+    * [Active and overdue loan listings](#active-and-overdue-loan-listings)
+    * [Renewing active loans](#renewing-active-loans)
+    * [Equipment returns](#equipment-returns)
+    * [Reporting loaned equipment lost](#reporting-loaned-equipment-lost)
+    * [Borrowing and return audit trail](#borrowing-and-return-audit-trail)
+    * [Correcting erroneous loans and returns](#correcting-erroneous-loans-and-returns)
   * [Equipment history](#equipment-history)
-* [Product scope](#product-scope)
+  * [Faults and repairs](#faults-and-repairs)
+    * [Structured fault reports](#structured-fault-reports)
+    * [Fault severity and description](#fault-severity-and-description)
+    * [Fault repairs and resolution](#fault-repairs-and-resolution)
+  * [Reservations and availability](#reservations-and-availability)
+    * [Structured reservations](#structured-reservations)
+    * [Shared conflict policy](#shared-conflict-policy)
+    * [Editing reservations](#editing-reservations)
+    * [Reservation cancellation](#reservation-cancellation)
+    * [Interval availability queries](#interval-availability-queries)
+    * [Unavailability explanations](#unavailability-explanations)
+    * [Waiting requests](#waiting-requests)
+  * [Daily overview, help and command recall](#daily-overview-help-and-command-recall)
+    * [Daily operational overview](#daily-operational-overview)
+    * [Help and command examples](#help-and-command-examples)
+    * [Explicit command recall](#explicit-command-recall)
+  * [Current integration limits and packaged verification](#current-integration-limits-and-packaged-verification)
+* [Appendix A: Product scope](#appendix-a-product-scope)
   * [Target user profile](#target-user-profile)
   * [Value proposition](#value-proposition)
-* [User Stories](#user-stories)
-* [Non-Functional Requirements](#non-functional-requirements)
-* [Glossary](#glossary)
-* [Instructions for manual testing](#instructions-for-manual-testing)
+* [Appendix B: User stories](#appendix-b-user-stories)
+* [Appendix C: Non-functional requirements](#appendix-c-non-functional-requirements)
+* [Appendix D: Glossary](#appendix-d-glossary)
+* [Appendix E: Instructions for manual testing](#appendix-e-instructions-for-manual-testing)
   * [Assertions and diagnostic logging](#assertions-and-diagnostic-logging)
   * [Automated and manual checks](#automated-and-manual-checks)
-* [Equipment detail editing (issue #62)](#equipment-detail-editing-issue-62)
-* [Bulk equipment location updates (issue #64)](#bulk-equipment-location-updates-issue-64)
-* [Exact equipment lookup (issue #67)](#exact-equipment-lookup-issue-67)
-* [Borrower contact editing (issue #89)](#borrower-contact-editing-issue-89)
-* [Versioned export schema (issue #90)](#versioned-export-schema-issue-90)
-* [Import and single-file persistence (issue #91)](#import-and-single-file-persistence-issue-91)
-* [Import envelope validation (issue #92)](#import-envelope-validation-issue-92)
-* [Explicit command recall (issue #93)](#explicit-command-recall-issue-93)
-  * [Sorting filtered equipment](#sorting-filtered-equipment)
-* [Structured fault reports (issue #85)](#structured-fault-reports-issue-85)
-* [Fault severity and description (issue #86)](#fault-severity-and-description-issue-86)
-* [Fault repairs and resolution (issue #87)](#fault-repairs-and-resolution-issue-87)
-* [Structured reservations (issue #78)](#structured-reservations-issue-78)
-* [Shared conflict policy (issue #79)](#shared-conflict-policy-issue-79)
-* [Editing reservations (issue #80)](#editing-reservations-issue-80)
-* [Reservation cancellation (issue #81)](#reservation-cancellation-issue-81)
-* [Interval availability queries (issue #82)](#interval-availability-queries-issue-82)
-* [Waiting requests (issue #83)](#waiting-requests-issue-83)
-* [Daily operational overview (issue #88)](#daily-operational-overview-issue-88)
-* [Unavailability explanations (issue #84)](#unavailability-explanations-issue-84)
-* [Current integration limits and packaged verification](#current-integration-limits-and-packaged-verification)
+  * [Manual test cases](#manual-test-cases)
 
 ## Acknowledgements
 
@@ -57,7 +67,7 @@ LabLog builds on the SE-EDU Java project template. Gradle manages compilation,
 JUnit 5 runs tests, Checkstyle checks coding conventions, and Shadow builds the
 executable JAR. See `build.gradle` for dependency versions.
 
-## Design & implementation
+## Design
 
 Diagrams use inline UML drawn with Mermaid. Class diagrams show selected members,
 relationships, and dependencies. Sequence diagrams show command flows between
@@ -97,13 +107,13 @@ classDiagram
     LabLog --> "*" XyzCommands : dispatches to
     BorrowerCli ..> XyzCommands : creates
     LabLog ..> ApplicationSnapshot : loads and saves
-    XyzCommands ..> Inventory
-    XyzCommands ..> BorrowerBook
-    XyzCommands ..> LoanBook
-    XyzCommands ..> FaultBook
-    XyzCommands ..> ReservationBook
-    XyzCommands ..> WaitingRequestBook
-    XyzCommands ..> BookingAvailability
+    XyzCommands --> Inventory
+    XyzCommands --> BorrowerBook
+    XyzCommands --> LoanBook
+    XyzCommands --> FaultBook
+    XyzCommands --> ReservationBook
+    XyzCommands --> WaitingRequestBook
+    XyzCommands --> BookingAvailability
     ReservationBook --> "1" BookingAvailability : -availability
 ```
 
@@ -114,7 +124,7 @@ shared instances to every handler it creates.*
 
 | Layer | Classes | Responsibility |
 | --- | --- | --- |
-| Console | `LabLog`, `BorrowerCli`, `CommandHistory`, `ConsoleWelcome` | Read command lines, recall recent commands, dispatch to a handler, save, and print results or errors. `BorrowerCli` is a separate borrower-only console. |
+| Console | `LabLog`, `BorrowerCli`, `CommandHistory`, `ConsoleWelcome`, `Messages`, `TableFormatter` | Read command lines, recall recent commands, dispatch to a handler, save, and print results or errors. Successful changes are prefixed with `[OK]` and listings are printed as aligned tables. `BorrowerCli` is a separate borrower-only console. |
 | Commands | `EquipmentAdd/Copy/Edit/Move/List/Find/SearchCommands`, `BorrowerCommands`, `LoanCommands`, `ReturnCommands`, `RenewCommands`, `LostCommands`, `ActiveLoanCommands`, `LoanAuditCommands`, `LoanCorrectionCommands`, `HistoryCommands`, `HistoryRecordCommands`, `RepairCommands`, `ReservationCommands`, `WaitingRequestCommands`, `AvailableEquipmentCommands`, `UnavailableReasonCommands`, `OverviewCommands`, `HelpCommands` | Parse and validate one command, read or change the books, and return the text to display. |
 | Model | `Inventory`, `BorrowerBook`, `LoanBook`, `FaultBook`, `ReservationBook`, `WaitingRequestBook`, `BookingAvailability`, and records such as `Equipment`, `Borrower`, `Loan` and `Fault` | Hold the application state in memory and enforce record rules. `BookingAvailability` is the shared booking-conflict rule used by lending, renewal, reservations and availability queries. |
 | Storage | `ApplicationSnapshot`, `LabLogStore`, and the `*Codec` classes | Encode all records as one versioned UTF-8 properties file, validate it on load, and replace it atomically on save. |
@@ -129,22 +139,61 @@ do not save. `BorrowerBook`, `ReservationBook` and `WaitingRequestBook` must sav
 proposed change before publishing it, so `LabLog` installs a `Saver` lambda in each
 that writes the same complete snapshot.
 
+### How a command is executed
+
+The sequence below shows `copy OSC-001 OSC-002`, a command that changes records,
+from input to confirmation. The feature diagrams later in this guide focus on the
+handler and leave out these shared steps.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant L as :LabLog
+    participant H as :CommandHistory
+    participant C as :EquipmentCopyCommands
+    participant I as :Inventory
+    User->>+L: copy OSC-001 OSC-002
+    L->>+H: accept(input)
+    H-->>-L: null
+    L->>+C: execute(input)
+    C->>+I: getEquipmentUnits()
+    I-->>-C: units
+    C->>+I: containsAssetId("OSC-002")
+    I-->>-C: false
+    create participant E as copy:Equipment
+    C->>+E: Equipment("OSC-002", ...)
+    E-->>-C: copy
+    C->>+I: addEquipment(copy)
+    I-->>-C: #nbsp;
+    C-->>-L: Copied OSC-001 to OSC-002.
+    L->>+L: saveChanges(output)
+    L->>+L: snapshot(borrowers)
+    create participant S as :ApplicationSnapshot
+    L->>+S: ApplicationSnapshot(...)
+    S-->>-L: snapshot
+    L-->>-L: snapshot
+    L->>+S: write(dataFile)
+    Note over S: write a temporary file,<br/>then replace the data file atomically
+    S-->>-L: #nbsp;
+    L-->>-L: true
+    L-->>-User: [OK] Copied OSC-001 to OSC-002.
+```
+
+1. `CommandHistory` handles `commands` and `recall INDEX` and returns `null` for
+   other input, so `LabLog` routes the input by its first word.
+2. The handler validates the whole command before changing any record. Invalid
+   input throws `IllegalArgumentException`; `LabLog` prints `Error: ...` and the
+   session continues.
+3. A command that changed records is saved before `[OK]` and the confirmation are
+   printed. Read-only commands such as `list`, `find`, `history` and `loan-audit`
+   never save.
+
 ### Entry points and shared records
 
-The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
-or the optional command-line file path. It stores equipment, borrowers, loans,
-notes, faults, repairs, reservations, waiting requests, renewals, losses and loan
-audit events in one format-11 UTF-8 properties snapshot. Save to a temporary file
-in the destination directory, then atomically replace the snapshot before
-printing success. Unsupported atomic replacement is reported as a save failure;
-there is no non-atomic fallback. Save failure stops the session to avoid further
-unsaved operations. Legacy split-file installations load the sibling borrower file
-and migrate on the next save. Injected constructors remain in memory for unit tests.
-
-Loading rejects missing required fields, invalid dates, duplicate IDs, unknown
-equipment references, and multiple active loans per unit. A corrupt file is not
-overwritten. This store assumes one application process owns a data file;
-concurrent writers are not supported.
+The production main entry point loads every record from `data/lablog.properties`
+or the optional command-line file path. [Storage](#storage) describes the file
+format, validation on load and how changes are saved. Injected constructors keep
+records in memory for unit tests.
 
 `LabLog` is the Gradle application entry point. It routes equipment registration
 and copying, listing, active loans, history notes, help, loan, renew, lost, loan-audit,
@@ -169,244 +218,171 @@ loan exists. These are lookup helpers, not an enforcement mechanism:
 not validate identifiers or dates. `LoanCommands` applies those checks before
 storing a record; any other issuing path must repeat them.
 
-### Borrower registration and active-loan listings (Zeph)
+### Model
 
-This enhancement implements issues #10 and #11: registering a student's contact
-details and finding the equipment they currently hold. The design separates
-console interaction, command parsing, validated records, and storage so both `LabLog` and
-`BorrowerCli` can reuse the handlers. The main console supplies shared borrower,
-loan, and equipment records; the standalone console keeps an initially empty loan
-book. This section describes registration and listing; contact editing is covered
-in [Borrower contact editing](#borrower-contact-editing-issue-89).
-
-#### Responsibilities and relationships
-
-`LabLog` creates shared dependencies and routes borrower commands; `BorrowerCli`
-also provides a standalone prompt. Both read complete command lines and print
-results or recoverable errors. `BorrowerCommands` interprets those lines and
-coordinates the books. `Borrower` is an immutable, validated contact record.
-`BorrowerBook` owns the ID-to-record map and optionally persists it. `LoanBook`
-remains the source of loan state; borrower records do not contain copied loans.
+Books own the live collections. Records are immutable, except `Loan`, whose
+return, renewal, loss and reversal state changes over time (see
+[Loan lifecycle](#loan-lifecycle)).
 
 ```mermaid
 classDiagram
-    LabLog --> "1" BorrowerCommands : -borrowerCommands
-    BorrowerCli ..> BorrowerCommands : creates
-    BorrowerCommands --> "1" BorrowerBook : -borrowers
-    BorrowerCommands --> "1" LoanBook : -loans
-    BorrowerCommands --> "1" Function : -equipmentNames
-    BorrowerCommands --> "1" Clock : -clock
-    BorrowerBook --> "0..1" Saver : -saver
-    BorrowerBook --> "0..*" Borrower : -borrowers
-    LoanBook --> "0..*" Loan : -loans
-    class Borrower {
-        -borrowerId: String
-        -name: String
-        -phone: String
-        -email: String
-        +validateId(borrowerId: String)$ void
+    direction LR
+    Inventory "1" *--> "*" Equipment
+    BorrowerBook "1" *--> "*" Borrower
+    LoanBook "1" *--> "*" Loan
+    LoanBook "1" *--> "*" LoanAuditEvent
+    Loan "1" *--> "*" LoanRenewal
+    FaultBook "1" *--> "*" Fault
+    Fault --> "1" Severity
+    ReservationBook "1" *--> "*" Reservation
+    WaitingRequestBook "1" *--> "*" WaitingRequest
+    class Severity {
+        <<enumeration>>
+        UNSPECIFIED
+        MINOR
+        MODERATE
+        SEVERE
     }
-    class BorrowerBook {
-        +addBorrower(borrower: Borrower) void
-        +getBorrower(borrowerId: String) Borrower
-        +getBorrowers() List~Borrower~
-        -persist(updated: Map) void
-    }
-    class Saver {
-        <<interface>>
-        +save(proposed: List~Borrower~) void
-    }
-    class BorrowerCommands {
-        +execute(input: String) String
-        -addBorrower(arguments: String) String
-        -listLoans(id: String) String
-    }
-    class Function {
-        <<interface>>
-        +apply(assetId: String) String
-    }
-    class Clock {
-        <<Java API>>
-    }
+    note for Loan "Records refer to equipment and borrowers<br/>by ID strings, not object references"
 ```
 
-`Function` is `java.util.function.Function<String, String>`, which maps an asset ID
-to an equipment name. `Saver` is the package-private `BorrowerBook.Saver` interface.
-In the main console, `LabLog` installs a lambda that writes an `ApplicationSnapshot`.
-A loan refers to its borrower by ID, rather than holding a `Borrower` object. The
-diagram omits getters, constructors, and the shared help handler to focus on
-registration and listing dependencies.
+* `Loan` stores an asset ID and a borrower ID. Editing a borrower's contact
+  details or an equipment's location therefore never rewrites loans.
+* `LoanAuditEvent` records are immutable evidence of loans, returns and their
+  corrections, kept beside the mutable `Loan` records.
+* Each book returns an unmodifiable list, so callers cannot add or remove records
+  without going through the book's checks.
 
-#### Registering a borrower
-
-For example, `add-borrower A0123456X n/Jamie Tan p/91234567
-e/jamietan@u.nus.edu` requests one registration. `execute` separates the command
-word from its arguments. The registration parser locates whitespace-delimited
-prefixes and accepts `n/`, `p/`, and `e/` in any order, exactly once each. It
-recognizes unknown prefixes too, allowing it to reject them rather than silently
-including them in a name. Missing, repeated, empty, and unknown fields fail before
-the book is modified. Surrounding field whitespace is removed; internal name
-spaces and letter case are preserved.
-
-The `Borrower` constructor enforces the record's invariants even when a caller
-bypasses the command parser. An ID contains an uppercase letter, seven digits,
-and an uppercase letter; this is a shape check, not a check-digit calculation.
-Names contain 1–100 characters with no control characters. Phone numbers contain
-exactly eight ASCII digits, and email addresses use the lowercase `u.nus.edu`
-domain and the supported local-part pattern. `BorrowerBook` separately enforces
-uniqueness because that rule depends on the collection, not one record.
-
-The following sequence shows a valid registration in the **main console**.
-`LabLog.load` installs a `BorrowerBook.Saver` lambda that builds an
-`ApplicationSnapshot` from the proposed borrowers and the other application
-records, then writes it to the data file.
+`BookingAvailability` is the single date-range conflict policy. It reads the books
+below and is used by lending, renewal, reservations, availability queries and
+waiting requests. `ReservationBook` creates it, and the two refer to each other.
 
 ```mermaid
-sequenceDiagram
-    actor User
-    participant CLI as :LabLog
-    participant Commands as :BorrowerCommands
-    participant Book as :BorrowerBook
-    participant Saver as saver:Saver
-    User->>+CLI: add-borrower ID n/NAME p/PHONE e/EMAIL
-    CLI->>+Commands: execute(input)
-    Commands->>+Commands: addBorrower(arguments)
-    create participant Record as borrower:Borrower
-    Commands->>Record: new Borrower(id, name, phone, email)
-    Record-->>Commands: borrower
-    Commands->>+Book: addBorrower(borrower)
-    Book->>+Book: persist(updated)
-    Book->>+Saver: save(proposed)
-    create participant Snapshot as :ApplicationSnapshot
-    Saver->>Snapshot: new ApplicationSnapshot(...)
-    Saver->>+Snapshot: write(dataFile)
-    Snapshot-->>-Saver: #nbsp;
-    Saver-->>-Book: #nbsp;
-    Book-->>-Book: #nbsp;
-    Book-->>-Commands: #nbsp;
-    Commands-->>-Commands: success text
-    Commands-->>-CLI: success text
-    CLI-->>-User: confirmation and contact details
+classDiagram
+    direction LR
+    ReservationBook "1" <--> "1" BookingAvailability
+    WaitingRequestBook --> "1" BookingAvailability
+    BookingAvailability --> "1" Inventory
+    BookingAvailability --> "1" LoanBook
+    BookingAvailability --> "1" FaultBook
 ```
 
-Before `persist`, `addBorrower` rejects a duplicate ID and copies the live map
-with the new record added. Only after `save` returns does it put the record in
-the live map. `write` saves to a temporary file and atomically replaces the
-destination.
+### Storage
 
-Saving the proposed state before publishing it prevents a normal write failure
-from registering a borrower only in memory. The temporary file is created beside
-the destination so the replacement stays on the same file system. The code
-requests an atomic move and deliberately has no non-atomic fallback. If that
-operation is unsupported or writing fails, the error propagates to the console
-and the live map is not updated. Temporary-file deletion is attempted in a
-`finally` block. A cleanup failure can itself propagate as an I/O error; this is
-not a general database transaction or a guarantee against every storage failure.
+**One snapshot file.** The main console stores every record in one UTF-8 Java
+properties file, `data/lablog.properties` by default. `ApplicationSnapshot` holds
+equipment, borrowers, loans, renewals, losses, audit events, notes, faults,
+repairs, reservations and waiting requests. Each record uses indexed keys such as
+`loan.0.asset`, and a `*.count` key gives the number of records of each type.
 
-**Standalone storage.** In `BorrowerCli`, each properties key is a borrower ID;
-its value contains name, phone, and email
-separated by tabs. The model rejects control characters in names, so user data
-cannot introduce extra field separators. On startup, a missing file means a new
-book. An existing invalid record causes loading to fail rather than being silently
-discarded. Reloading uses the same `Borrower` validation as new registrations.
-The no-argument book constructor starts in memory; the main application then
-installs its snapshot saver. `ApplicationSnapshot` validates the complete stored
-state before the main console starts. Legacy split-file data is loaded and
-migrated into the complete snapshot on the next save.
+**Format versions.** The `format` key records the schema version. The current
+writer always saves format 11, and formats 2 to 10 still load without inventing
+newer data. Each version added one kind of record:
 
-#### Listing active loans
+| Format | Added | Format | Added |
+| --- | --- | --- | --- |
+| 2 | Complete snapshot of equipment, loans, borrowers and notes | 7 | Reservation cancellation |
+| 3 | Fault reports | 8 | Waiting requests |
+| 4 | Fault severity | 9 | Loan renewal chains |
+| 5 | Repairs and fault resolution | 10 | Loss reports |
+| 6 | Reservations | 11 | Stable loan IDs and the loan audit log |
 
-`loans A0123456X` first validates and resolves the borrower. A malformed or unknown
-ID is an error, distinct from a registered borrower who has no active loans.
-The handler reads the shared `LoanBook`, keeps only active loans with the exact
-borrower ID, and sorts a fresh list by due date and then asset ID. It does not
-reorder the book. Consequently, a return performed through another handler is
-visible on the next listing without synchronizing a borrower-specific cache.
+Older installations that kept equipment/loans and borrowers in two separate files
+are loaded through `LabLogStore` and migrated to one snapshot on the next save.
 
-```mermaid
-sequenceDiagram
-    participant CLI as :LabLog
-    participant Commands as :BorrowerCommands
-    participant Borrowers as :BorrowerBook
-    participant Loans as :LoanBook
-    participant Names as equipmentNames:Function
-    CLI->>+Commands: execute("loans A0123456X")
-    Commands->>+Commands: listLoans(id)
-    Commands->>+Borrowers: getBorrower(id)
-    Borrowers-->>-Commands: borrower
-    Commands->>+Loans: getLoans()
-    Loans-->>-Commands: loans
-    Note right of Commands: keep active loans with this ID,<br/>sort by due date, then asset ID
-    alt no matching active loans
-        Note right of Commands: result = no-active-loans message
-    else matching active loans
-        Note right of Commands: today = LocalDate.now(clock)
-        loop each matching loan
-            Commands->>+Names: apply(assetId)
-            Names-->>-Commands: equipment name or null
-        end
-        Note right of Commands: result = rows, overdue flags and count
-    end
-    Commands-->>-Commands: result
-    Commands-->>-CLI: result
-```
+**Validation before use.** Loading and importing reject, before any live record
+changes: files that are not regular files or exceed 10 MiB; repeated or unknown
+keys; missing required fields; invalid dates; duplicate IDs; references to unknown
+equipment or borrowers; more than one active loan per unit; and renewal chains,
+loss dates or audit events that contradict the loans. A corrupt data file stops
+startup instead of being overwritten.
 
-**Lost loans remain outstanding** and appear with status `LOST`; other
-active rows show `On loan`. This keeps unresolved borrower responsibility visible. Ordinary return and
-renewal commands reject lost loans; no recovery command is implemented.
-A due date before today is overdue; a loan due today is not. Injecting `Clock`
-makes this rule testable at local-date boundaries without changing the machine's
-clock. The injected equipment-name function avoids coupling the handler to the
-inventory's internal representation. A missing equipment record displays
-`Unknown equipment`; it does not hide a loan that still needs attention.
+**Atomic saving.** `ApplicationSnapshot.write` writes a temporary file in the
+destination directory, then replaces the destination with an atomic move. If the
+file system cannot move atomically, saving fails; there is no non-atomic fallback.
+The previous file therefore stays intact after any failed save.
 
-#### Design choices and alternatives
+**Two save strategies.** Commands save in one of two ways:
 
-| Decision | Reason and trade-off | Alternative |
+| Strategy | Used by | If saving fails |
 | --- | --- | --- |
-| Validate immutable contact records at construction | Every constructed record has valid fields; edits would require a new record. | Parser-only validation is shorter but allows invalid records through other callers or file loading. |
-| Use an ID-keyed map | Duplicate checks and lookups are direct, with expected constant-time lookup. | A list is sufficient for a small dataset but requires repeated scans for IDs. |
-| Save a complete proposed snapshot | Atomic replacement keeps proposed borrowers consistent with other records in the main console; the standalone console saves only its borrower book. | A database scales better and provides transactions, but adds setup and dependencies beyond current needs. |
-| Derive active loans from the shared book | Returns immediately affect later listings, with no duplicate status to maintain. | A borrower-to-loans index speeds lookups but must stay synchronized with issue and return operations. |
-| Inject time and equipment-name lookup | Tests can control dates and missing equipment; the handler is reusable across consoles. | Direct calls to the system clock and inventory are simpler initially but make boundary tests and integration less flexible. |
+| Save, then publish: the book passes the proposed collection to an injected `Saver` and updates memory only after it succeeds | Borrowers, reservations, waiting requests, import | An error is printed, nothing changes and the session continues. |
+| Update, then save: the handler changes the shared books, then `LabLog.saveChanges` writes the snapshot | All other commands that change records | The session stops so no further unsaved work is accepted. The file keeps the last saved state; memory is not rolled back, so restart to reload it. |
 
-For `B` borrowers, registration copies O(B) borrower entries. Standalone
-persistence writes O(B) records; main-console persistence additionally captures
-and writes the other application records, so its cost depends on the full snapshot.
-For `L` loans and `K` matching active loans, listing takes O(L + K log K)
-time, excluding equipment-name lookup costs, and O(K) temporary list space.
-The current book is intended for one console process; atomic replacement does
-not provide locking or prevent lost updates between concurrent processes.
+The second strategy keeps handlers simple and is safe because the session stops
+at the first failed save. One main-console process should own a data file; atomic
+replacement does not lock the file or merge concurrent changes. The subsections
+below describe the export schema, import and import validation in detail.
 
-#### Failure handling, tests, and integration boundary
+#### Versioned export schema
 
-The standalone borrower CLI catches `IllegalArgumentException` for invalid
-commands and `IOException` for save failures, prints an error, and continues
-accepting input. The main console stops on a save failure to avoid further
-unsaved changes. Startup load
-errors stop the console because proceeding with an empty book could conceal
-existing data. Success is printed only after `addBorrower` returns.
+ApplicationSnapshot captures the supported object graph and uses LabLogStore's
+equipment/loan serializer. UTF-8 properties format 11 retains borrower.count and
+note.count with indexed fields, structured renewal chains and each loan's loss report date.
+audit.count and typed indexed records retain borrowing/return evidence and correction
+references, joined to stable loan IDs. The codec validates references and dates
+before writing a temporary file and atomically replacing its destination.
+The export command requires a new file and protects the active data paths.
 
-`BorrowerBookTest` checks round-trip persistence, failed saves, corrupt existing
-records, and unmodifiable snapshots. `BorrowerCommandsTest` covers prefix order,
-invalid fields, duplicate IDs, name-length boundaries, unknown borrowers, empty
-results, filtering and ordering, local-date overdue behavior, and a return between
-two listings. It also checks that the console recovers from a rejected command.
-The [console test plan](../test/ui-test-plan.md) covers separate-process checks.
+Reservations, waiting requests and loan audit events already have structured
+serialization, validation and round-trip coverage. Future domain extensions
+must update that schema and its tests, and bump the format when necessary.
+Do not serialize HistoryEntry display text as a substitute for full domain data.
+Import and envelope validation use the same codec as export.
 
-**Integrated workflow.** `LabLog` passes the same borrower and loan books to
-issuing, return, and borrower handlers. Its equipment-name lookup reads the shared
-inventory. `LoanCommands` validates registered borrowers when supplied with this
-book, as it is in the main console. Verify a register, issue, list, return, and
-list-again session through that prompt; the second listing must exclude the
-returned loan. `LabLogTest` checks borrower dispatch and registered-borrower loan issuing.
+#### Import and single-file persistence
 
-`BorrowerCli.main` remains a separate entry point with an empty `LoanBook` and
-a name lookup that returns null. It cannot see loans from a different process.
-The [borrower implementation notes](BorrowerImplementation.md) describe the
-original standalone increment.
+LabLog.load reads complete formats 2 through 11 into detached books, or loads the legacy two-file
+installation without writing during startup. Main-console mutations persist
+one ApplicationSnapshot. BorrowerBook's Saver writes proposed contacts with
+the other current records before publishing the edit.
 
-### Equipment listing, filters, and sorting
+Import decodes all records and validates IDs, references, dates and active-loan
+constraints before writing the replacement atomically. Only after persistence
+succeeds does it replace the contents of shared books. Existing command handlers
+therefore observe the new records without being rebuilt. Injected external
+history sources cannot be replaced and are rejected explicitly.
+
+SnapshotImportTest checks valid replacement, visibility through existing
+handlers, restart, updated contacts, legacy migration and a failed destination
+replacement. An unsupported atomic move fails safely; no non-atomic fallback
+is attempted. Use one main-console process per data file.
+
+#### Import envelope validation
+
+ApplicationSnapshot.readProperties rejects duplicate properties through a
+Properties subclass instead of accepting the parser's usual last-value-wins
+behavior. It checks regular-file status and the 10 MiB input limit. Decode
+derives the accepted key set from the export schema and the declared input version,
+excluding fields introduced by later versions. It rejects supplied keys
+outside it, including out-of-range indices. The error names the first unknown
+key in sorted order. Required-field validation separately rejects missing keys. Domain validation remains shared with
+the export codec.
+
+SnapshotValidationTest supplies malformed versions, counts, contact fields,
+dates, references, duplicate IDs/keys, unknown fields, invalid audit data,
+invalid UTF-8 and oversized input. Dispatcher-level cases verify saved content
+and active-loan listings remain unchanged after each invalid import.
+
+The PR #96 follow-up is covered by
+SnapshotValidationTest.decode_unknownProperties_rejectsBeforeReserialization.
+It supplies valid snapshot records plus unknown top-level, per-record and
+out-of-range indexed properties. Both direct decode and read-then-write must
+fail before the existing destination can be overwritten; the source, destination
+and input properties are checked for preservation.
+
+## Implementation
+
+Features are grouped by area. [Appendix B](#appendix-b-user-stories) lists the
+user stories they implement.
+
+### Equipment records
+
+These commands register, change and find individual equipment units. `Inventory`
+keeps units in registration order, and loans, faults and history refer to units by
+asset ID, so edits never break those references.
+
+#### Equipment listing, filters, and sorting
 
 `EquipmentListCommands` accepts `list` with optional `category/`, `location/`,
 and `status/` filters, plus an optional `sort/` field, in any order once each.
@@ -436,7 +412,16 @@ booking checks.
 combined filters and sorting, option ordering, unchanged inventory order,
 status changes, invalid inputs, no matches, and severe-fault status filtering.
 
-### Equipment search (US15)
+##### Sorting filtered equipment
+
+Use `list [category/VALUE] [location/VALUE] [status/available|on-loan|unavailable|lost] [sort/FIELD]`.
+Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
+`name`, `category`, `model`, `location`, and `availability`. For example,
+`list category/Electronics sort/name` sorts only matching units. Comparisons
+are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
+Sorting a copied snapshot preserves the stored registration order.
+
+#### Equipment search
 
 US15 helps a lab technician find a unit by a remembered part of its name or
 model. The command accepts a phrase rather than an asset ID, so it complements
@@ -447,7 +432,7 @@ only; it does not search asset IDs, categories or locations. It is read-only:
 searching does not edit an equipment record, change a loan, or write the
 snapshot file.
 
-#### Responsibilities and relationships
+##### Responsibilities and relationships
 
 `LabLog` owns the shared `Inventory`, `LoanBook`, and `FaultBook` used by the
 main console. It constructs one `EquipmentSearchCommands` with references to
@@ -464,7 +449,7 @@ classDiagram
     EquipmentSearchCommands --> "1" Inventory : -inventory
     EquipmentSearchCommands --> "1" LoanBook : -loans
     EquipmentSearchCommands --> "1" FaultBook : -faults
-    Inventory --> "0..*" Equipment : -equipmentUnits {ordered}
+    Inventory "1" *--> "0..*" Equipment : -equipmentUnits {ordered}
     EquipmentSearchCommands ..> Equipment : matches and displays
     class EquipmentSearchCommands {
         +execute(input: String) String
@@ -489,7 +474,7 @@ than copying or maintaining a second search-specific collection. Because the
 inventory returns a snapshot, the handler can filter without exposing a
 mutable internal list.
 
-#### Parsing and matching
+##### Parsing and matching
 
 The accepted form is `search TEXT`, where `TEXT` is non-empty and may contain
 spaces. The handler trims the command line, checks the command word boundary,
@@ -518,7 +503,7 @@ the authoritative snapshot is simpler and cannot become stale. Adding search
 options to `list` was also considered. A separate command keeps free-form
 phrases distinct from `list`'s structured exact-value filters and sort options.
 
-#### Availability, errors, and verification
+##### Availability, errors, and verification
 
 Availability is evaluated only for matching units and follows the shared
 priority rule: a lost unit is displayed as `Lost`; otherwise an active loan is
@@ -581,7 +566,16 @@ unmatched results, malformed input, inventory order, live loan display,
 console recovery, and unchanged equipment and loan records. `HelpCommandsTest`
 checks that the syntax and behavior described by `help search` remain available.
 
-### Copying equipment
+#### Exact equipment lookup
+
+EquipmentFindCommands resolves one case-sensitive asset ID from the shared
+inventory and reports descriptive fields with availability derived from active
+loans and severe faults. The lookup is read-only and returns a clear error for unknown IDs.
+
+EquipmentFindCommandsTest covers details, availability, invalid syntax,
+unknown IDs, and unchanged equipment and loan records.
+
+#### Copying equipment
 
 `EquipmentCopyCommands` finds the source by its exact asset ID, rejects unknown
 sources and IDs already in `Inventory`, then creates a new `Equipment` with the
@@ -593,19 +587,297 @@ copy through its existing snapshot store before reporting success.
 the unchanged source, persistence, and keeping the original loan and history
 records attached to the original ID.
 
-### Help and command examples
+#### Equipment detail editing
 
-`HelpCommands` contains shared guidance for both consoles and has no record
-store dependencies. `help` returns a concise list; `help COMMAND` returns
-syntax, fields, and explained examples. Invalid names and extra arguments
-produce recoverable errors. The loan guidance requires borrower registration.
+EquipmentEditCommands parses optional name, category, model, and location fields
+and constructs a fully validated immutable Equipment record. Inventory replaces
+the record at its existing position while retaining the same asset ID, so loan
+and history references remain valid. LabLog saves the updated equipment through
+the existing snapshot store after the command succeeds.
 
-`HelpCommandsTest` checks parsing, examples against the real handlers, console
-integration, and unchanged records/files when viewing help. `LabLogTest` checks
-that unavailable commands and invalid initial input do not consume subsequent
-commands as equipment details.
+EquipmentEditCommandsTest covers partial edits, field ordering, validation,
+stable asset references, and persistence after restart.
 
-### Loan lifecycle
+#### Bulk equipment location updates
+
+EquipmentMoveCommands parses a comma-separated selection and one target
+location. Inventory validates every distinct asset ID and constructs all
+replacement Equipment records before installing any of them, so an invalid
+selection or location leaves the batch unchanged. LabLog then persists the
+updated inventory through the existing snapshot store.
+
+EquipmentMoveCommandsTest covers successful partial batch updates, validation
+atomicity, stable loan references, and persistence after restart.
+
+### Borrowers
+
+Borrower commands work in both the main console and the standalone borrower
+console.
+
+#### Borrower registration and active-loan listings
+
+This enhancement implements issues #10 and #11: registering a student's contact
+details and finding the equipment they currently hold. The design separates
+console interaction, command parsing, validated records, and storage so both `LabLog` and
+`BorrowerCli` can reuse the handlers. The main console supplies shared borrower,
+loan, and equipment records; the standalone console keeps an initially empty loan
+book. This section describes registration and listing; contact editing is covered
+in [Borrower contact editing](#borrower-contact-editing).
+
+##### Responsibilities and relationships
+
+`LabLog` creates shared dependencies and routes borrower commands; `BorrowerCli`
+also provides a standalone prompt. Both read complete command lines and print
+results or recoverable errors. `BorrowerCommands` interprets those lines and
+coordinates the books. `Borrower` is an immutable, validated contact record.
+`BorrowerBook` owns the ID-to-record map and optionally persists it. `LoanBook`
+remains the source of loan state; borrower records do not contain copied loans.
+
+```mermaid
+classDiagram
+    LabLog --> "1" BorrowerCommands : -borrowerCommands
+    BorrowerCli ..> BorrowerCommands : creates
+    BorrowerCommands --> "1" BorrowerBook : -borrowers
+    BorrowerCommands --> "1" LoanBook : -loans
+    BorrowerCommands --> "1" Function : -equipmentNames
+    BorrowerCommands --> "1" Clock : -clock
+    BorrowerBook --> "0..1" Saver : -saver
+    BorrowerBook "1" *--> "0..*" Borrower : -borrowers
+    LoanBook "1" *--> "0..*" Loan : -loans
+    class Borrower {
+        -borrowerId: String
+        -name: String
+        -phone: String
+        -email: String
+        +validateId(borrowerId: String)$ void
+    }
+    class BorrowerBook {
+        +addBorrower(borrower: Borrower) void
+        +getBorrower(borrowerId: String) Borrower
+        +getBorrowers() List~Borrower~
+        -persist(updated: Map) void
+    }
+    class Saver {
+        <<interface>>
+        +save(proposed: List~Borrower~) void
+    }
+    class BorrowerCommands {
+        +execute(input: String) String
+        -addBorrower(arguments: String) String
+        -listLoans(id: String) String
+    }
+    class Function {
+        <<interface>>
+        +apply(assetId: String) String
+    }
+    class Clock {
+        <<Java API>>
+    }
+```
+
+`Function` is `java.util.function.Function<String, String>`, which maps an asset ID
+to an equipment name. `Saver` is the package-private `BorrowerBook.Saver` interface.
+In the main console, `LabLog` installs a lambda that writes an `ApplicationSnapshot`.
+A loan refers to its borrower by ID, rather than holding a `Borrower` object. The
+diagram omits getters, constructors, and the shared help handler to focus on
+registration and listing dependencies.
+
+##### Registering a borrower
+
+For example, `add-borrower A0123456X n/Jamie Tan p/91234567
+e/jamietan@u.nus.edu` requests one registration. `execute` separates the command
+word from its arguments. The registration parser locates whitespace-delimited
+prefixes and accepts `n/`, `p/`, and `e/` in any order, exactly once each. It
+recognizes unknown prefixes too, allowing it to reject them rather than silently
+including them in a name. Missing, repeated, empty, and unknown fields fail before
+the book is modified. Surrounding field whitespace is removed; internal name
+spaces and letter case are preserved.
+
+| Prefix | Field | Rule |
+| --- | --- | --- |
+| (none) | Borrower ID | An uppercase letter, seven digits and an uppercase letter, e.g. `A0123456X`. This is a shape check, not a check-digit calculation. |
+| `n/` | Name | 1–100 characters with no control characters. |
+| `p/` | Phone | Exactly eight ASCII digits. |
+| `e/` | Email | The lowercase `u.nus.edu` domain and the supported local-part pattern. |
+
+The `Borrower` constructor enforces these rules even when a caller bypasses the
+command parser. `BorrowerBook` separately enforces uniqueness because that rule
+depends on the collection, not one record.
+
+The following sequence shows a valid registration in the **main console**.
+`LabLog.load` installs a `BorrowerBook.Saver` lambda that builds an
+`ApplicationSnapshot` from the proposed borrowers and the other application
+records, then writes it to the data file.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as :LabLog
+    participant Commands as :BorrowerCommands
+    participant Book as :BorrowerBook
+    participant Saver as saver:Saver
+    User->>+CLI: add-borrower ID n/NAME p/PHONE e/EMAIL
+    CLI->>+Commands: execute(input)
+    Commands->>+Commands: addBorrower(arguments)
+    create participant Record as borrower:Borrower
+    Commands->>+Record: Borrower(id, name, phone, email)
+    Record-->>-Commands: borrower
+    Commands->>+Book: addBorrower(borrower)
+    Book->>+Book: persist(updated)
+    Book->>+Saver: save(proposed)
+    create participant Snapshot as :ApplicationSnapshot
+    Saver->>+Snapshot: ApplicationSnapshot(...)
+    Snapshot-->>-Saver: snapshot
+    Saver->>+Snapshot: write(dataFile)
+    Snapshot-->>-Saver: #nbsp;
+    Saver-->>-Book: #nbsp;
+    Book-->>-Book: #nbsp;
+    Book-->>-Commands: #nbsp;
+    Commands-->>-Commands: success text
+    Commands-->>-CLI: success text
+    CLI-->>-User: confirmation and contact details
+```
+
+Before `persist`, `addBorrower` rejects a duplicate ID and copies the live map
+with the new record added. Only after `save` returns does it put the record in
+the live map. `write` saves to a temporary file and atomically replaces the
+destination.
+
+Saving the proposed state before publishing it prevents a normal write failure
+from registering a borrower only in memory. The temporary file is created beside
+the destination so the replacement stays on the same file system. The code
+requests an atomic move and deliberately has no non-atomic fallback. If that
+operation is unsupported or writing fails, the error propagates to the console
+and the live map is not updated. Temporary-file deletion is attempted in a
+`finally` block. A cleanup failure can itself propagate as an I/O error; this is
+not a general database transaction or a guarantee against every storage failure.
+
+**Standalone storage.** In `BorrowerCli`, each properties key is a borrower ID;
+its value contains name, phone, and email
+separated by tabs. The model rejects control characters in names, so user data
+cannot introduce extra field separators. On startup, a missing file means a new
+book. An existing invalid record causes loading to fail rather than being silently
+discarded. Reloading uses the same `Borrower` validation as new registrations.
+The no-argument book constructor starts in memory; the main application then
+installs its snapshot saver. `ApplicationSnapshot` validates the complete stored
+state before the main console starts. Legacy split-file data is loaded and
+migrated into the complete snapshot on the next save.
+
+##### Listing active loans
+
+`loans A0123456X` first validates and resolves the borrower. A malformed or unknown
+ID is an error, distinct from a registered borrower who has no active loans.
+The handler reads the shared `LoanBook`, keeps only active loans with the exact
+borrower ID, and sorts a fresh list by due date and then asset ID. It does not
+reorder the book. Consequently, a return performed through another handler is
+visible on the next listing without synchronizing a borrower-specific cache.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as :LabLog
+    participant Commands as :BorrowerCommands
+    participant Borrowers as :BorrowerBook
+    participant Loans as :LoanBook
+    participant Date as «class» LocalDate
+    participant Names as equipmentNames:Function
+    User->>+CLI: loans A0123456X
+    CLI->>+Commands: execute(input)
+    Commands->>+Commands: listLoans(id)
+    Commands->>+Borrowers: getBorrower(id)
+    Borrowers-->>-Commands: borrower
+    Commands->>+Loans: getLoans()
+    Loans-->>-Commands: loans
+    Note right of Commands: keep active loans with this ID,<br/>sort by due date, then asset ID
+    alt no matching active loans
+        Note right of Commands: result = no-active-loans message
+    else matching active loans
+        Commands->>+Date: now(clock)
+        Date-->>-Commands: today
+        loop each matching loan
+            Commands->>+Names: apply(assetId)
+            Names-->>-Commands: equipment name or null
+        end
+        Note right of Commands: result = rows, overdue flags and count
+    end
+    Commands-->>-Commands: result
+    Commands-->>-CLI: result
+    CLI-->>-User: display result
+```
+
+**Lost loans remain outstanding** and appear with status `LOST`; other
+active rows show `On loan`. This keeps unresolved borrower responsibility visible. Ordinary return and
+renewal commands reject lost loans; no recovery command is implemented.
+A due date before today is overdue; a loan due today is not. Injecting `Clock`
+makes this rule testable at local-date boundaries without changing the machine's
+clock. The injected equipment-name function avoids coupling the handler to the
+inventory's internal representation. A missing equipment record displays
+`Unknown equipment`; it does not hide a loan that still needs attention.
+
+##### Design choices and alternatives
+
+| Decision | Reason and trade-off | Alternative |
+| --- | --- | --- |
+| Validate immutable contact records at construction | Every constructed record has valid fields; edits would require a new record. | Parser-only validation is shorter but allows invalid records through other callers or file loading. |
+| Use an ID-keyed map | Duplicate checks and lookups are direct, with expected constant-time lookup. | A list is sufficient for a small dataset but requires repeated scans for IDs. |
+| Save a complete proposed snapshot | Atomic replacement keeps proposed borrowers consistent with other records in the main console; the standalone console saves only its borrower book. | A database scales better and provides transactions, but adds setup and dependencies beyond current needs. |
+| Derive active loans from the shared book | Returns immediately affect later listings, with no duplicate status to maintain. | A borrower-to-loans index speeds lookups but must stay synchronized with issue and return operations. |
+| Inject time and equipment-name lookup | Tests can control dates and missing equipment; the handler is reusable across consoles. | Direct calls to the system clock and inventory are simpler initially but make boundary tests and integration less flexible. |
+
+For `B` borrowers, registration copies O(B) borrower entries. Standalone
+persistence writes O(B) records; main-console persistence additionally captures
+and writes the other application records, so its cost depends on the full snapshot.
+For `L` loans and `K` matching active loans, listing takes O(L + K log K)
+time, excluding equipment-name lookup costs, and O(K) temporary list space.
+The current book is intended for one console process; atomic replacement does
+not provide locking or prevent lost updates between concurrent processes.
+
+##### Failure handling, tests, and integration boundary
+
+The standalone borrower CLI catches `IllegalArgumentException` for invalid
+commands and `IOException` for save failures, prints an error, and continues
+accepting input. The main console does the same for borrower commands: the
+proposed borrowers are saved before they are published, so it prints
+`Error: Cannot save borrower data.` and `No changes saved.` and continues. Startup load
+errors stop the console because proceeding with an empty book could conceal
+existing data. Success is printed only after `addBorrower` returns.
+
+`BorrowerBookTest` checks round-trip persistence, failed saves, corrupt existing
+records, and unmodifiable snapshots. `BorrowerCommandsTest` covers prefix order,
+invalid fields, duplicate IDs, name-length boundaries, unknown borrowers, empty
+results, filtering and ordering, local-date overdue behavior, and a return between
+two listings. It also checks that the console recovers from a rejected command.
+The [console test plan](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/ui-test-plan.md) covers separate-process checks.
+
+**Integrated workflow.** `LabLog` passes the same borrower and loan books to
+issuing, return, and borrower handlers. Its equipment-name lookup reads the shared
+inventory. `LoanCommands` validates registered borrowers when supplied with this
+book, as it is in the main console. Verify a register, issue, list, return, and
+list-again session through that prompt; the second listing must exclude the
+returned loan. `LabLogTest` checks borrower dispatch and registered-borrower loan issuing.
+
+`BorrowerCli.main` remains a separate entry point with an empty `LoanBook` and
+a name lookup that returns null. It cannot see loans from a different process.
+The [borrower implementation notes](BorrowerImplementation.md) describe the
+original standalone increment.
+
+#### Borrower contact editing
+
+BorrowerCommands parses optional edit fields and constructs a validated immutable
+Borrower. BorrowerBook.updateBorrower requires an existing ID and persists a
+proposed map before publishing the replacement. Loans refer to IDs, so edits do
+not require rewriting loan records. The package-level Saver boundary lets the
+main application later save proposed contacts with its complete snapshot.
+
+BorrowerEditTest covers partial/reordered edits, name-length boundaries,
+unchanged loan objects, restart persistence, invalid fields, and failed saves.
+
+### Loans
+
+These sections follow a loan from issue to return, loss or correction. Every
+change is checked against the [loan lifecycle](#loan-lifecycle).
+
+#### Loan lifecycle
 
 A `Loan` is never deleted. The commands in the following sections move it
 between the states below. Each transition is guarded by a method on `Loan`,
@@ -632,7 +904,7 @@ outstanding, so it stays in borrower and active-loan listings. No command
 leaves Lost or Reversed, so they have no outgoing transitions. To reverse the issue of a returned loan, reverse
 its return first.*
 
-### Issuing single and batch loans (issue #71)
+#### Issuing single and batch loans
 
 `LoanCommands` receives the shared inventory, loan book, and a `Clock`.
 `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` accepts one or more
@@ -661,11 +933,9 @@ unavailable later selection creates no partial batch. Repeatedly calling the
 single-unit command would publish earlier loans before discovering a later
 failure. Existing loans and return details are retained as separate records.
 
-The existing CLI saves the complete snapshot once after the command returns and
-prints confirmation only after saving succeeds. On a storage failure the old
-saved snapshot remains intact and the session stops; the valid new loans have
-already been added in memory, with no in-memory rollback. This differs from
-validation failure, which never changes the shared loan book.
+Saving follows the update-then-save strategy in [Storage](#storage), so the new
+loans are saved together once the whole batch is accepted. Validation failure,
+by contrast, never changes the shared loan book.
 
 `LoanCommandsTest` covers single and batch success, prefix and selection order,
 duplicates, date and time-zone boundaries, registered borrowers, and later-unit
@@ -673,7 +943,7 @@ failures for unknown equipment, active loans, severe faults, and reservations.
 Help tests execute both examples. Storage tests verify shared consumer views
 after restart and unchanged snapshot bytes when a batch is rejected.
 
-### Active and overdue loan listings (issue #74)
+#### Active and overdue loan listings
 
 `ActiveLoanCommands` handles `active-loans [overdue]` using the shared `LoanBook`
 and an injected `Clock`. It validates the optional keyword, reads today's local
@@ -697,7 +967,7 @@ due-date and asset-ID ordering, time-zone boundaries, live returns, syntax error
 CLI recovery, and unchanged persisted records after loading. Help tests execute
 both documented examples against the handler.
 
-### Renewing active loans (issue #73)
+#### Renewing active loans
 
 `RenewCommands` parses `renew ASSET_ID d/YYYY-MM-DD`, resolves an active loan
 from the shared `LoanBook`, and reads today's local date once from its injected
@@ -738,13 +1008,15 @@ sequenceDiagram
     participant App as :LabLog
     participant Renew as :RenewCommands
     participant Book as :LoanBook
+    participant Date as «class» LocalDate
     participant Policy as :BookingAvailability
     participant Loan as loan:Loan
     User->>+App: renew OSC-001 d/2026-11-05
     App->>+Renew: execute(input)
     Renew->>+Book: findActiveLoan(assetId)
     Book-->>-Renew: loan
-    Note right of Renew: today = LocalDate.now(clock)
+    Renew->>+Date: now(clock)
+    Date-->>-Renew: today
     Renew->>+Book: validateActionDate(loan, today)
     Book-->>-Renew: #nbsp;
     Renew->>+Policy: requireAvailable(assetId, period, null, loan)
@@ -758,10 +1030,8 @@ sequenceDiagram
     App-->>-User: confirmation
 ```
 
-Syntax, date and conflict failures leave both state and events unchanged. As with
-loan/return commands, a storage failure occurs after the in-memory update: the
-previous file remains intact, success is suppressed and the session stops.
-Restart reloads the previous saved state; no in-memory rollback is claimed.
+Syntax, date and conflict failures leave both state and events unchanged. Saving
+follows the update-then-save strategy in [Storage](#storage).
 
 `RenewCommandsTest` and `LoanRenewalTest` use assertions and fixed clocks for
 successive changes, overdue/local-date boundaries, inactive loans, invalid input,
@@ -769,232 +1039,9 @@ reservation endpoints, severe faults, self-exclusion and history ordering.
 `RenewalPersistenceTest` covers restart/export/import, legacy migration, corrupt
 chains, return retention, unchanged files after rejection, and failed saves.
 
-### Borrowing and return audit trail (issue #77)
+#### Equipment returns
 
-`LoanAuditCommands` implements `loan-audit [ASSET_ID]` over stored evidence,
-not derived history text. Its optional asset filter is case-sensitive and requires
-registered equipment. Sorting by event date is stable, so events on one day keep
-their original acceptance order. Each event is numbered within the displayed
-selection and uses separate lines for its details and full identifiers.
-The formatter omits blank optional faults, related-event and reason lines.
-Queries leave book order and saved bytes unchanged.
-
-Every `Loan` now has a stable `L-` ID. `LoanAuditEvent` is an immutable record
-with its own event ID, owning loan ID, local operation date, type, asset, borrower,
-due date, return faults, related event ID and correction reason. Event values are
-copied at acceptance time. Renewals do not overwrite issue-time deadlines, and
-a later loss report does not remove the original borrowing evidence.
-
-`LoanBook.addLoan` prepares a `LOAN` event before adding either record. Keeping
-this hook in the book also covers callers issuing a validated batch with repeated
-`addLoan` calls. `LoanBook.returnLoans` validates the complete selection, prepares
-all `RETURN` events, then changes loan state and appends the evidence in selection
-order. `ReturnCommands` delegates to this boundary. Direct `Loan.markReturned`
-is used when restoring/testing domain records; it does not fabricate ledger events.
-
-**Design choice:** Store immutable events separately from mutable current loan
-state, joined by stable loan IDs. Asset ID, borrower and date cannot identify a
-specific loan when the same unit is lent repeatedly. Display notes would lose
-structured fields and correction relationships. Date plus stable acceptance
-order provides deterministic chronology without inventing time-of-day precision.
-
-Format 11 adds `loan.N.id` and typed `audit.N` fields under `audit.count`.
-`LoanAuditCodec` validates unique loan/event IDs, ownership, issue-time facts,
-dates and correction relationships before records are published. Corrections
-reference an earlier original event on the same loan, preserve its payload and
-require a reason; duplicate reversals, forward references and inconsistent event
-ordering are rejected. Original events remain present. The model can display and
-round-trip correction evidence. `LoanCorrectionCommands` applies reversals and
-validates operational dependencies (issue #76); the audit query remains read-only.
-
-Formats 2-10 load with an empty event log and fresh loan IDs. The first successful
-save persists those IDs. Restoring uses `replaceAll(loans, events)` rather than
-`addLoan`, so no historical issue/return events are invented. A legacy loan can
-later acquire an actual return event without an issue event. Complete snapshots,
-legacy loan-store saves, export and replacement import all preserve IDs/evidence.
-Existing shared book instances are retained across import, so handlers see the
-new ledger immediately. Replacement import intentionally replaces the whole log.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant App as :LabLog
-    participant Return as :ReturnCommands
-    participant Book as :LoanBook
-    participant Loan as loan:Loan
-    User->>+App: return OSC-001 MIC-002
-    App->>+Return: execute(input)
-    Return->>+Book: returnLoans(selected, today, faults)
-    loop each selected loan
-        Book->>+Loan: validateReturn(today, faults)
-        Loan-->>-Book: #nbsp;
-    end
-    Note right of Book: pending = LoanAuditEvent.returned(loan, today, faults)<br/>for each selected loan (no state changed yet)
-    loop each selected loan
-        Book->>+Loan: markReturned(today, faults)
-        Loan-->>-Book: #nbsp;
-    end
-    Note right of Book: audit.addAll(pending)
-    Book-->>-Return: #nbsp;
-    Return-->>-App: confirmation
-    App->>+App: saveChanges(output)
-    App-->>-App: saved
-    App-->>-User: confirmation
-```
-
-Input rejection changes neither loans nor events. As with existing loan/return
-commands, a save failure leaves the prior file intact, suppresses success and
-stops the session; in-memory state/evidence are not rolled back. Restart loads
-the previous saved transaction and its ledger together.
-
-`LoanAuditCommandsTest`, `LoanAuditEventTest` and `LoanAuditPersistenceTest`
-cover immutable facts, repeated lending, same-day/batch order, invalid operations,
-legacy migration, ID stability, restart/export/import, correction references,
-corrupt input and failed saves with assertions. Coverage is collected with a
-temporary JaCoCo init script without changing the project's build configuration.
-
-### Correcting erroneous loans and returns (issue #76)
-
-`LoanCorrectionCommands` accepts `reverse-loan EVENT_ID reason/TEXT` and
-`reverse-return EVENT_ID reason/TEXT`. It parses one exact original event ID and
-one non-empty reason, and dates the correction with the injected local `Clock`.
-An asset ID alone is ambiguous when equipment has several historical loans;
-the event ID identifies the specific operation to correct. Invalid syntax,
-unknown IDs, an incorrect event type and repeated reversals are rejected.
-
-`LoanBook.reverse` resolves the original and checks later dependencies before
-changing shared state. Reversing an issue requires an outstanding, non-lost loan
-with no renewals. If it was returned, that return must be reversed first. A later
-effective loan of the same equipment blocks correction even after its return.
-Audit acceptance order distinguishes same-day transactions. Legacy loans without
-issue evidence on or after the affected event's date are conservatively treated
-as dependencies; the application cannot infer their intra-day order.
-
-For a return reversal, `BookingAvailability.requireAvailable` checks the full
-original loan-to-due interval while excluding only the target loan. An overdue
-loan is checked through `LocalDate.MAX`, because reopening it restores an
-outstanding loan without a known end. Other loans, inclusive reservation
-endpoints and unresolved severe faults still block the operation. Independent
-bookings and fault records remain unchanged; a correction cannot silently clear
-them. Renewals and loss reversals are outside this command's scope.
-
-**State and atomicity:** The book copies the target loan, applies the proposed
-transition to that detached copy, prepares an immutable correction event and
-validates the complete proposed loan/event graph. Only then does it mutate the
-existing shared loan and append the event. This preserves object identity for
-other handlers and leaves both collections unchanged after rejection. As with
-ordinary loan/return commands, persistence happens before printing success; a
-failed atomic save leaves the previous file intact and stops the session, without
-rolling back the in-memory transition.
-
-An issue reversal marks the loan as reversed instead of deleting it or pretending
-it was returned. `Loan.isActive` excludes reversed loans, all active-loan and
-equipment status consumers share that result, and `BookingAvailability` skips
-their intervals. `HistoryCommands` labels the original loan `REVERSED`; the audit
-view contains the dated reason and reference. A return reversal clears current
-return date/faults but retains borrower, identity, deadline and renewals. Original
-fault evidence remains in the ledger; a subsequent accepted return creates a
-fresh event with a new ID.
-
-Format 11 already represents `REVERSE_LOAN` and `REVERSE_RETURN`, so no new schema
-field is needed. `LoanAuditCodec` validates references, effective return details
-and active-loan uniqueness. On restore, `LoanBook.replaceAll` derives reversal
-flags from validated correction evidence before publishing the records. This
-allows a retained reversed loan and a new active loan for the same asset to
-round-trip safely. Reversed loans without their correction evidence are rejected.
-Legacy loans cannot acquire invented issue events; a newly recorded return on a
-legacy loan can still be reversed.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant App as :LabLog
-    participant Command as :LoanCorrectionCommands
-    participant Book as :LoanBook
-    participant Policy as :BookingAvailability
-    User->>+App: reverse-return EVENT_ID reason/TEXT
-    App->>+Command: execute(input)
-    Note right of Command: today = LocalDate.now(clock)
-    Command->>+Book: reverse(eventId, RETURN, today, reason, availability)
-    Note right of Book: find original event, reject repeated<br/>reversals and later dependent loans
-    Book->>+Policy: requireAvailable(assetId, window, null, loan)
-    Policy-->>-Book: #nbsp;
-    alt dependency or availability conflict
-        Note right of Book: throw IllegalArgumentException,<br/>nothing changed
-    else valid correction
-        Note right of Book: validate the copied loan and new event,<br/>then reopen the shared loan and append the event
-    end
-    Book-->>-Command: correction or exception
-    Command-->>-App: confirmation or exception
-    opt correction accepted
-        App->>+App: saveChanges(output)
-        App-->>-App: saved
-    end
-    App-->>-User: confirmation or error message
-```
-
-A rejection is an `IllegalArgumentException` thrown by `LoanBook.reverse`. It
-propagates through `LoanCorrectionCommands` to `LabLog`, which catches it at the
-command boundary and prints the message. Neither collection has changed at that
-point.
-
-`LoanCorrectionCommandsTest` uses assertions and fixed clocks for both transitions,
-same-day ordering, dependent actions, overdue reservations, fault conflicts,
-repeated corrections, legacy evidence and shared status/history. Persistence
-tests cover restart/export/import, unchanged batch members and rejected files,
-projection validation, legacy migration and save failures. Existing audit tests
-also verify that corrective evidence agrees with the restored current state.
-`LoanBook.validateActionDate` prevents subsequent returns, renewals or loss reports
-from being backdated before accepted audit events if the local clock changes.
-
-### Reporting loaned equipment lost (issue #75)
-
-`LostCommands` handles `lost ASSET_ID` using the shared inventory, loan book and
-injected local `Clock`. It requires registered equipment and exactly one active
-loan. `Loan.markLost` rejects returned/already-lost loans and dates before the
-issue date or latest renewal, then sets the loss report date. Borrower, issue date,
-deadlines and renewal events remain unchanged.
-
-**State choice:** A lost loan stays active in the sense of outstanding, with a
-separate `isLost` flag derived from its report date. Treating loss as a return
-would falsely release the equipment and remove it from borrower listings.
-`Loan.validateReturn` and `Loan.renew` reject lost records, so batch-return
-validation also fails before changing any selected loan. No recovery transition
-is implemented in this increment.
-
-`LoanBook.hasLostLoan` supplies the shared loss check. `BookingAvailability`
-rejects lost equipment before interval/exclusion checks, even when a caller
-passes an ignored loan or a period beyond its deadline. Its `isOperational`
-query excludes losses and severe faults from waiting-request capacity. Existing
-reservations remain historical/operational records and are not auto-cancelled.
-
-Equipment list/find display `Lost`; the equipment status filter accepts `lost`
-and excludes it from `on-loan` and `available`. Severe faults use the
-`unavailable` status; `available` excludes both lost and severely faulted units.
-Active-loan and borrower-loan
-views keep the record and mark it `LOST`. Overdue-only filtering still depends
-on the due date, with `LOST` taking precedence in the displayed status. Borrower
-rows now have a separate Status column alongside Overdue. History retains the
-original loan/renewals and derives a `LOST` row dated on the report day.
-
-Snapshot format 10 adds the required `loan.N.lost` field: an empty string means
-no loss, otherwise it is the report date. Decode restores renewals and returns
-before applying the loss transition, rejecting contradictory dates or a loss
-on a returned loan. Formats 2-9 remain readable without fabricated loss reports.
-The closed schema rejects loss fields in older formats and rejects display notes
-masquerading as loss events. Complete and legacy loan stores preserve the field;
-restart, export and replacement import use the same validated representation.
-
-`LostCommandsTest` covers transitions, local-date boundaries, shared policy,
-list/filter consistency, batch-return atomicity and waiting capacity with JUnit
-assertions. `LostPersistenceTest` covers full round trips, format-9 migration,
-corrupt input, unchanged files after rejection and failed saves. Like loan/return
-commands, loss updates occur in memory before save; save failure retains the old
-file, suppresses success and stops the session rather than rolling memory back.
-
-### Equipment returns
-
-#### Implementation
+##### Implementation
 
 `ReturnCommands` records returns using the shared `Inventory`, `LoanBook`, and
 an injected `Clock`. It updates the existing `Loan` rather than removing it,
@@ -1035,7 +1082,7 @@ The main operations are:
 `LabLog` normally supplies `Clock.systemDefaultZone()`. Tests can inject a fixed
 clock to control today's local date and verify time-zone boundaries.
 
-#### Example usage scenario
+##### Example usage scenario
 
 Assume `OSC-001` is registered and has exactly one active loan whose loan date
 is no later than today.
@@ -1052,15 +1099,14 @@ is no later than today.
    then calls `Loan#markReturned(today, faults)` to record the date and fault
    description.
 5. The handler returns confirmation text. In a persistent CLI session, `LabLog`
-   saves the updated records before displaying success. If saving fails, the
-   session stops and the previous saved snapshot remains unchanged; the in-memory
-   loan has already been updated. Injected in-memory sessions do not save.
+   saves the updated records before displaying success (see [Storage](#storage)).
+   Injected in-memory sessions do not save.
 6. A subsequent history request shows the return date and reported faults on the
    original loan entry. Active-loan and borrower-loan listings exclude that loan.
 
 The following sequence diagram summarises the successful single-unit return
 path. The loan-level calls inside `returnLoans` are shown in the
-[audit trail sequence](#borrowing-and-return-audit-trail-issue-77), so they are
+[audit trail sequence](#borrowing-and-return-audit-trail), so they are
 summarised by a note here.
 
 ```mermaid
@@ -1070,6 +1116,7 @@ sequenceDiagram
     participant Commands as :ReturnCommands
     participant Equipment as :Inventory
     participant Loans as :LoanBook
+    participant Date as «class» LocalDate
     User->>+CLI: return OSC-001 faults/Damaged cable
     CLI->>+Commands: execute(input)
     Note right of Commands: validate syntax and optional faults field
@@ -1079,7 +1126,8 @@ sequenceDiagram
     Commands->>+Loans: getLoans()
     Loans-->>-Commands: loans
     Commands-->>-Commands: the only active loan
-    Note right of Commands: today = LocalDate.now(clock)
+    Commands->>+Date: now(clock)
+    Date-->>-Commands: today
     Commands->>+Loans: returnLoans(selectedLoans, today, faults)
     Note right of Loans: validate every loan, prepare RETURN<br/>events, then mark loans returned
     Loans-->>-Commands: #nbsp;
@@ -1089,7 +1137,7 @@ sequenceDiagram
     CLI-->>-User: confirmation
 ```
 
-#### Batch return flow and atomicity
+##### Batch return flow and atomicity
 
 For `return OSC-001 OSC-002`, the handler performs the following steps:
 
@@ -1111,12 +1159,10 @@ Validation is all-or-nothing: a failure on a later selection leaves earlier
 selections unchanged. This relies on the application's single-threaded command
 execution, with no concurrent changes between validation and mutation.
 
-Persistence uses one atomic snapshot replacement for the complete batch. If the
-save fails, the prior saved file remains unchanged and the session stops without
-displaying success. The in-memory loans have already been updated; there is no
-in-memory rollback on a storage failure. Restarting reloads the prior saved state.
+Persistence uses one atomic snapshot replacement for the complete batch,
+following the update-then-save strategy in [Storage](#storage).
 
-#### Invalid commands and exceptional cases
+##### Invalid commands and exceptional cases
 
 | Condition | Behaviour |
 | --- | --- |
@@ -1133,9 +1179,9 @@ in-memory rollback on a storage failure. Restarting reloads the prior saved stat
 `LabLog` catches validation exceptions and displays an error while allowing the
 user to continue. A repeated return is rejected when no active loan remains.
 For batches, any validation failure preserves all selected loans' existing
-details. A save failure occurs after the valid returns have already updated memory.
+details.
 
-#### Design considerations
+##### Design considerations
 
 **Aspect: How returns are stored**
 
@@ -1167,7 +1213,7 @@ Reported faults are stored as text on the loan. They do not create a separate
 fault-history note or clear existing equipment faults. The production application
 persists loan and return details through `LabLogStore`.
 
-#### Testing
+##### Testing
 
 `ReturnCommandsTest` covers optional faults, local-date boundaries, malformed
 commands, repeated returns, multiple active loans, invalid return dates, historical
@@ -1180,6 +1226,275 @@ retained records as well as exception messages where relevant.
 `LabLogStoreTest#run_batchReturn_persistsBothReturnsAfterReload` drives the return
 through the main console with a temporary data file. It reloads the saved store
 and verifies both return dates, retained loan fields, and equipment history.
+
+#### Reporting loaned equipment lost
+
+`LostCommands` handles `lost ASSET_ID` using the shared inventory, loan book and
+injected local `Clock`. It requires registered equipment and exactly one active
+loan. `Loan.markLost` rejects returned/already-lost loans and dates before the
+issue date or latest renewal, then sets the loss report date. Borrower, issue date,
+deadlines and renewal events remain unchanged.
+
+**State choice:** A lost loan stays active in the sense of outstanding, with a
+separate `isLost` flag derived from its report date. Treating loss as a return
+would falsely release the equipment and remove it from borrower listings.
+`Loan.validateReturn` and `Loan.renew` reject lost records, so batch-return
+validation also fails before changing any selected loan. No recovery transition
+is implemented in this increment.
+
+`LoanBook.hasLostLoan` supplies the shared loss check. `BookingAvailability`
+rejects lost equipment before interval/exclusion checks, even when a caller
+passes an ignored loan or a period beyond its deadline. Its `isOperational`
+query excludes losses and severe faults from waiting-request capacity. Existing
+reservations remain historical/operational records and are not auto-cancelled.
+
+Equipment list/find display `Lost`; the equipment status filter accepts `lost`
+and excludes it from `on-loan` and `available`. Severe faults use the
+`unavailable` status; `available` excludes both lost and severely faulted units.
+Active-loan and borrower-loan
+views keep the record and mark it `LOST`. Overdue-only filtering still depends
+on the due date, with `LOST` taking precedence in the displayed status. Borrower
+rows now have a separate Status column alongside Overdue. History retains the
+original loan/renewals and derives a `LOST` row dated on the report day.
+
+Snapshot format 10 adds the required `loan.N.lost` field: an empty string means
+no loss, otherwise it is the report date. Decode restores renewals and returns
+before applying the loss transition, rejecting contradictory dates or a loss
+on a returned loan. Formats 2-9 remain readable without fabricated loss reports.
+The closed schema rejects loss fields in older formats and rejects display notes
+masquerading as loss events. Complete and legacy loan stores preserve the field;
+restart, export and replacement import use the same validated representation.
+
+`LostCommandsTest` covers transitions, local-date boundaries, shared policy,
+list/filter consistency, batch-return atomicity and waiting capacity with JUnit
+assertions. `LostPersistenceTest` covers full round trips, format-9 migration,
+corrupt input, unchanged files after rejection and failed saves. Saving follows
+the update-then-save strategy in [Storage](#storage).
+
+#### Borrowing and return audit trail
+
+`LoanAuditCommands` implements `loan-audit [ASSET_ID]` over stored evidence,
+not derived history text. Its optional asset filter is case-sensitive and requires
+registered equipment. Sorting by event date is stable, so events on one day keep
+their original acceptance order. Each event is numbered within the displayed
+selection and uses separate lines for its details and full identifiers.
+The formatter omits blank optional faults, related-event and reason lines.
+Queries leave book order and saved bytes unchanged. For example, after a loan,
+a renewal and a return with a fault:
+
+```text
+lablog> loan-audit OSC-001
+Loan audit for OSC-001:
+
+[1] LOAN — 2026-10-29
+    Asset: OSC-001
+    Borrower: A0123456X
+    Due: 2030-12-31
+    Event ID: E-4de63ec6-db60-4ccb-94df-629bbd5a717d
+    Loan ID: L-78e63761-fa3c-4700-90cd-e71567250071
+
+[2] RETURN — 2026-10-29
+    Asset: OSC-001
+    Borrower: A0123456X
+    Due: 2031-01-15
+    Faults: Damaged cable
+    Event ID: E-2f287422-2a5d-4714-a0ed-782fe52a0066
+    Loan ID: L-78e63761-fa3c-4700-90cd-e71567250071
+```
+
+The `LOAN` event keeps the issue-time due date, while the `RETURN` event records
+the renewed one. Renewals themselves appear in `history`, not in this log.
+
+Every `Loan` now has a stable `L-` ID. `LoanAuditEvent` is an immutable record
+with its own event ID, owning loan ID, local operation date, type, asset, borrower,
+due date, return faults, related event ID and correction reason. Event values are
+copied at acceptance time. Renewals do not overwrite issue-time deadlines, and
+a later loss report does not remove the original borrowing evidence.
+
+The object diagram shows why the stable ID is needed: `OSC-001` lent twice to the
+same borrower (IDs shortened). Each event finds its loan through `loanId`; there
+is no link between events and loans.
+
+```mermaid
+flowchart LR
+    l1["<u>l1:Loan</u><hr/>id = L-a1<br/>assetId = OSC-001<br/>loanDate = 2026-10-20<br/>returnDate = 2026-10-29"]
+    l2["<u>l2:Loan</u><hr/>id = L-b2<br/>assetId = OSC-001<br/>loanDate = 2026-11-02<br/>returnDate = null"]
+    book["<u>:LoanBook</u>"]
+    e1["<u>e1:LoanAuditEvent</u><hr/>loanId = L-a1<br/>type = LOAN"]
+    e2["<u>e2:LoanAuditEvent</u><hr/>loanId = L-a1<br/>type = RETURN"]
+    e3["<u>e3:LoanAuditEvent</u><hr/>loanId = L-b2<br/>type = LOAN"]
+    l1 --- book
+    l2 --- book
+    book --- e1
+    book --- e2
+    book --- e3
+```
+
+`LoanBook.addLoan` prepares a `LOAN` event before adding either record. Keeping
+this hook in the book also covers callers issuing a validated batch with repeated
+`addLoan` calls. `LoanBook.returnLoans` validates the complete selection, prepares
+all `RETURN` events, then changes loan state and appends the evidence in selection
+order. `ReturnCommands` delegates to this boundary. Direct `Loan.markReturned`
+is used when restoring/testing domain records; it does not fabricate ledger events.
+
+**Design choice:** Store immutable events separately from mutable current loan
+state, joined by stable loan IDs. Asset ID, borrower and date cannot identify a
+specific loan when the same unit is lent repeatedly. Display notes would lose
+structured fields and correction relationships. Date plus stable acceptance
+order provides deterministic chronology without inventing time-of-day precision.
+
+Format 11 adds `loan.N.id` and typed `audit.N` fields under `audit.count`.
+`LoanAuditCodec` validates unique loan/event IDs, ownership, issue-time facts,
+dates and correction relationships before records are published. Corrections
+reference an earlier original event on the same loan, preserve its payload and
+require a reason; duplicate reversals, forward references and inconsistent event
+ordering are rejected. Original events remain present. The model can display and
+round-trip correction evidence. `LoanCorrectionCommands` applies reversals and
+validates operational dependencies (issue #76); the audit query remains read-only.
+
+Formats 2-10 load with an empty event log and fresh loan IDs. The first successful
+save persists those IDs. Restoring uses `replaceAll(loans, events)` rather than
+`addLoan`, so no historical issue/return events are invented. A legacy loan can
+later acquire an actual return event without an issue event. Complete snapshots,
+legacy loan-store saves, export and replacement import all preserve IDs/evidence.
+Existing shared book instances are retained across import, so handlers see the
+new ledger immediately. Replacement import intentionally replaces the whole log.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant App as :LabLog
+    participant Return as :ReturnCommands
+    participant Book as :LoanBook
+    participant Event as «class» LoanAuditEvent
+    participant Loan as loan:Loan
+    User->>+App: return OSC-001 MIC-002
+    App->>+Return: execute(input)
+    Return->>+Book: returnLoans(selected, today, faults)
+    loop each selected loan
+        Book->>+Loan: validateReturn(today, faults)
+        Loan-->>-Book: #nbsp;
+    end
+    loop each selected loan
+        Book->>+Event: returned(loan, today, faults)
+        Event-->>-Book: pending event
+    end
+    Note right of Book: no loan has changed yet
+    loop each selected loan
+        Book->>+Loan: markReturned(today, faults)
+        Loan-->>-Book: #nbsp;
+    end
+    Note right of Book: audit.addAll(pending)
+    Book-->>-Return: #nbsp;
+    Return-->>-App: confirmation
+    App->>+App: saveChanges(output)
+    App-->>-App: saved
+    App-->>-User: confirmation
+```
+
+Input rejection changes neither loans nor events. Saving follows the
+update-then-save strategy in [Storage](#storage); loans and their events are
+always written in the same snapshot.
+
+`LoanAuditCommandsTest`, `LoanAuditEventTest` and `LoanAuditPersistenceTest`
+cover immutable facts, repeated lending, same-day/batch order, invalid operations,
+legacy migration, ID stability, restart/export/import, correction references,
+corrupt input and failed saves with assertions. Coverage is collected with a
+temporary JaCoCo init script without changing the project's build configuration.
+
+#### Correcting erroneous loans and returns
+
+`LoanCorrectionCommands` accepts `reverse-loan EVENT_ID reason/TEXT` and
+`reverse-return EVENT_ID reason/TEXT`. It parses one exact original event ID and
+one non-empty reason, and dates the correction with the injected local `Clock`.
+An asset ID alone is ambiguous when equipment has several historical loans;
+the event ID identifies the specific operation to correct. Invalid syntax,
+unknown IDs, an incorrect event type and repeated reversals are rejected.
+
+`LoanBook.reverse` resolves the original and checks later dependencies before
+changing shared state. Reversing an issue requires an outstanding, non-lost loan
+with no renewals. If it was returned, that return must be reversed first. A later
+effective loan of the same equipment blocks correction even after its return.
+Audit acceptance order distinguishes same-day transactions. Legacy loans without
+issue evidence on or after the affected event's date are conservatively treated
+as dependencies; the application cannot infer their intra-day order.
+
+For a return reversal, `BookingAvailability.requireAvailable` checks the full
+original loan-to-due interval while excluding only the target loan. An overdue
+loan is checked through `LocalDate.MAX`, because reopening it restores an
+outstanding loan without a known end. Other loans, inclusive reservation
+endpoints and unresolved severe faults still block the operation. Independent
+bookings and fault records remain unchanged; a correction cannot silently clear
+them. Renewals and loss reversals are outside this command's scope.
+
+**State and atomicity:** The book copies the target loan, applies the proposed
+transition to that detached copy, prepares an immutable correction event and
+validates the complete proposed loan/event graph. Only then does it mutate the
+existing shared loan and append the event. This preserves object identity for
+other handlers and leaves both collections unchanged after rejection. Saving
+follows the update-then-save strategy in [Storage](#storage).
+
+An issue reversal marks the loan as reversed instead of deleting it or pretending
+it was returned. `Loan.isActive` excludes reversed loans, all active-loan and
+equipment status consumers share that result, and `BookingAvailability` skips
+their intervals. `HistoryCommands` labels the original loan `REVERSED`; the audit
+view contains the dated reason and reference. A return reversal clears current
+return date/faults but retains borrower, identity, deadline and renewals. Original
+fault evidence remains in the ledger; a subsequent accepted return creates a
+fresh event with a new ID.
+
+Format 11 already represents `REVERSE_LOAN` and `REVERSE_RETURN`, so no new schema
+field is needed. `LoanAuditCodec` validates references, effective return details
+and active-loan uniqueness. On restore, `LoanBook.replaceAll` derives reversal
+flags from validated correction evidence before publishing the records. This
+allows a retained reversed loan and a new active loan for the same asset to
+round-trip safely. Reversed loans without their correction evidence are rejected.
+Legacy loans cannot acquire invented issue events; a newly recorded return on a
+legacy loan can still be reversed.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant App as :LabLog
+    participant Command as :LoanCorrectionCommands
+    participant Date as «class» LocalDate
+    participant Book as :LoanBook
+    participant Policy as :BookingAvailability
+    User->>+App: reverse-return EVENT_ID reason/TEXT
+    App->>+Command: execute(input)
+    Command->>+Date: now(clock)
+    Date-->>-Command: today
+    Command->>+Book: reverse(eventId, RETURN, today, reason, availability)
+    Note right of Book: find original event, reject repeated<br/>reversals and later dependent loans
+    Book->>+Policy: requireAvailable(assetId, window, null, loan)
+    Policy-->>-Book: #nbsp;
+    alt dependency or availability conflict
+        Note right of Book: throw IllegalArgumentException,<br/>nothing changed
+    else valid correction
+        Note right of Book: validate the copied loan and new event,<br/>then reopen the shared loan and append the event
+    end
+    Book-->>-Command: correction or exception
+    Command-->>-App: confirmation or exception
+    opt correction accepted
+        App->>+App: saveChanges(output)
+        App-->>-App: saved
+    end
+    App-->>-User: confirmation or error message
+```
+
+A rejection is an `IllegalArgumentException` thrown by `LoanBook.reverse`. It
+propagates through `LoanCorrectionCommands` to `LabLog`, which catches it at the
+command boundary and prints the message. Neither collection has changed at that
+point.
+
+`LoanCorrectionCommandsTest` uses assertions and fixed clocks for both transitions,
+same-day ordering, dependent actions, overdue reservations, fault conflicts,
+repeated corrections, legacy evidence and shared status/history. Persistence
+tests cover restart/export/import, unchanged batch members and rejected files,
+projection validation, legacy migration and save failures. Existing audit tests
+also verify that corrective evidence agrees with the restored current state.
+`LoanBook.validateActionDate` prevents subsequent returns, renewals or loss reports
+from being backdated before accepted audit events if the local clock changes.
 
 ### Equipment history
 
@@ -1222,10 +1537,11 @@ Assume `OSC-001` has a loan that has been returned with the fault description
    the same asset ID. In `LabLog`, this supplier combines caller-supplied entries
    with session notes from `HistoryRecordCommands`.
 5. The handler sorts the combined entries by date, oldest first. Ties are broken
-   by enum type order (`LOAN`, `RESERVATION`, `FAULT`, `MAINTENANCE`), then by
-   description.
-6. The application displays the equipment ID and name, the `Date | Type | Details`
-   rows, and the record count. No save is triggered by viewing history.
+   by enum type order (`LOAN`, `RESERVATION`, `FAULT`, `MAINTENANCE`, `RENEWAL`,
+   `LOST`), then by description; renewals keep their acceptance order.
+6. The application displays the equipment ID and name, an aligned table with
+   `Date`, `Type` and `Details` columns, and the record count. No save is
+   triggered by viewing history.
 
 The following sequence diagram shows a history request for registered equipment.
 Individual field accessors are omitted for readability.
@@ -1315,7 +1631,298 @@ renewal entries explicitly retain each previous and new deadline.
 loans, fresh source updates, date ordering and tie-breaking, malformed input,
 empty and unknown equipment, and console integration with shared records.
 
-## Product scope
+### Faults and repairs
+
+Faults are structured records. An unresolved severe fault blocks lending until a
+repair resolves it.
+
+#### Structured fault reports
+
+`Fault` holds an immutable ID, registered asset ID, report date and description.
+`FaultBook` owns the records and checks equipment references and duplicate IDs.
+Reports use UUID-based `F-...` IDs to avoid a separate persistent counter.
+`getFaults()` returns an immutable snapshot of the fault records;
+`getUnresolvedSevereFaults()` supplies the implemented daily overview and
+shared availability checks;
+`Fault.toHistoryEntry()` includes the ID without storing duplicated history text.
+Issues #86 and #87 add severity, lending restrictions and repair transitions below.
+
+`HistoryRecordCommands` retains the existing fault command syntax and date rules
+(including past and future dates). `LabLog` shares the store's fault book and saves
+before printing success (see [Storage](#storage)).
+
+Format 3 introduced `fault.count` and indexed `fault.N.id`, `asset`, `date`
+and `description` fields; formats 4 and 5 extend these records below. The current
+writer always saves one complete format-11 snapshot, including borrowers and notes.
+Legacy split-file installations migrate on save. Imports replace the existing
+shared fault book, so all handlers see replacement faults immediately.
+Derived fault history is excluded from exported notes to prevent duplication.
+
+`FaultReportingTest` covers multiple reports, date boundaries, invalid input,
+immutable views, stable IDs across restart/export, broken saved references,
+duplicate IDs, legacy loading, and failed-save behavior.
+
+#### Fault severity and description
+
+`Fault.Severity` defines `MINOR`, `MODERATE`, `SEVERE` and `UNSPECIFIED`. The
+optional `s/` field accepts the first three levels case-insensitively, between
+`d/DATE` and `desc/DESCRIPTION`. Omission retains the original command syntax
+and records `UNSPECIFIED`. Descriptions remain required and single-line; repeated
+or misplaced field prefixes are rejected before any record is inserted.
+
+The agreed lending rule blocks equipment with a severe fault. `FaultBook`
+provides an immutable `getUnresolvedSevereFaults()` snapshot for US58 and
+`blocksLending(assetId)` for loan validation and availability displays. Resolved
+faults are excluded from this query. Severity blocks immediately, independent of the report date. Existing
+loans and returns remain valid; a return does not resolve a fault.
+
+`LabLog` supplies the same fault book to reporting, loan, list and find handlers.
+`LoanCommands` rejects severe faults before adding a loan. Listings show `On loan`
+for active loans, otherwise `Unavailable: severe fault` for affected units.
+The implemented `OverviewCommands` lists unresolved severe faults alongside
+today's reservations and overdue loans. Repairs are described below.
+
+Live and export format 4 adds required `fault.N.severity` enum names. Live
+formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
+migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
+unknown severity in format 4 or later is corruption, not a migration default.
+The current writer uses format 11, retaining audit evidence, renewal events and loss reports.
+
+`FaultSeverityTest` covers all levels, description validation, immutable overview
+results, affected-unit isolation, date boundaries, reports during active loans,
+return behavior, restart/export preservation, migration and malformed severity.
+
+#### Fault repairs and resolution
+
+`RepairCommands` accepts `repair FAULT_ID d/YYYY-MM-DD desc/DETAILS`. Its injected
+clock checks that the date is not in the future in the application's local time
+zone. `Fault.resolve` rejects repeat resolution, a date before the report, or
+empty/multiline details. It returns a new immutable `Fault`, preserving the report
+ID, equipment ID, report date, description and severity. `FaultBook.resolve`
+replaces the matching record only after validation succeeds; existing snapshots
+retain their original values. Unknown IDs never change the book.
+
+Resolution state is derived from the optional resolution date; an unresolved
+record has no date and empty repair details. A resolved record requires both.
+There is one terminal unresolved-to-resolved transition. Reopening, editing a
+repair and multiple repair attempts against the same fault are outside scope.
+
+`Fault.toHistoryEntries()` returns the unchanged report entry and, after
+resolution, a separate `MAINTENANCE` entry on the repair date, linked by fault ID.
+`HistoryRecordCommands` supplies these entries to the existing chronological
+history display. The overview query excludes resolved severe faults, so loan,
+list and find handlers see updated availability immediately without cached state.
+Other unresolved severe faults and active loans continue to prevent lending.
+
+`LabLog` saves a repair before printing success (see [Storage](#storage)).
+Live/export format 5 introduced required `fault.N.resolved` and `fault.N.repair` fields;
+both are empty for unresolved reports. Resolved records store an ISO date and
+non-empty single-line details. Decoding rejects missing fields, partial repairs,
+invalid dates and resolution dates before the report. Current-date validation
+belongs to the command, not loading, so saved history is independent of the clock.
+Live formats 1, 3 and 4 and export formats 2, 3 and 4 remain readable. Older fault
+records become unresolved without losing their existing fields. Export stores
+domain fields only, avoiding duplicate report/repair notes. Older versions of
+the application predating repairs cannot read format 5 or later.
+
+`RepairCommandsTest` covers successful and same-day repairs, immutable original
+reports, rejected inputs and transitions, local-date boundaries, multiple severe
+faults, active loans, chronology, restart/export, migration, corrupt repairs and
+failed saves. Existing equipment-editing tests also verify integration with the
+current develop branch.
+
+### Reservations and availability
+
+All booking checks share one conflict policy, `BookingAvailability` (see
+[Model](#model)).
+
+#### Structured reservations
+
+DateWindow defines inclusive LocalDate intervals. Reservation is immutable and
+references registered equipment and a borrower. ReservationBook validates IDs
+and references, then calls its Saver with a proposed snapshot before publishing
+a change. LabLog keeps the same book instance across imports so handlers remain
+connected. ReservationCodec writes explicit indexed fields under reservation.N;
+format 6 requires reservation.count. Formats 2-5 load with empty bookings, and
+legacy notes remain notes. History derives reservation entries from records.
+
+ReservationTest covers invalid and reordered fields, period boundaries, failed
+saves, reload/export/import, schema corruption and legacy compatibility. US35
+adds the shared conflict policy without changing the interval contract.
+
+#### Shared conflict policy
+
+BookingAvailability.conflict/requireAvailable is the shared public boundary for
+reservations, loans, RenewCommands and interval queries. All intervals
+are inclusive. A renewal caller passes its original Loan as ignoredLoan and the
+proposed full loan period; an edit passes only its own reservation ID. Other
+records are still checked. Main-console LoanCommands is wired to this policy.
+The existing standalone constructors retain their no-reservation behavior.
+
+Restore validates reservation references, IDs and pairwise booking overlaps.
+It does not reject persisted bookings merely because a loan later becomes overdue
+or a fault is subsequently reported: those are current operational conflicts,
+not evidence that historical saved records are corrupt. BookingConflictTest
+covers shared endpoints, exclusion rules, returns, overdue loans and lending.
+
+#### Editing reservations
+
+ReservationBook.edit creates a replacement immutable record and excludes only
+its original ID from BookingAvailability. It validates all proposed fields and
+references before calling the existing snapshot saver, then replaces one item.
+This keeps old snapshots unchanged and prevents partial edits on validation or
+I/O failure. No schema change is needed. ReservationEditTest covers partial edits,
+self-exclusion, conflicts, date boundaries, failed persistence and restart.
+
+#### Reservation cancellation
+
+Reservation now retains optional cancelledOn and cancellationReason. The
+immutable transition preserves the original period, borrower and ID. The book
+saves before publication; availability and pairwise validation ignore cancelled
+records. History emits both the original booking and a dated cancellation event.
+Format 7 requires both cancellation fields (empty for confirmed records), while
+format 6 migrates as confirmed. Partial cancellation records are invalid.
+ReservationCancellationTest covers release, isolation, repeats, history,
+restart/import/export, legacy migration and failed persistence.
+
+#### Interval availability queries
+
+AvailableEquipmentCommands delegates to BookingAvailability.availableUnits;
+there is no second overlap policy or stored availability flag. It validates the
+interval before reading inventory, filters by optional exact category, and
+returns an immutable asset-ID-ordered snapshot without persistence or mutation.
+AvailabilityCommandsTest covers endpoints, returns, overdue loans, fault repair,
+cancellation, invalid queries on empty data, and the persistent CLI path.
+
+#### Unavailability explanations
+
+`UnavailableReasonCommands` accepts `why-unavailable ASSET_ID [from/START to/END]`.
+It defaults to the injected clock's local date, or validates an explicit inclusive
+window with the existing DateWindow and BookingArguments helpers. The start must
+not precede today. Unknown equipment and invalid fields are rejected before any
+output claiming availability.
+
+`BookingAvailability.reasons` collects immutable explanations from the shared
+loan, reservation and fault books in loss/fault/reservation/loan order. It retains
+all matching records rather than hiding later blockers. The existing `conflict`
+method selects the first reason from that same collection, keeping lending,
+renewal, reservation and interval-availability validation on one rule path.
+Exclusion arguments still skip the caller's own reservation or loan. No cached
+status field or new persistence schema is introduced.
+
+The main console supplies the same BookingAvailability instance used by lending.
+Imports replace book contents without replacing their identities, so explanations
+reflect replacement records immediately. Queries do not invoke the saver. Loan
+return dates remain inclusive; overdue outstanding loans block indefinitely;
+losses and unresolved severe faults block every interval. The compact list/find
+labels remain unchanged and are not a substitute for an interval explanation.
+
+`UnavailableReasonCommandsTest` covers simultaneous blockers, identifiers and
+details, exclusion arguments, exact asset matching, cancellation and repair,
+return-day boundaries, indefinite overdue/loss restrictions, local time zones,
+invalid input, restart, import and unchanged saved bytes after queries.
+
+#### Waiting requests
+
+WaitingRequest is an immutable category-level demand record with a stable ID,
+borrower and DateWindow. WaitingRequestBook validates that operational units
+exist and BookingAvailability finds none free throughout the interval. Severe
+faults alone do not establish booked demand. Identical borrower/category/window
+requests are rejected. The saver runs before publication, retaining the prior
+collection on failure. No unit is allocated and reservation/loan state is untouched.
+
+Restoration validates identity, borrower references and duplicate demand without
+rechecking current capacity: waiting records survive booking cancellations and
+category edits. A future allocation workflow can consume these records, but this
+feature intentionally has no automatic allocation or request removal command.
+
+ApplicationSnapshot format 8 adds waiting.count and indexed id, borrower,
+category, from and to fields. Formats 2-7 decode with empty waiting lists. Schema
+history: 3 introduced faults, 4 severity, 5 repairs, 6 reservations, 7 cancellation,
+8 waiting demand, 9 loan renewal chains, 10 loss reports, 11 loan IDs and audit evidence.
+Every current save/export writes format 11
+and retains all these records. Unknown fields and missing required fields remain errors.
+
+WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,
+loan and reservation capacity, failed persistence, independent waiting state,
+restart/export/import, corrupt records and format-7 migration. The full Java 25
+suite also verifies older migration paths and all previous booking features.
+
+### Daily overview, help and command recall
+
+These commands only read records; none of them saves.
+
+#### Daily operational overview
+
+`OverviewCommands` receives the existing ReservationBook, LoanBook, FaultBook and
+Clock. `LabLog` wires the same book instances used by the command handlers and
+snapshot replacement. The `overview` command is read-only and has no arguments.
+It calculates LocalDate.now(clock) once per invocation so all daily predicates
+use the same local date, even at midnight.
+
+Reservation rows require a non-cancelled period containing today inclusively.
+Overdue rows use Loan.isActive() and a due date strictly before today, matching
+ActiveLoanCommands; returned/reversed loans are excluded and outstanding lost
+loans remain included. Severe rows use FaultBook.getUnresolvedSevereFaults(),
+matching the shared lending restriction without inferring state from history
+text. Future-dated severe reports remain blockers and are therefore displayed.
+
+Each section sorts a derived list without changing source order. Reservations
+sort by asset/record ID, overdue loans by due date/asset/record ID, and faults by
+report date/asset/record ID. Counts represent records rather than distinct units.
+No cached summary, availability flag or new serialization fields are needed.
+Imports retain shared book identities, so the next query sees replacement data.
+Maintenance scheduling is excluded; the view explicitly states that limitation
+and never interprets maintenance notes as scheduled work.
+
+OverviewCommandsTest covers empty sections, invalid input, reservation endpoints,
+cancellation, overdue boundaries, losses, reversed/returned loans, multiple
+severe faults, repairs, renewal updates, midnight time zones, restart/import and
+unchanged saved bytes after queries.
+
+#### Help and command examples
+
+`HelpCommands` contains shared guidance for both consoles and has no record
+store dependencies. `help` returns a concise list; `help COMMAND` returns
+syntax, fields, and explained examples. Invalid names and extra arguments
+produce recoverable errors. The loan guidance requires borrower registration.
+
+`HelpCommandsTest` checks parsing, examples against the real handlers, console
+integration, and unchanged records/files when viewing help. `LabLogTest` checks
+that unavailable commands and invalid initial input do not consume subsequent
+commands as equipment details.
+
+#### Explicit command recall
+
+CommandHistory intercepts commands and recall before normal dispatch. It keeps
+at most 20 submitted top-level lines and returns display text without recursively
+dispatching the recalled command. Scanner-based consoles do not support portable
+editable terminal buffers, so copying/editing and explicit resubmission is the
+documented interaction. No terminal dependency or hidden execution is needed.
+
+CommandHistoryTest covers empty history, invalid/overflowing indices, eviction,
+session isolation, wizard-answer exclusion, both consoles and explicit execution
+after editing a recalled command.
+
+### Current integration limits and packaged verification
+
+Equipment list/find labels use loan, loss and severe-fault records but do not
+yet consult reservations. BookingAvailability performs the complete interval
+check used by lending, renewal, reservations and the available command.
+The User Guide documents this distinction; do not treat the list label as a
+booking guarantee. Lost-equipment recovery is not implemented. Explicit loan
+and return corrections are supported by
+`reverse-loan` and `reverse-return`.
+
+The packaged CLI runner exercises all command-help entries and a combined
+batch-loan, renewal, loss, return-audit, reservation, waiting-request and
+fault-repair workflow. It exports to a path containing spaces, imports into a
+new file and compares the queried records across fresh Java processes. It also
+checks that read-only queries do not rewrite the source snapshot. Run it after
+the shadowJar task; Gradle check and CI currently run JUnit/Checkstyle only.
+See the [verification report](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/verification-report.md) for the checked revision and results.
+
+## Appendix A: Product scope
 ### Target user profile
 
 Laboratory technicians managing individual electronics equipment units and
@@ -1325,9 +1932,18 @@ student borrowers through a text interface.
 
 Keep equipment identity, borrower contacts, and loan history accessible from
 the command line. The main console shares records across registration, lending,
-returns, and lookups.
+returns, and lookups, so a technician can:
 
-## User Stories
+* see which units are available, on loan, lost or blocked by a severe fault, and
+  why a unit cannot be booked for a date range;
+* lend and return several units in one command, with all-or-nothing validation;
+* keep the full history of loans, renewals, losses, faults and repairs for each
+  unit, and correct mistakes without erasing the original evidence;
+* plan ahead with reservations and waiting requests checked by the same conflict
+  rules as lending;
+* keep all records in one portable file that can be exported and imported safely.
+
+## Appendix B: User stories
 
 The following v1.0 rows summarize the original baseline. The v2.0 table lists
 all 33 stories in the approved allocation; US identifiers refer to the team's
@@ -1383,7 +1999,7 @@ US58 excludes due-maintenance scheduling: maintenance notes are historical
 records, not a schedule. US60 covers borrowing and returning, including related
 corrections; it is not a general audit of every inventory-changing action.
 
-## Non-Functional Requirements
+## Appendix C: Non-functional requirements
 
 Build and run with Java 25. Keep help read-only and reject invalid borrower and
 return commands before changing records. Save borrower additions atomically
@@ -1394,14 +2010,20 @@ empty loan book; concurrent writers to the same data files are unsupported.
 Return fault descriptions are stored in loan history and do not create a
 separate fault note.
 
-## Glossary
+## Appendix D: Glossary
 
-* **Asset ID:** identifier of one physical equipment unit.
-* **Active loan:** a loan whose return date is absent.
+* **Asset ID:** case-sensitive identifier of one physical equipment unit.
+* **Active loan:** a loan that has been neither returned nor reversed. A lost loan
+  is still active because the borrower remains responsible for it.
 * **Overdue loan:** an active loan with a due date before today's local date.
+* **Severe fault:** an unresolved fault with severity `SEVERE`; it blocks lending.
+* **Snapshot format:** the schema version stored in the data file's `format` key;
+  the current writer uses format 11.
+* **Audit event:** an immutable record of one loan, return or correction, shown by
+  `loan-audit`.
 * **History entry:** a display snapshot of a record, not an immutable event log.
 
-## Instructions for manual testing
+## Appendix E: Instructions for manual testing
 
 ### Assertions and diagnostic logging
 
@@ -1436,390 +2058,52 @@ python test/run-cli-smoke-tests.py
 The Python 3 runner checks the packaged JAR and separate borrower processes with
 temporary data. The existing PowerShell 7 runner also verifies exact borrower
 output: `pwsh -File test/run-borrower-ui-tests.ps1`. See the
-[console test plan](../test/ui-test-plan.md) and
-[verification report](../test/verification-report.md).
-
-For a manual main-console check, run `java -jar build/libs/lablog.jar` with a
-disposable data-file path, register equipment with `add`, register a borrower
-with `add-borrower`, then issue a loan. Check `active-loans`, `loans
-BORROWER_ID`, `return ASSET_ID`, and `history ASSET_ID`. Restart with the same
-data path to confirm equipment, loans, returns, and borrowers reload. Use a
-separate disposable directory to isolate legacy borrower files beside the
-LabLog data file.
-
-## Equipment detail editing (issue #62)
-
-EquipmentEditCommands parses optional name, category, model, and location fields
-and constructs a fully validated immutable Equipment record. Inventory replaces
-the record at its existing position while retaining the same asset ID, so loan
-and history references remain valid. LabLog saves the updated equipment through
-the existing snapshot store after the command succeeds.
-
-EquipmentEditCommandsTest covers partial edits, field ordering, validation,
-stable asset references, and persistence after restart.
-
-## Bulk equipment location updates (issue #64)
-
-EquipmentMoveCommands parses a comma-separated selection and one target
-location. Inventory validates every distinct asset ID and constructs all
-replacement Equipment records before installing any of them, so an invalid
-selection or location leaves the batch unchanged. LabLog then persists the
-updated inventory through the existing snapshot store.
-
-EquipmentMoveCommandsTest covers successful partial batch updates, validation
-atomicity, stable loan references, and persistence after restart.
-
-## Exact equipment lookup (issue #67)
-
-EquipmentFindCommands resolves one case-sensitive asset ID from the shared
-inventory and reports descriptive fields with availability derived from active
-loans and severe faults. The lookup is read-only and returns a clear error for unknown IDs.
-
-EquipmentFindCommandsTest covers details, availability, invalid syntax,
-unknown IDs, and unchanged equipment and loan records.
-
-## Borrower contact editing (issue #89)
-
-BorrowerCommands parses optional edit fields and constructs a validated immutable
-Borrower. BorrowerBook.updateBorrower requires an existing ID and persists a
-proposed map before publishing the replacement. Loans refer to IDs, so edits do
-not require rewriting loan records. The package-level Saver boundary lets the
-main application later save proposed contacts with its complete snapshot.
-
-BorrowerEditTest covers partial/reordered edits, name-length boundaries,
-unchanged loan objects, restart persistence, invalid fields, and failed saves.
-
-## Versioned export schema (issue #90)
-
-ApplicationSnapshot captures the supported object graph and uses LabLogStore's
-equipment/loan serializer. UTF-8 properties format 11 retains borrower.count and
-note.count with indexed fields, structured renewal chains and each loan's loss report date.
-audit.count and typed indexed records retain borrowing/return evidence and correction
-references, joined to stable loan IDs. The codec validates references and dates
-before writing a temporary file and atomically replacing its destination.
-The export command requires a new file and protects the active data paths.
-
-Reservations, waiting requests and loan audit events already have structured
-serialization, validation and round-trip coverage. Future domain extensions
-must update that schema and its tests, and bump the format when necessary.
-Do not serialize HistoryEntry display text as a substitute for full domain data.
-Import and envelope validation use the same codec as export.
-
-## Import and single-file persistence (issue #91)
-
-LabLog.load reads complete formats 2 through 11 into detached books, or loads the legacy two-file
-installation without writing during startup. Main-console mutations persist
-one ApplicationSnapshot. BorrowerBook's Saver writes proposed contacts with
-the other current records before publishing the edit.
-
-Import decodes all records and validates IDs, references, dates and active-loan
-constraints before writing the replacement atomically. Only after persistence
-succeeds does it replace the contents of shared books. Existing command handlers
-therefore observe the new records without being rebuilt. Injected external
-history sources cannot be replaced and are rejected explicitly.
-
-SnapshotImportTest checks valid replacement, visibility through existing
-handlers, restart, updated contacts, legacy migration and a failed destination
-replacement. An unsupported atomic move fails safely; no non-atomic fallback
-is attempted. Use one main-console process per data file.
-
-## Import envelope validation (issue #92)
-
-ApplicationSnapshot.readProperties rejects duplicate properties through a
-Properties subclass instead of accepting the parser's usual last-value-wins
-behavior. It checks regular-file status and the 10 MiB input limit. Decode
-derives the accepted key set from the export schema and the declared input version,
-excluding fields introduced by later versions. It rejects supplied keys
-outside it, including out-of-range indices. The error names the first unknown
-key in sorted order. Required-field validation separately rejects missing keys. Domain validation remains shared with
-the export codec.
-
-SnapshotValidationTest supplies malformed versions, counts, contact fields,
-dates, references, duplicate IDs/keys, unknown fields, invalid audit data,
-invalid UTF-8 and oversized input. Dispatcher-level cases verify saved content
-and active-loan listings remain unchanged after each invalid import.
-
-
-The PR #96 follow-up is covered by
-SnapshotValidationTest.decode_unknownProperties_rejectsBeforeReserialization.
-It supplies valid snapshot records plus unknown top-level, per-record and
-out-of-range indexed properties. Both direct decode and read-then-write must
-fail before the existing destination can be overwritten; the source, destination
-and input properties are checked for preservation.
-
-## Explicit command recall (issue #93)
-
-CommandHistory intercepts commands and recall before normal dispatch. It keeps
-at most 20 submitted top-level lines and returns display text without recursively
-dispatching the recalled command. Scanner-based consoles do not support portable
-editable terminal buffers, so copying/editing and explicit resubmission is the
-documented interaction. No terminal dependency or hidden execution is needed.
-
-CommandHistoryTest covers empty history, invalid/overflowing indices, eviction,
-session isolation, wizard-answer exclusion, both consoles and explicit execution
-after editing a recalled command.
-
-### Sorting filtered equipment
-
-Use `list [category/VALUE] [location/VALUE] [status/available|on-loan|unavailable|lost] [sort/FIELD]`.
-Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
-`name`, `category`, `model`, `location`, and `availability`. For example,
-`list category/Electronics sort/name` sorts only matching units. Comparisons
-are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
-Sorting a copied snapshot preserves the stored registration order.
-
-## Structured fault reports (issue #85)
-
-`Fault` holds an immutable ID, registered asset ID, report date and description.
-`FaultBook` owns the records and checks equipment references and duplicate IDs.
-Reports use UUID-based `F-...` IDs to avoid a separate persistent counter.
-`getFaults()` returns an immutable snapshot of the fault records;
-`getUnresolvedSevereFaults()` supplies the implemented daily overview and
-shared availability checks;
-`Fault.toHistoryEntry()` includes the ID without storing duplicated history text.
-Issues #86 and #87 add severity, lending restrictions and repair transitions below.
-
-`HistoryRecordCommands` retains the existing fault command syntax and date rules
-(including past and future dates). `LabLog` shares the store's fault book and saves
-before printing success. A save failure stops the session using the existing
-failure policy; the previous saved data remains unchanged.
-
-Format 3 introduced `fault.count` and indexed `fault.N.id`, `asset`, `date`
-and `description` fields; formats 4 and 5 extend these records below. The current
-writer always saves one complete format-11 snapshot, including borrowers and notes.
-Legacy split-file installations migrate on save. Imports replace the existing
-shared fault book, so all handlers see replacement faults immediately.
-Derived fault history is excluded from exported notes to prevent duplication.
-
-`FaultReportingTest` covers multiple reports, date boundaries, invalid input,
-immutable views, stable IDs across restart/export, broken saved references,
-duplicate IDs, legacy loading, and failed-save behavior.
-
-## Fault severity and description (issue #86)
-
-`Fault.Severity` defines `MINOR`, `MODERATE`, `SEVERE` and `UNSPECIFIED`. The
-optional `s/` field accepts the first three levels case-insensitively, between
-`d/DATE` and `desc/DESCRIPTION`. Omission retains the original command syntax
-and records `UNSPECIFIED`. Descriptions remain required and single-line; repeated
-or misplaced field prefixes are rejected before any record is inserted.
-
-The agreed lending rule blocks equipment with a severe fault. `FaultBook`
-provides an immutable `getUnresolvedSevereFaults()` snapshot for US58 and
-`blocksLending(assetId)` for loan validation and availability displays. Resolved
-faults are excluded from this query. Severity blocks immediately, independent of the report date. Existing
-loans and returns remain valid; a return does not resolve a fault.
-
-`LabLog` supplies the same fault book to reporting, loan, list and find handlers.
-`LoanCommands` rejects severe faults before adding a loan. Listings show `On loan`
-for active loans, otherwise `Unavailable: severe fault` for affected units.
-The implemented `OverviewCommands` lists unresolved severe faults alongside
-today's reservations and overdue loans. Repairs are described below.
-
-Live and export format 4 adds required `fault.N.severity` enum names. Live
-formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
-migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
-unknown severity in format 4 or later is corruption, not a migration default.
-The current writer uses format 11, retaining audit evidence, renewal events and loss reports.
-
-`FaultSeverityTest` covers all levels, description validation, immutable overview
-results, affected-unit isolation, date boundaries, reports during active loans,
-return behavior, restart/export preservation, migration and malformed severity.
-
-## Fault repairs and resolution (issue #87)
-
-`RepairCommands` accepts `repair FAULT_ID d/YYYY-MM-DD desc/DETAILS`. Its injected
-clock checks that the date is not in the future in the application's local time
-zone. `Fault.resolve` rejects repeat resolution, a date before the report, or
-empty/multiline details. It returns a new immutable `Fault`, preserving the report
-ID, equipment ID, report date, description and severity. `FaultBook.resolve`
-replaces the matching record only after validation succeeds; existing snapshots
-retain their original values. Unknown IDs never change the book.
-
-Resolution state is derived from the optional resolution date; an unresolved
-record has no date and empty repair details. A resolved record requires both.
-There is one terminal unresolved-to-resolved transition. Reopening, editing a
-repair and multiple repair attempts against the same fault are outside scope.
-
-`Fault.toHistoryEntries()` returns the unchanged report entry and, after
-resolution, a separate `MAINTENANCE` entry on the repair date, linked by fault ID.
-`HistoryRecordCommands` supplies these entries to the existing chronological
-history display. The overview query excludes resolved severe faults, so loan,
-list and find handlers see updated availability immediately without cached state.
-Other unresolved severe faults and active loans continue to prevent lending.
-
-`LabLog` saves a repair before printing success. Save failure stops the session
-under the existing persistence policy, leaving the prior saved state unchanged.
-Live/export format 5 introduced required `fault.N.resolved` and `fault.N.repair` fields;
-both are empty for unresolved reports. Resolved records store an ISO date and
-non-empty single-line details. Decoding rejects missing fields, partial repairs,
-invalid dates and resolution dates before the report. Current-date validation
-belongs to the command, not loading, so saved history is independent of the clock.
-Live formats 1, 3 and 4 and export formats 2, 3 and 4 remain readable. Older fault
-records become unresolved without losing their existing fields. Export stores
-domain fields only, avoiding duplicate report/repair notes. Older versions of
-the application predating repairs cannot read format 5 or later.
-
-`RepairCommandsTest` covers successful and same-day repairs, immutable original
-reports, rejected inputs and transitions, local-date boundaries, multiple severe
-faults, active loans, chronology, restart/export, migration, corrupt repairs and
-failed saves. Existing equipment-editing tests also verify integration with the
-current develop branch.
-
-## Structured reservations (issue #78)
-
-DateWindow defines inclusive LocalDate intervals. Reservation is immutable and
-references registered equipment and a borrower. ReservationBook validates IDs
-and references, then calls its Saver with a proposed snapshot before publishing
-a change. LabLog keeps the same book instance across imports so handlers remain
-connected. ReservationCodec writes explicit indexed fields under reservation.N;
-format 6 requires reservation.count. Formats 2-5 load with empty bookings, and
-legacy notes remain notes. History derives reservation entries from records.
-
-ReservationTest covers invalid and reordered fields, period boundaries, failed
-saves, reload/export/import, schema corruption and legacy compatibility. US35
-adds the shared conflict policy without changing the interval contract.
-
-## Shared conflict policy (issue #79)
-
-BookingAvailability.conflict/requireAvailable is the shared public boundary for
-reservations, loans, RenewCommands and interval queries. All intervals
-are inclusive. A renewal caller passes its original Loan as ignoredLoan and the
-proposed full loan period; an edit passes only its own reservation ID. Other
-records are still checked. Main-console LoanCommands is wired to this policy.
-The existing standalone constructors retain their no-reservation behavior.
-
-Restore validates reservation references, IDs and pairwise booking overlaps.
-It does not reject persisted bookings merely because a loan later becomes overdue
-or a fault is subsequently reported: those are current operational conflicts,
-not evidence that historical saved records are corrupt. BookingConflictTest
-covers shared endpoints, exclusion rules, returns, overdue loans and lending.
-
-## Editing reservations (issue #80)
-
-ReservationBook.edit creates a replacement immutable record and excludes only
-its original ID from BookingAvailability. It validates all proposed fields and
-references before calling the existing snapshot saver, then replaces one item.
-This keeps old snapshots unchanged and prevents partial edits on validation or
-I/O failure. No schema change is needed. ReservationEditTest covers partial edits,
-self-exclusion, conflicts, date boundaries, failed persistence and restart.
-
-## Reservation cancellation (issue #81)
-
-Reservation now retains optional cancelledOn and cancellationReason. The
-immutable transition preserves the original period, borrower and ID. The book
-saves before publication; availability and pairwise validation ignore cancelled
-records. History emits both the original booking and a dated cancellation event.
-Format 7 requires both cancellation fields (empty for confirmed records), while
-format 6 migrates as confirmed. Partial cancellation records are invalid.
-ReservationCancellationTest covers release, isolation, repeats, history,
-restart/import/export, legacy migration and failed persistence.
-
-## Interval availability queries (issue #82)
-
-AvailableEquipmentCommands delegates to BookingAvailability.availableUnits;
-there is no second overlap policy or stored availability flag. It validates the
-interval before reading inventory, filters by optional exact category, and
-returns an immutable asset-ID-ordered snapshot without persistence or mutation.
-AvailabilityCommandsTest covers endpoints, returns, overdue loans, fault repair,
-cancellation, invalid queries on empty data, and the persistent CLI path.
-
-
-## Waiting requests (issue #83)
-
-WaitingRequest is an immutable category-level demand record with a stable ID,
-borrower and DateWindow. WaitingRequestBook validates that operational units
-exist and BookingAvailability finds none free throughout the interval. Severe
-faults alone do not establish booked demand. Identical borrower/category/window
-requests are rejected. The saver runs before publication, retaining the prior
-collection on failure. No unit is allocated and reservation/loan state is untouched.
-
-Restoration validates identity, borrower references and duplicate demand without
-rechecking current capacity: waiting records survive booking cancellations and
-category edits. A future allocation workflow can consume these records, but this
-feature intentionally has no automatic allocation or request removal command.
-
-ApplicationSnapshot format 8 adds waiting.count and indexed id, borrower,
-category, from and to fields. Formats 2-7 decode with empty waiting lists. Schema
-history: 3 introduced faults, 4 severity, 5 repairs, 6 reservations, 7 cancellation,
-8 waiting demand, 9 loan renewal chains, 10 loss reports, 11 loan IDs and audit evidence.
-Every current save/export writes format 11
-and retains all these records. Unknown fields and missing required fields remain errors.
-
-WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,
-loan and reservation capacity, failed persistence, independent waiting state,
-restart/export/import, corrupt records and format-7 migration. The full Java 25
-suite also verifies older migration paths and all previous booking features.
-
-## Daily operational overview (issue #88)
-
-`OverviewCommands` receives the existing ReservationBook, LoanBook, FaultBook and
-Clock. `LabLog` wires the same book instances used by the command handlers and
-snapshot replacement. The `overview` command is read-only and has no arguments.
-It calculates LocalDate.now(clock) once per invocation so all daily predicates
-use the same local date, even at midnight.
-
-Reservation rows require a non-cancelled period containing today inclusively.
-Overdue rows use Loan.isActive() and a due date strictly before today, matching
-ActiveLoanCommands; returned/reversed loans are excluded and outstanding lost
-loans remain included. Severe rows use FaultBook.getUnresolvedSevereFaults(),
-matching the shared lending restriction without inferring state from history
-text. Future-dated severe reports remain blockers and are therefore displayed.
-
-Each section sorts a derived list without changing source order. Reservations
-sort by asset/record ID, overdue loans by due date/asset/record ID, and faults by
-report date/asset/record ID. Counts represent records rather than distinct units.
-No cached summary, availability flag or new serialization fields are needed.
-Imports retain shared book identities, so the next query sees replacement data.
-Maintenance scheduling is excluded; the view explicitly states that limitation
-and never interprets maintenance notes as scheduled work.
-
-OverviewCommandsTest covers empty sections, invalid input, reservation endpoints,
-cancellation, overdue boundaries, losses, reversed/returned loans, multiple
-severe faults, repairs, renewal updates, midnight time zones, restart/import and
-unchanged saved bytes after queries.
-
-## Unavailability explanations (issue #84)
-
-`UnavailableReasonCommands` accepts `why-unavailable ASSET_ID [from/START to/END]`.
-It defaults to the injected clock's local date, or validates an explicit inclusive
-window with the existing DateWindow and BookingArguments helpers. The start must
-not precede today. Unknown equipment and invalid fields are rejected before any
-output claiming availability.
-
-`BookingAvailability.reasons` collects immutable explanations from the shared
-loan, reservation and fault books in loss/fault/reservation/loan order. It retains
-all matching records rather than hiding later blockers. The existing `conflict`
-method selects the first reason from that same collection, keeping lending,
-renewal, reservation and interval-availability validation on one rule path.
-Exclusion arguments still skip the caller's own reservation or loan. No cached
-status field or new persistence schema is introduced.
-
-The main console supplies the same BookingAvailability instance used by lending.
-Imports replace book contents without replacing their identities, so explanations
-reflect replacement records immediately. Queries do not invoke the saver. Loan
-return dates remain inclusive; overdue outstanding loans block indefinitely;
-losses and unresolved severe faults block every interval. The compact list/find
-labels remain unchanged and are not a substitute for an interval explanation.
-
-`UnavailableReasonCommandsTest` covers simultaneous blockers, identifiers and
-details, exclusion arguments, exact asset matching, cancellation and repair,
-return-day boundaries, indefinite overdue/loss restrictions, local time zones,
-invalid input, restart, import and unchanged saved bytes after queries.
-
-## Current integration limits and packaged verification
-
-Equipment list/find labels use loan, loss and severe-fault records but do not
-yet consult reservations. BookingAvailability performs the complete interval
-check used by lending, renewal, reservations and the available command.
-The User Guide documents this distinction; do not treat the list label as a
-booking guarantee. Lost-equipment recovery is not implemented. Explicit loan
-and return corrections are supported by
-`reverse-loan` and `reverse-return`.
-
-The packaged CLI runner exercises all command-help entries and a combined
-batch-loan, renewal, loss, return-audit, reservation, waiting-request and
-fault-repair workflow. It exports to a path containing spaces, imports into a
-new file and compares the queried records across fresh Java processes. It also
-checks that read-only queries do not rewrite the source snapshot. Run it after
-the shadowJar task; Gradle check and CI currently run JUnit/Checkstyle only.
-See the [verification report](../test/verification-report.md) for the checked revision and results.
+[console test plan](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/ui-test-plan.md) and
+[verification report](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/verification-report.md).
+
+### Manual test cases
+
+These are starting points for testers. Put `lablog.jar` in an empty folder and run
+`java -jar lablog.jar` there. No data file is written until the first command that
+changes records creates `data/lablog.properties`. Successful changes start with
+`[OK]`; rejected commands start with `Error:` and change nothing.
+
+**Equipment**
+
+1. `add OSC-001 n/Digital Oscilloscope c/Electronics m/DS1054Z l/Lab A`<br>
+   Expected: `[OK] Equipment added to inventory.` Repeating it gives
+   `Error: Equipment OSC-001 already exists.`
+2. `copy OSC-001 OSC-002`, then `list category/electronics sort/name`<br>
+   Expected: `[OK] Copied OSC-001 to OSC-002.`, then a table with both units `Available`.
+3. `find osc-001`<br>
+   Expected: `Error: Equipment osc-001 not found.`, because asset IDs are case-sensitive.
+
+**Borrowers and loans**
+
+1. `add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@gmail.com`<br>
+   Expected: an error asking for a `u.nus.edu` address. With
+   `e/jamietan@u.nus.edu` instead: `[OK] Added borrower A0123456X: Jamie Tan.`
+2. `loan OSC-001 OSC-002 b/A0123456X d/2030-12-31`<br>
+   Expected: both units loaned in one `[OK]` confirmation. Lending OSC-001 again
+   gives an error naming the current borrower and due date.
+3. `renew OSC-001 d/2031-01-15`, then `return OSC-001 faults/Damaged cable`<br>
+   Expected: the due date changes to 2031-01-15, then OSC-001 is returned with the
+   fault. A second `return OSC-001` gives `Error: Equipment OSC-001 is not currently on loan.`
+4. `loan-audit OSC-001` and `history OSC-001`<br>
+   Expected: numbered `LOAN` and `RETURN` events; history also shows a `RENEWAL` row.
+5. On the same day, `loan OSC-001 b/A0123456X d/2030-12-31`<br>
+   Expected: a conflict error. A returned loan still occupies its return date,
+   because booking ranges are inclusive. Lend a different unit to continue.
+6. Lend a new unit, then `lost ASSET_ID` and `list status/lost`<br>
+   Expected: the unit is listed as `Lost`, and `renew` on it is rejected.
+
+**Saving and loading**
+
+1. Make a change, `exit`, and run `java -jar lablog.jar` again.<br>
+   Expected: all records are restored.
+2. `export backup.properties` twice.<br>
+   Expected: the first succeeds; the second refuses to overwrite the file and
+   prints `Current records were not changed.`
+3. Exit, change `format=11` to `format=99` in `data/lablog.properties`, and launch again.<br>
+   Expected: `Error: Cannot load LabLog data. Invalid snapshot: Unsupported snapshot
+   format; ...` The file is left unchanged.
