@@ -1,5 +1,56 @@
 # Developer Guide
 
+## Table of contents
+
+* [Acknowledgements](#acknowledgements)
+* [Design & implementation](#design--implementation)
+  * [Architecture](#architecture)
+  * [Entry points and shared records](#entry-points-and-shared-records)
+  * [Borrower registration and active-loan listings (Zeph)](#borrower-registration-and-active-loan-listings-zeph)
+  * [Equipment listing, filters, and sorting](#equipment-listing-filters-and-sorting)
+  * [Equipment search (US15)](#equipment-search-us15)
+  * [Copying equipment](#copying-equipment)
+  * [Help and command examples](#help-and-command-examples)
+  * [Loan lifecycle](#loan-lifecycle)
+  * [Issuing single and batch loans (issue #71)](#issuing-single-and-batch-loans-issue-71)
+  * [Active and overdue loan listings (issue #74)](#active-and-overdue-loan-listings-issue-74)
+  * [Renewing active loans (issue #73)](#renewing-active-loans-issue-73)
+  * [Borrowing and return audit trail (issue #77)](#borrowing-and-return-audit-trail-issue-77)
+  * [Correcting erroneous loans and returns (issue #76)](#correcting-erroneous-loans-and-returns-issue-76)
+  * [Reporting loaned equipment lost (issue #75)](#reporting-loaned-equipment-lost-issue-75)
+  * [Equipment returns](#equipment-returns)
+  * [Equipment history](#equipment-history)
+* [Product scope](#product-scope)
+  * [Target user profile](#target-user-profile)
+  * [Value proposition](#value-proposition)
+* [User Stories](#user-stories)
+* [Non-Functional Requirements](#non-functional-requirements)
+* [Glossary](#glossary)
+* [Instructions for manual testing](#instructions-for-manual-testing)
+  * [Assertions and diagnostic logging](#assertions-and-diagnostic-logging)
+  * [Automated and manual checks](#automated-and-manual-checks)
+* [Equipment detail editing (issue #62)](#equipment-detail-editing-issue-62)
+* [Bulk equipment location updates (issue #64)](#bulk-equipment-location-updates-issue-64)
+* [Exact equipment lookup (issue #67)](#exact-equipment-lookup-issue-67)
+* [Borrower contact editing (issue #89)](#borrower-contact-editing-issue-89)
+* [Versioned export schema (issue #90)](#versioned-export-schema-issue-90)
+* [Import and single-file persistence (issue #91)](#import-and-single-file-persistence-issue-91)
+* [Import envelope validation (issue #92)](#import-envelope-validation-issue-92)
+* [Explicit command recall (issue #93)](#explicit-command-recall-issue-93)
+  * [Sorting filtered equipment](#sorting-filtered-equipment)
+* [Structured fault reports (issue #85)](#structured-fault-reports-issue-85)
+* [Fault severity and description (issue #86)](#fault-severity-and-description-issue-86)
+* [Fault repairs and resolution (issue #87)](#fault-repairs-and-resolution-issue-87)
+* [Structured reservations (issue #78)](#structured-reservations-issue-78)
+* [Shared conflict policy (issue #79)](#shared-conflict-policy-issue-79)
+* [Editing reservations (issue #80)](#editing-reservations-issue-80)
+* [Reservation cancellation (issue #81)](#reservation-cancellation-issue-81)
+* [Interval availability queries (issue #82)](#interval-availability-queries-issue-82)
+* [Waiting requests (issue #83)](#waiting-requests-issue-83)
+* [Daily operational overview (issue #88)](#daily-operational-overview-issue-88)
+* [Unavailability explanations (issue #84)](#unavailability-explanations-issue-84)
+* [Current integration limits and packaged verification](#current-integration-limits-and-packaged-verification)
+
 ## Acknowledgements
 
 LabLog builds on the SE-EDU Java project template. Gradle manages compilation,
@@ -8,10 +59,75 @@ executable JAR. See `build.gradle` for dependency versions.
 
 ## Design & implementation
 
-Diagrams use inline Mermaid with its default theme, plain class names, and
-labelled relationships or messages. Class diagrams show responsibilities and
-dependencies; sequence diagrams show command flows. Edit the Mermaid blocks in
-this guide directly to keep each diagram beside its explanation.
+Diagrams use inline UML drawn with Mermaid. Class diagrams show selected members,
+relationships, and dependencies. Sequence diagrams show command flows between
+objects (`:ClassName` or `name:ClassName`), with activation bars; notes summarise
+steps that involve no message to another object.
+
+### Architecture
+
+LabLog is a single-process console application. All classes are in the `lablog`
+package. They fall into four layers, shown as grouping boxes below:
+
+```mermaid
+classDiagram
+    direction TB
+    namespace Console {
+        class LabLog
+        class BorrowerCli
+    }
+    namespace Storage {
+        class ApplicationSnapshot
+    }
+    namespace Commands {
+        class XyzCommands {
+            <<handler>>
+            +execute(input: String) String
+        }
+    }
+    namespace Model {
+        class Inventory
+        class BorrowerBook
+        class LoanBook
+        class FaultBook
+        class ReservationBook
+        class WaitingRequestBook
+        class BookingAvailability
+    }
+    LabLog --> "*" XyzCommands : dispatches to
+    BorrowerCli ..> XyzCommands : creates
+    LabLog ..> ApplicationSnapshot : loads and saves
+    XyzCommands ..> Inventory
+    XyzCommands ..> BorrowerBook
+    XyzCommands ..> LoanBook
+    XyzCommands ..> FaultBook
+    XyzCommands ..> ReservationBook
+    XyzCommands ..> WaitingRequestBook
+    XyzCommands ..> BookingAvailability
+    ReservationBook --> "1" BookingAvailability : -availability
+```
+
+*`XyzCommands` stands for any of the 24 command handlers. Each handler depends only
+on the books its command needs; for example, `EquipmentSearchCommands` uses
+`Inventory`, `LoanBook` and `FaultBook`. `LabLog` also owns the books and passes the
+shared instances to every handler it creates.*
+
+| Layer | Classes | Responsibility |
+| --- | --- | --- |
+| Console | `LabLog`, `BorrowerCli`, `CommandHistory`, `ConsoleWelcome` | Read command lines, recall recent commands, dispatch to a handler, save, and print results or errors. `BorrowerCli` is a separate borrower-only console. |
+| Commands | `EquipmentAdd/Copy/Edit/Move/List/Find/SearchCommands`, `BorrowerCommands`, `LoanCommands`, `ReturnCommands`, `RenewCommands`, `LostCommands`, `ActiveLoanCommands`, `LoanAuditCommands`, `LoanCorrectionCommands`, `HistoryCommands`, `HistoryRecordCommands`, `RepairCommands`, `ReservationCommands`, `WaitingRequestCommands`, `AvailableEquipmentCommands`, `UnavailableReasonCommands`, `OverviewCommands`, `HelpCommands` | Parse and validate one command, read or change the books, and return the text to display. |
+| Model | `Inventory`, `BorrowerBook`, `LoanBook`, `FaultBook`, `ReservationBook`, `WaitingRequestBook`, `BookingAvailability`, and records such as `Equipment`, `Borrower`, `Loan` and `Fault` | Hold the application state in memory and enforce record rules. `BookingAvailability` is the shared booking-conflict rule used by lending, renewal, reservations and availability queries. |
+| Storage | `ApplicationSnapshot`, `LabLogStore`, and the `*Codec` classes | Encode all records as one versioned UTF-8 properties file, validate it on load, and replace it atomically on save. |
+
+**How a command flows.** `LabLog` reads a line and first offers it to
+`CommandHistory`, which handles recall requests without executing them. Otherwise,
+`LabLog` dispatches on the command word to one handler. The handler validates the
+input and changes the shared books only after all checks pass. If the command
+changed records, `LabLog` writes a complete `ApplicationSnapshot` before printing
+the confirmation. Handlers never call storage themselves, and read-only commands
+do not save. `BorrowerBook`, `ReservationBook` and `WaitingRequestBook` must save a
+proposed change before publishing it, so `LabLog` installs a `Saver` lambda in each
+that writes the same complete snapshot.
 
 ### Entry points and shared records
 
@@ -74,43 +190,52 @@ remains the source of loan state; borrower records do not contain copied loans.
 
 ```mermaid
 classDiagram
-    LabLog ..> BorrowerCommands : invokes
-    BorrowerCli ..> BorrowerCommands : invokes
-    BorrowerBook ..> ApplicationSnapshot : persists through injected Saver
-    BorrowerCommands --> BorrowerBook : registers and looks up
-    BorrowerCommands --> LoanBook : reads current loans
-    BorrowerCommands --> Clock : reads local date
-    BorrowerCommands --> EquipmentNameLookup : resolves asset name
-    BorrowerBook "1" --> "0..*" Borrower : stores by ID
-    LoanBook "1" --> "0..*" Loan : stores
+    LabLog --> "1" BorrowerCommands : -borrowerCommands
+    BorrowerCli ..> BorrowerCommands : creates
+    BorrowerCommands --> "1" BorrowerBook : -borrowers
+    BorrowerCommands --> "1" LoanBook : -loans
+    BorrowerCommands --> "1" Function : -equipmentNames
+    BorrowerCommands --> "1" Clock : -clock
+    BorrowerBook --> "0..1" Saver : -saver
+    BorrowerBook --> "0..*" Borrower : -borrowers
+    LoanBook --> "0..*" Loan : -loans
     class Borrower {
-        -String borrowerId
-        -String name
-        -String phone
-        -String email
-        +validateId(borrowerId)
+        -borrowerId: String
+        -name: String
+        -phone: String
+        -email: String
+        +validateId(borrowerId: String)$ void
     }
     class BorrowerBook {
-        +addBorrower(borrower)
-        +getBorrower(borrowerId)
-        +getBorrowers()
-        -persist(updated)
+        +addBorrower(borrower: Borrower) void
+        +getBorrower(borrowerId: String) Borrower
+        +getBorrowers() List~Borrower~
+        -persist(updated: Map) void
+    }
+    class Saver {
+        <<interface>>
+        +save(proposed: List~Borrower~) void
     }
     class BorrowerCommands {
-        +execute(input) String
-        -addBorrower(arguments) String
-        -listLoans(id) String
+        +execute(input: String) String
+        -addBorrower(arguments: String) String
+        -listLoans(id: String) String
     }
-    class EquipmentNameLookup {
+    class Function {
         <<interface>>
-        +apply(assetId) String
+        +apply(assetId: String) String
+    }
+    class Clock {
+        <<Java API>>
     }
 ```
 
-`EquipmentNameLookup` is a diagram label for the injected
-`Function<String, String>`, not an additional Java class. A loan refers to its
-borrower by ID, rather than holding a `Borrower` object. The diagram omits getters
-and the shared help handler to focus on registration and listing dependencies.
+`Function` is `java.util.function.Function<String, String>`, which maps an asset ID
+to an equipment name. `Saver` is the package-private `BorrowerBook.Saver` interface.
+In the main console, `LabLog` installs a lambda that writes an `ApplicationSnapshot`.
+A loan refers to its borrower by ID, rather than holding a `Borrower` object. The
+diagram omits getters, constructors, and the shared help handler to focus on
+registration and listing dependencies.
 
 #### Registering a borrower
 
@@ -132,36 +257,42 @@ domain and the supported local-part pattern. `BorrowerBook` separately enforces
 uniqueness because that rule depends on the collection, not one record.
 
 The following sequence shows a valid registration in the **main console**.
-`LabLog.load` installs a `BorrowerBook.Saver` callback that writes the proposed
-borrowers together with the other application records. Callback and file
-operations are summarized as pseudocode.
+`LabLog.load` installs a `BorrowerBook.Saver` lambda that builds an
+`ApplicationSnapshot` from the proposed borrowers and the other application
+records, then writes it to the data file.
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant CLI as LabLog
-    participant Commands as BorrowerCommands
-    participant Record as Borrower
-    participant Book as BorrowerBook
-    participant Snapshot as ApplicationSnapshot
-    participant Disk as File system
-    User->>CLI: add-borrower ID n/NAME p/PHONE e/EMAIL
-    CLI->>Commands: execute(input)
-    Commands->>Commands: parse and validate prefixes
+    participant CLI as :LabLog
+    participant Commands as :BorrowerCommands
+    participant Book as :BorrowerBook
+    participant Saver as saver:Saver
+    User->>+CLI: add-borrower ID n/NAME p/PHONE e/EMAIL
+    CLI->>+Commands: execute(input)
+    Commands->>+Commands: addBorrower(arguments)
+    create participant Record as borrower:Borrower
     Commands->>Record: new Borrower(id, name, phone, email)
-    Record-->>Commands: validated record
-    Commands->>Book: addBorrower(record)
-    Book->>Book: reject duplicate ID, prepare updated map
-    Book->>Book: persist(updated)
-    Book->>Snapshot: Saver callback captures proposed borrowers and shared records
-    Snapshot->>Disk: write temporary snapshot and atomically replace destination
-    Disk-->>Snapshot: replacement succeeds
-    Snapshot-->>Book: save completed
-    Book->>Book: publish record in live map
-    Book-->>Commands: addition completed
-    Commands-->>CLI: success text
-    CLI-->>User: confirmation and contact details
+    Record-->>Commands: borrower
+    Commands->>+Book: addBorrower(borrower)
+    Book->>+Book: persist(updated)
+    Book->>+Saver: save(proposed)
+    create participant Snapshot as :ApplicationSnapshot
+    Saver->>Snapshot: new ApplicationSnapshot(...)
+    Saver->>+Snapshot: write(dataFile)
+    Snapshot-->>-Saver: #nbsp;
+    Saver-->>-Book: #nbsp;
+    Book-->>-Book: #nbsp;
+    Book-->>-Commands: #nbsp;
+    Commands-->>-Commands: success text
+    Commands-->>-CLI: success text
+    CLI-->>-User: confirmation and contact details
 ```
+
+Before `persist`, `addBorrower` rejects a duplicate ID and copies the live map
+with the new record added. Only after `save` returns does it put the record in
+the live map. `write` saves to a temporary file and atomically replaces the
+destination.
 
 Saving the proposed state before publishing it prevents a normal write failure
 from registering a borrower only in memory. The temporary file is created beside
@@ -194,30 +325,30 @@ visible on the next listing without synchronizing a borrower-specific cache.
 
 ```mermaid
 sequenceDiagram
-    participant CLI as LabLog
-    participant Commands as BorrowerCommands
-    participant Borrowers as BorrowerBook
-    participant Loans as LoanBook
-    participant Time as Clock
-    participant Names as Equipment-name function
-    CLI->>Commands: execute("loans A0123456X")
-    Commands->>Borrowers: getBorrower(id)
-    Borrowers-->>Commands: registered borrower
-    Commands->>Loans: getLoans()
-    Loans-->>Commands: current loan records
-    Commands->>Commands: filter active loans by ID, sort fresh list
+    participant CLI as :LabLog
+    participant Commands as :BorrowerCommands
+    participant Borrowers as :BorrowerBook
+    participant Loans as :LoanBook
+    participant Names as equipmentNames:Function
+    CLI->>+Commands: execute("loans A0123456X")
+    Commands->>+Commands: listLoans(id)
+    Commands->>+Borrowers: getBorrower(id)
+    Borrowers-->>-Commands: borrower
+    Commands->>+Loans: getLoans()
+    Loans-->>-Commands: loans
+    Note right of Commands: keep active loans with this ID,<br/>sort by due date, then asset ID
     alt no matching active loans
-        Commands-->>CLI: no-active-loans message
+        Note right of Commands: result = no-active-loans message
     else matching active loans
-        Commands->>Time: obtain today's local date
-        Time-->>Commands: today
+        Note right of Commands: today = LocalDate.now(clock)
         loop each matching loan
-            Commands->>Names: apply(assetId)
-            Names-->>Commands: equipment name or null
-            Commands->>Commands: append row and overdue indicator
+            Commands->>+Names: apply(assetId)
+            Names-->>-Commands: equipment name or null
         end
-        Commands-->>CLI: rows and active-loan count
+        Note right of Commands: result = rows, overdue flags and count
     end
+    Commands-->>-Commands: result
+    Commands-->>-CLI: result
 ```
 
 **Lost loans remain outstanding** and appear with status `LOST`; other
@@ -329,21 +460,28 @@ repair in the same session.
 
 ```mermaid
 classDiagram
-    LabLog ..> EquipmentSearchCommands : dispatches search
-    EquipmentSearchCommands --> Inventory : reads equipment snapshot
-    EquipmentSearchCommands --> LoanBook : derives loan status
-    EquipmentSearchCommands --> FaultBook : derives fault status
-    Inventory "1" --> "0..*" Equipment : stores in registration order
+    LabLog --> "1" EquipmentSearchCommands : -equipmentSearch
+    EquipmentSearchCommands --> "1" Inventory : -inventory
+    EquipmentSearchCommands --> "1" LoanBook : -loans
+    EquipmentSearchCommands --> "1" FaultBook : -faults
+    Inventory --> "0..*" Equipment : -equipmentUnits {ordered}
     EquipmentSearchCommands ..> Equipment : matches and displays
     class EquipmentSearchCommands {
-        +execute(input) String
-        -normalize(text) String
-        -availabilityOf(unit) String
+        +execute(input: String) String
+        -normalize(value: String) String
+        -availabilityOf(unit: Equipment) String
+    }
+    class Inventory {
+        +getEquipmentUnits() List~Equipment~
+    }
+    class LoanBook {
+        +hasLostLoan(assetId: String) boolean
+        +hasActiveLoan(assetId: String) boolean
+    }
+    class FaultBook {
+        +blocksLending(assetId: String) boolean
     }
 ```
-
-The class diagram is Mermaid source in this guide, so its relationships can be
-edited directly here.
 
 This class view leaves out command history and snapshot persistence on purpose:
 neither participates in a search. The command shares the record books, rather
@@ -402,32 +540,34 @@ do not produce a search-specific `FINE` log entry.
 ```mermaid
 sequenceDiagram
     actor User
-    participant CLI as LabLog
-    participant Commands as EquipmentSearchCommands
-    participant Equipment as Inventory
-    participant Loans as LoanBook
-    participant Faults as FaultBook
-    User->>CLI: search scope
-    CLI->>Commands: execute(input)
-    Commands->>Commands: validate phrase, normalize case and whitespace
-    Commands->>Equipment: getEquipmentUnits()
-    Equipment-->>Commands: equipment snapshot in registration order
-    Commands->>Commands: filter by name or model, preserve order
+    participant CLI as :LabLog
+    participant Commands as :EquipmentSearchCommands
+    participant Equipment as :Inventory
+    participant Loans as :LoanBook
+    participant Faults as :FaultBook
+    User->>+CLI: search scope
+    CLI->>+Commands: execute(input)
+    Commands->>+Commands: normalize(query)
+    Commands-->>-Commands: normalized query
+    Commands->>+Equipment: getEquipmentUnits()
+    Equipment-->>-Commands: equipment
+    Note right of Commands: keep units whose normalized name<br/>or model contains the query
     loop each matching unit
-        Commands->>Loans: hasLostLoan(assetId)
-        Loans-->>Commands: lost status
-        opt no lost loan
-            Commands->>Loans: hasActiveLoan(assetId)
-            Loans-->>Commands: active loan status
+        Commands->>+Commands: availabilityOf(unit)
+        Commands->>+Loans: hasLostLoan(assetId)
+        Loans-->>-Commands: lost
+        opt not lost
+            Commands->>+Loans: hasActiveLoan(assetId)
+            Loans-->>-Commands: onLoan
         end
-        opt no lost or active loan
-            Commands->>Faults: blocksLending(assetId)
-            Faults-->>Commands: severe fault status
+        opt not lost and not on loan
+            Commands->>+Faults: blocksLending(assetId)
+            Faults-->>-Commands: severeFault
         end
-        Commands->>Commands: append row with availability
+        Commands-->>-Commands: availability
     end
-    Commands-->>CLI: formatted rows or empty-result message
-    CLI-->>User: display result
+    Commands-->>-CLI: formatted rows or empty-result message
+    CLI-->>-User: display result
 ```
 
 The sequence omits exception details and formatting calls; both are local to
@@ -464,6 +604,33 @@ produce recoverable errors. The loan guidance requires borrower registration.
 integration, and unchanged records/files when viewing help. `LabLogTest` checks
 that unavailable commands and invalid initial input do not consume subsequent
 commands as equipment details.
+
+### Loan lifecycle
+
+A `Loan` is never deleted. The commands in the following sections move it
+between the states below. Each transition is guarded by a method on `Loan`,
+which rejects the change with an `IllegalArgumentException` when its guard fails.
+
+```mermaid
+%%{init: {"state": {"nodeSpacing": 90, "rankSpacing": 70}}}%%
+stateDiagram-v2
+    state "On loan" as OnLoan
+    state "Returned" as Returned
+    state "Lost" as Lost
+    state "Reversed" as Reversed
+    [*] --> OnLoan : loan
+    OnLoan --> OnLoan : renew [new due date later]
+    OnLoan --> Returned : return
+    Returned --> OnLoan : reverse-return [no booking conflict]
+    OnLoan --> Lost : lost
+    OnLoan --> Reversed : reverse-loan [no renewals]
+```
+
+*Each transition is labelled with the command that triggers it and its guard.
+`Loan#isActive()` is true in On loan and Lost. A lost loan is still
+outstanding, so it stays in borrower and active-loan listings. No command
+leaves Lost or Reversed, so they have no outgoing transitions. To reverse the issue of a returned loan, reverse
+its return first.*
 
 ### Issuing single and batch loans (issue #71)
 
@@ -568,19 +735,27 @@ preserve every event, including events on returned loans.
 ```mermaid
 sequenceDiagram
     actor User
-    participant App as LabLog
-    participant Renew as RenewCommands
-    participant Policy as BookingAvailability
-    participant Loan
-    User->>App: renew OSC-001 d/2026-11-05
-    App->>Renew: execute(input)
-    Renew->>Policy: requireAvailable(full period, ignoredLoan)
-    Policy-->>Renew: No conflict
-    Renew->>Loan: renew(newDue, today)
-    Loan->>Loan: Append event and update deadline
-    Renew-->>App: Confirmation
-    App->>App: Save complete snapshot
-    App-->>User: Print confirmation after save succeeds
+    participant App as :LabLog
+    participant Renew as :RenewCommands
+    participant Book as :LoanBook
+    participant Policy as :BookingAvailability
+    participant Loan as loan:Loan
+    User->>+App: renew OSC-001 d/2026-11-05
+    App->>+Renew: execute(input)
+    Renew->>+Book: findActiveLoan(assetId)
+    Book-->>-Renew: loan
+    Note right of Renew: today = LocalDate.now(clock)
+    Renew->>+Book: validateActionDate(loan, today)
+    Book-->>-Renew: #nbsp;
+    Renew->>+Policy: requireAvailable(assetId, period, null, loan)
+    Policy-->>-Renew: #nbsp;
+    Renew->>+Loan: renew(newDue, today)
+    Note right of Loan: append LoanRenewal,<br/>then update dueDate
+    Loan-->>-Renew: #nbsp;
+    Renew-->>-App: confirmation
+    App->>+App: saveChanges(output)
+    App-->>-App: saved
+    App-->>-User: confirmation
 ```
 
 Syntax, date and conflict failures leave both state and events unchanged. As with
@@ -643,18 +818,28 @@ new ledger immediately. Replacement import intentionally replaces the whole log.
 ```mermaid
 sequenceDiagram
     actor User
-    participant App as LabLog
-    participant Return as ReturnCommands
-    participant Book as LoanBook
-    User->>App: return OSC-001 MIC-002
-    App->>Return: execute(input)
-    Return->>Book: returnLoans(selection, today, faults)
-    Book->>Book: Validate all loans and prepare immutable events
-    Book->>Book: Record returns and append events
-    Book-->>Return: Accepted
-    Return-->>App: Confirmation
-    App->>App: Save loans and events in one snapshot
-    App-->>User: Print success after save
+    participant App as :LabLog
+    participant Return as :ReturnCommands
+    participant Book as :LoanBook
+    participant Loan as loan:Loan
+    User->>+App: return OSC-001 MIC-002
+    App->>+Return: execute(input)
+    Return->>+Book: returnLoans(selected, today, faults)
+    loop each selected loan
+        Book->>+Loan: validateReturn(today, faults)
+        Loan-->>-Book: #nbsp;
+    end
+    Note right of Book: pending = LoanAuditEvent.returned(loan, today, faults)<br/>for each selected loan (no state changed yet)
+    loop each selected loan
+        Book->>+Loan: markReturned(today, faults)
+        Loan-->>-Book: #nbsp;
+    end
+    Note right of Book: audit.addAll(pending)
+    Book-->>-Return: #nbsp;
+    Return-->>-App: confirmation
+    App->>+App: saveChanges(output)
+    App-->>-App: saved
+    App-->>-User: confirmation
 ```
 
 Input rejection changes neither loans nor events. As with existing loan/return
@@ -723,26 +908,35 @@ legacy loan can still be reversed.
 ```mermaid
 sequenceDiagram
     actor User
-    participant App as LabLog
-    participant Command as LoanCorrectionCommands
-    participant Book as LoanBook
-    participant Policy as BookingAvailability
-    User->>App: reverse-return EVENT_ID reason/TEXT
-    App->>Command: execute(input)
-    Command->>Book: reverse(eventId, RETURN, today, reason, policy)
-    Book->>Book: Check original, prior corrections and later loans
-    Book->>Policy: requireAvailable(interval, ignoredLoan)
-    alt Dependency or availability conflict
-        Book-->>App: Reject without changes
-        App-->>User: Explain rejection
-    else Valid correction
-        Book->>Book: Validate detached loan and appended event
-        Book->>Book: Reopen shared loan and append correction
-        Book-->>App: Confirmation
-        App->>App: Save loans and evidence together
-        App-->>User: Print success after save
+    participant App as :LabLog
+    participant Command as :LoanCorrectionCommands
+    participant Book as :LoanBook
+    participant Policy as :BookingAvailability
+    User->>+App: reverse-return EVENT_ID reason/TEXT
+    App->>+Command: execute(input)
+    Note right of Command: today = LocalDate.now(clock)
+    Command->>+Book: reverse(eventId, RETURN, today, reason, availability)
+    Note right of Book: find original event, reject repeated<br/>reversals and later dependent loans
+    Book->>+Policy: requireAvailable(assetId, window, null, loan)
+    Policy-->>-Book: #nbsp;
+    alt dependency or availability conflict
+        Note right of Book: throw IllegalArgumentException,<br/>nothing changed
+    else valid correction
+        Note right of Book: validate the copied loan and new event,<br/>then reopen the shared loan and append the event
     end
+    Book-->>-Command: correction or exception
+    Command-->>-App: confirmation or exception
+    opt correction accepted
+        App->>+App: saveChanges(output)
+        App-->>-App: saved
+    end
+    App-->>-User: confirmation or error message
 ```
+
+A rejection is an `IllegalArgumentException` thrown by `LoanBook.reverse`. It
+propagates through `LoanCorrectionCommands` to `LabLog`, which catches it at the
+command boundary and prints the message. Neither collection has changed at that
+point.
 
 `LoanCorrectionCommandsTest` uses assertions and fixed clocks for both transitions,
 same-day ordering, dependent actions, overdue reservations, fault conflicts,
@@ -824,10 +1018,13 @@ The main operations are:
   input order, and rejects repeated IDs.
 * `ReturnCommands#findActiveLoan(assetId)` checks that equipment exists and finds
   exactly one matching active loan, rejecting missing or inconsistent records.
-* `ReturnCommands#execute(input)` resolves all selections and validates every loan
-  before starting a separate update pass.
+* `ReturnCommands#execute(input)` resolves all selections, reads today's date, and
+  passes the selected loans to `LoanBook#returnLoans`.
+* `LoanBook#returnLoans(selected, date, faults)` validates every selected loan,
+  prepares one `RETURN` audit event per loan, and only then marks the loans
+  returned and appends the events.
 * `Loan#validateReturn(returnDate, faults)` checks the active state, return date,
-  and fault text without changing the loan. Its package access lets the handler
+  and fault text without changing the loan. Its package access lets `LoanBook`
   validate a batch before applying any returns.
 * `Loan#markReturned(returnDate, faults)` calls the same validation method before
   assigning the return fields. The one-argument overload records a return without
@@ -850,9 +1047,10 @@ is no later than today.
 3. The handler reads `LoanBook#getLoans()` and filters for matching active loans.
    It proceeds only when exactly one is found.
 4. The handler obtains `LocalDate.now(clock)` and calls
-   `Loan#validateReturn(today, faults)` in the validation pass. It then calls
-   `Loan#markReturned(today, faults)` in the update pass to record the date and
-   fault description.
+   `LoanBook#returnLoans(selectedLoans, today, faults)`. The book calls
+   `Loan#validateReturn(today, faults)` first, prepares the `RETURN` audit event,
+   then calls `Loan#markReturned(today, faults)` to record the date and fault
+   description.
 5. The handler returns confirmation text. In a persistent CLI session, `LabLog`
    saves the updated records before displaying success. If saving fails, the
    session stops and the previous saved snapshot remains unchanged; the in-memory
@@ -861,35 +1059,34 @@ is no later than today.
    original loan entry. Active-loan and borrower-loan listings exclude that loan.
 
 The following sequence diagram summarises the successful single-unit return
-path. Parsing, the preliminary validation pass, and individual accessor calls
-are omitted for readability; `markReturned` also validates before updating.
+path. The loan-level calls inside `returnLoans` are shown in the
+[audit trail sequence](#borrowing-and-return-audit-trail-issue-77), so they are
+summarised by a note here.
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant CLI as LabLog
-    participant Commands as ReturnCommands
-    participant Equipment as Inventory
-    participant Loans as LoanBook
-    participant Time as Clock
-    User->>CLI: return OSC-001 faults/Damaged cable
-    CLI->>Commands: execute(input)
-    Commands->>Commands: validate syntax and optional faults field
-    Commands->>Equipment: getEquipmentUnits()
-    Equipment-->>Commands: equipment snapshot
-    Commands->>Commands: check asset exists
-    Commands->>Loans: getLoans()
-    Loans-->>Commands: loan records
-    Commands->>Commands: require exactly one active loan for the asset
-    Commands->>Time: obtain today's local date
-    Time-->>Commands: today
-    Commands->>Loans: returnLoans(selectedLoans, today, faults)
-    Loans->>Loans: validate selections, prepare return audit evidence
-    Loans->>Loans: record returns and audit events
-    Loans-->>Commands: returns completed
-    Commands-->>CLI: confirmation text
-    Note over CLI: In persistent sessions, save changes before displaying success
-    CLI-->>User: display confirmation
+    participant CLI as :LabLog
+    participant Commands as :ReturnCommands
+    participant Equipment as :Inventory
+    participant Loans as :LoanBook
+    User->>+CLI: return OSC-001 faults/Damaged cable
+    CLI->>+Commands: execute(input)
+    Note right of Commands: validate syntax and optional faults field
+    Commands->>+Commands: findActiveLoan("OSC-001")
+    Commands->>+Equipment: getEquipmentUnits()
+    Equipment-->>-Commands: equipment
+    Commands->>+Loans: getLoans()
+    Loans-->>-Commands: loans
+    Commands-->>-Commands: the only active loan
+    Note right of Commands: today = LocalDate.now(clock)
+    Commands->>+Loans: returnLoans(selectedLoans, today, faults)
+    Note right of Loans: validate every loan, prepare RETURN<br/>events, then mark loans returned
+    Loans-->>-Commands: #nbsp;
+    Commands-->>-CLI: confirmation text
+    CLI->>+CLI: saveChanges(output)
+    CLI-->>-CLI: saved
+    CLI-->>-User: confirmation
 ```
 
 #### Batch return flow and atomicity
@@ -900,10 +1097,12 @@ For `return OSC-001 OSC-002`, the handler performs the following steps:
    multiple selections.
 2. Resolve every ID to exactly one active loan. An unknown unit or an already
    returned loan causes rejection before any record is changed.
-3. Read today's date once using the injected clock and validate every selected
-   loan against that date and an empty fault description.
-4. Only after the whole selection passes validation, call `markReturned` on each
-   selected loan using the same date. Unselected and historical loans are retained.
+3. Read today's date once using the injected clock and pass the whole selection
+   to `LoanBook#returnLoans`, which validates every selected loan against that
+   date and an empty fault description.
+4. Only after the whole selection passes validation does the book call
+   `markReturned` on each selected loan using the same date and append the
+   `RETURN` events. Unselected and historical loans are retained.
 5. Return confirmation listing the selected asset IDs in input order. In a
    persistent session, `LabLog` saves the complete equipment and loan snapshot
    before displaying that confirmation.
@@ -1034,33 +1233,34 @@ Individual field accessors are omitted for readability.
 ```mermaid
 sequenceDiagram
     actor User
-    participant CLI as LabLog
-    participant Commands as HistoryCommands
-    participant Equipment as Inventory
-    participant Loans as LoanBook
-    participant Source as Other-history supplier
-    User->>CLI: history OSC-001
-    CLI->>Commands: execute(input)
-    Commands->>Commands: validate command syntax
-    Commands->>Equipment: getEquipmentUnits()
-    Equipment-->>Commands: equipment snapshot
-    Commands->>Commands: resolve exact asset ID, reject unknown equipment
-    Commands->>Commands: getHistory(assetId)
-    Commands->>Loans: getLoans()
-    Loans-->>Commands: loan records
+    participant CLI as :LabLog
+    participant Commands as :HistoryCommands
+    participant Equipment as :Inventory
+    participant Loans as :LoanBook
+    participant Source as otherHistory:Supplier
+    User->>+CLI: history OSC-001
+    CLI->>+Commands: execute(input)
+    Note right of Commands: validate command syntax
+    Commands->>+Equipment: getEquipmentUnits()
+    Equipment-->>-Commands: equipment
+    Note right of Commands: resolve exact asset ID,<br/>reject unknown equipment
+    Commands->>+Commands: getHistory(assetId)
+    Commands->>+Loans: getLoans()
+    Loans-->>-Commands: loans
     loop each loan matching the asset ID
-        Commands->>Commands: create loan, renewal and loss history entries
+        Note right of Commands: add LOAN, LOST and RENEWAL entries
     end
-    Commands->>Source: get()
-    Source-->>Commands: additional history entries
-    Commands->>Commands: include entries matching the asset ID
-    Commands->>Commands: sort by date, type and description, retain renewal order
+    Commands->>+Source: get()
+    Source-->>-Commands: entries
+    Note right of Commands: keep entries for this asset, then sort<br/>by date, type and description
+    Commands-->>-Commands: entries
     alt no matching entries
-        Commands-->>CLI: empty-history message
+        Note right of Commands: result = empty-history message
     else matching entries exist
-        Commands-->>CLI: formatted history and record count
+        Note right of Commands: result = formatted rows and record count
     end
-    CLI-->>User: display result
+    Commands-->>-CLI: result
+    CLI-->>-User: display result
 ```
 
 A malformed command is rejected with usage guidance. Unknown equipment produces
