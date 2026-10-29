@@ -1,5 +1,6 @@
 package lablog;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -41,13 +42,13 @@ public class EquipmentSearchCommands {
         if (matches.isEmpty()) {
             return "No equipment matches '" + query + "'.";
         }
-        StringBuilder result = new StringBuilder("Asset ID | Name | Category | Model | Location | Availability");
+        List<List<String>> rows = new ArrayList<>();
         for (Equipment unit : matches) {
-            result.append("\n").append(unit.getAssetId()).append(" | ").append(unit.getName())
-                    .append(" | ").append(unit.getCategory()).append(" | ").append(unit.getModel())
-                    .append(" | ").append(unit.getLocation()).append(" | ").append(availabilityOf(unit));
+            rows.add(List.of(unit.getAssetId(), unit.getName(), unit.getCategory(), unit.getModel(),
+                    unit.getLocation(), availabilityOf(unit)));
         }
-        return result.toString();
+        return TableFormatter.format(
+                List.of("Asset ID", "Name", "Category", "Model", "Location", "Availability"), rows);
     }
 
     /** Trims surrounding whitespace and treats runs of spaces as one for matching. */

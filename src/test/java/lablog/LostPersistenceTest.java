@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -59,7 +60,8 @@ class LostPersistenceTest {
         Path backup = directory.resolve("backup.properties");
         assertFalse(run(LabLog.load(data), "export " + backup).contains("Error:"));
         Path imported = directory.resolve("imported.properties");
-        String output = run(LabLog.load(imported), "import " + backup + " --replace\nhistory OSC\nloans " + USER);
+        String output = compact(run(LabLog.load(imported),
+                "import " + backup + " --replace\nhistory OSC\nloans " + USER));
         assertFalse(output.contains("Error:"), output);
         assertTrue(output.contains(" | LOST | Borrower " + USER));
         assertTrue(output.contains(" | RENEWAL | "));
@@ -90,7 +92,7 @@ class LostPersistenceTest {
         for (String input : List.of("lost OSC", "lost UNKNOWN", "lost OSC MIC", "return OSC", "return MIC OSC",
                 "renew OSC d/" + today.plusDays(3), "loan OSC b/" + USER + " d/" + today.plusDays(3),
                 "reserve OSC b/" + USER + " from/" + today.plusYears(1) + " to/" + today.plusYears(1))) {
-            String output = run(LabLog.load(data), input);
+            String output = compact(run(LabLog.load(data), input));
             assertTrue(output.contains("Error:"), input + "\n" + output);
             assertTrue(Arrays.equals(before, Files.readAllBytes(data)), input);
         }
@@ -98,7 +100,8 @@ class LostPersistenceTest {
         assertEquals(1, saved.getLoans().getFirst().getRenewals().size());
         assertTrue(saved.getLoans().getLast().isActive());
         assertFalse(saved.getLoans().getLast().isLost());
-        String available = run(LabLog.load(data), "available from/" + today.plusYears(1) + " to/" + today.plusYears(1));
+        String available = compact(run(LabLog.load(data),
+                "available from/" + today.plusYears(1) + " to/" + today.plusYears(1)));
         assertFalse(available.contains("OSC |"));
         assertTrue(available.contains("MIC |"));
     }
@@ -177,7 +180,7 @@ class LostPersistenceTest {
         Files.delete(data);
         Files.createDirectory(data);
         Files.writeString(data.resolve("keep.txt"), "keep");
-        String output = run(app, "lost OSC\nhistory OSC");
+        String output = compact(run(app, "lost OSC\nhistory OSC"));
         assertTrue(output.contains("Changes could not be saved"));
         assertFalse(output.contains("Marked OSC as lost"));
         assertFalse(output.contains("History for OSC"));

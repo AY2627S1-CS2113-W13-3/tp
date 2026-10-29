@@ -3,6 +3,7 @@ package lablog;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -50,8 +51,8 @@ class SnapshotImportTest {
         LabLog app = LabLog.load(data);
         run(app, "add OLD n/Old c/Old m/Old l/Old");
         assertTrue(run(app, "import " + source + " --replace").contains("All current records were replaced"));
-        assertFalse(run(app, "list").contains("OLD |"));
-        assertTrue(run(app, "loans A0123456X").contains("1 active loan."));
+        assertFalse(compact(run(app, "list")).contains("OLD |"));
+        assertTrue(compact(run(app, "loans A0123456X")).contains("1 active loan."));
         assertTrue(run(LabLog.load(data), "history OSC-001").contains("Cracked = inspect"));
         assertEquals(sample().toProperties(), ApplicationSnapshot.read(data).toProperties());
         run(app, "edit-borrower A0123456X p/92345678");
@@ -76,8 +77,8 @@ class SnapshotImportTest {
         Files.createDirectory(data);
         Files.writeString(data.resolve("keep"), "keep");
         assertTrue(run(app, "import " + source + " --replace").contains("Current records were not changed."));
-        assertTrue(run(app, "list").contains("OLD | Original"));
-        assertFalse(run(app, "list").contains("OSC-001 |"));
+        assertTrue(compact(run(app, "list")).contains("OLD | Original"));
+        assertFalse(compact(run(app, "list")).contains("OSC-001 |"));
         assertEquals("keep", Files.readString(data.resolve("keep")));
         try (var files = Files.list(directory)) {
             assertEquals(2, files.count());

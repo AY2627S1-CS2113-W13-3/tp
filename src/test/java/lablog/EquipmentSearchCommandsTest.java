@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -29,7 +30,7 @@ class EquipmentSearchCommandsTest {
         loans.addLoan(loan);
         EquipmentSearchCommands commands = new EquipmentSearchCommands(inventory, loans, new FaultBook(inventory));
 
-        String result = commands.execute("search ScOpE");
+        String result = compact(commands.execute("search ScOpE"));
 
         assertEquals("Asset ID | Name | Category | Model | Location | Availability"
                 + "\nOSC-001 | Digital Oscilloscope | Electronics | ScopeMate | Lab A | Available"
@@ -46,8 +47,9 @@ class EquipmentSearchCommandsTest {
         EquipmentSearchCommands commands = new EquipmentSearchCommands(inventory, new LoanBook(),
                 new FaultBook(inventory));
 
-        assertTrue(commands.execute("search digital   oscilloscope").contains("OSC-001 | Digital Oscilloscope"));
-        assertTrue(commands.execute("search  scopemate ").contains("OSC-001 | Digital Oscilloscope"));
+        assertTrue(compact(commands.execute("search digital   oscilloscope"))
+                .contains("OSC-001 | Digital Oscilloscope"));
+        assertTrue(compact(commands.execute("search  scopemate ")).contains("OSC-001 | Digital Oscilloscope"));
     }
 
     @Test
@@ -56,10 +58,10 @@ class EquipmentSearchCommandsTest {
         EquipmentSearchCommands commands = new EquipmentSearchCommands(inventory, new LoanBook(),
                 new FaultBook(inventory));
 
-        assertEquals("No equipment registered.", commands.execute("search scope"));
+        assertEquals("No equipment registered.", compact(commands.execute("search scope")));
 
         inventory.addEquipment(new Equipment("OSC-001", "Digital Oscilloscope", "Electronics", "S1", "Lab A"));
-        assertEquals("No equipment matches 'microscope'.", commands.execute("search microscope"));
+        assertEquals("No equipment matches 'microscope'.", compact(commands.execute("search microscope")));
     }
 
     @Test
@@ -71,7 +73,7 @@ class EquipmentSearchCommandsTest {
                 new FaultBook(inventory));
 
         for (String input : new String[] {null, "", "search", "search   ", "searchx scope", "find OSC-001"}) {
-            assertThrows(IllegalArgumentException.class, () -> commands.execute(input), String.valueOf(input));
+            assertThrows(IllegalArgumentException.class, () -> compact(commands.execute(input)), String.valueOf(input));
         }
         assertSame(equipment, inventory.getEquipmentUnits().get(0));
     }
@@ -85,8 +87,8 @@ class EquipmentSearchCommandsTest {
         new LabLog(inventory, new LoanBook(), List::of).run(
                 new Scanner("search scope\nsearch\nexit\n"), new PrintStream(output));
 
-        assertTrue(output.toString().contains("OSC-001 | Digital Oscilloscope"));
-        assertTrue(output.toString().contains("Error: Use: search TEXT"));
+        assertTrue(compact(output.toString()).contains("OSC-001 | Digital Oscilloscope"));
+        assertTrue(compact(output.toString()).contains("Error: Use: search TEXT"));
         assertEquals(1, inventory.getEquipmentUnits().size());
     }
 }

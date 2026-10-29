@@ -51,7 +51,14 @@ public class BorrowerCli {
             }
             try {
                 String recalled = history.accept(input);
-                output.println(recalled == null ? commands.execute(input) : recalled);
+                if (recalled != null) {
+                    output.println(recalled);
+                    continue;
+                }
+                String result = commands.execute(input);
+                boolean changesRecords = input.strip().startsWith("add-borrower")
+                        || input.strip().startsWith("edit-borrower");
+                output.println(changesRecords ? Messages.ok(result) : result);
             } catch (IllegalArgumentException exception) {
                 output.println("Error: " + exception.getMessage());
                 output.println("No changes saved.");
