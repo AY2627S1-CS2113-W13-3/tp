@@ -1,6 +1,8 @@
 package lablog;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,12 +22,13 @@ public class ReservationCommands {
             if (reservations.getReservations().isEmpty()) {
                 return "No reservations recorded.";
             }
-            StringBuilder output = new StringBuilder("Reservations (inclusive dates):");
+            List<List<String>> rows = new ArrayList<>();
             for (Reservation item : reservations.getReservations()) {
-                output.append('\n').append(item.toHistoryEntry().getDescription())
-                        .append(" | ").append(item.assetId());
+                rows.add(List.of(item.id(), item.assetId(), item.borrowerId(), item.window().start().toString(),
+                        item.window().end().toString(), item.isCancelled() ? "Cancelled" : "Confirmed"));
             }
-            return output.toString();
+            return "Reservations (inclusive dates):\n" + TableFormatter.format(
+                    List.of("Reservation ID", "Asset ID", "Borrower ID", "From", "Through", "Status"), rows);
         }
         if (parts.length == 3 && parts[0].equals("cancel-reservation")) {
             Map<String, String> fields = BookingArguments.fields(parts[2], Set.of("reason"));

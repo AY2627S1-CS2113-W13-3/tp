@@ -40,12 +40,12 @@ class ActiveLoanCommandsTest {
         loans.addLoan(overdue);
         String expected = "Asset ID | Borrower ID | Due date | Status\n"
                 + "A | A0123457X | 2026-10-13 | OVERDUE\nB | A0123456X | 2026-10-14 | On time";
-        assertEquals(expected, commands.execute("active-loans"));
+        assertEquals(expected, TableText.compact(commands.execute("active-loans")));
         assertThrows(IllegalArgumentException.class, () -> commands.execute("active-loans extra"));
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         new LabLog(new Inventory(), loans, List::of, clock)
                 .run(new Scanner("active-loans\nexit\n"), new PrintStream(output));
-        assertTrue(output.toString().contains(expected));
+        assertTrue(TableText.compact(output.toString()).contains(expected));
         assertEquals(3, loans.getLoans().size());
     }
 
@@ -69,8 +69,8 @@ class ActiveLoanCommandsTest {
                 + "Z | A0123456X | 2026-10-12 | OVERDUE\n"
                 + "A | A0123457X | 2026-10-13 | OVERDUE\n"
                 + "B | A0123456X | 2026-10-13 | OVERDUE";
-        assertEquals(expected, commands.execute("active-loans overdue"));
-        assertEquals(expected, commands.execute("  active-loans\t overdue  "));
+        assertEquals(expected, TableText.compact(commands.execute("active-loans overdue")));
+        assertEquals(expected, TableText.compact(commands.execute("  active-loans\t overdue  ")));
         assertEquals(original, loans.getLoans());
         assertEquals(List.of(true, true, false, true, true, true), loans.getLoans().stream()
                 .map(Loan::isActive).toList());
@@ -93,7 +93,7 @@ class ActiveLoanCommandsTest {
         assertEquals("No overdue loans.", commands.execute("active-loans overdue"));
         assertEquals("Asset ID | Borrower ID | Due date | Status\n"
                 + "TODAY | A0123456X | 2026-10-14 | On time\n"
-                + "FUTURE | A0123456X | 2026-10-15 | On time", commands.execute("active-loans"));
+                + "FUTURE | A0123456X | 2026-10-15 | On time", TableText.compact(commands.execute("active-loans")));
     }
 
     @Test
@@ -126,7 +126,7 @@ class ActiveLoanCommandsTest {
 
         assertEquals("No overdue loans.", new ActiveLoanCommands(loans, utc).execute("active-loans overdue"));
         assertEquals("Asset ID | Borrower ID | Due date | Status\nA | A0123456X | 2026-10-14 | OVERDUE",
-                new ActiveLoanCommands(loans, singapore).execute("active-loans overdue"));
+                TableText.compact(new ActiveLoanCommands(loans, singapore).execute("active-loans overdue")));
     }
 
     @Test
@@ -136,7 +136,7 @@ class ActiveLoanCommandsTest {
         loans.addLoan(loan);
         ActiveLoanCommands commands = new ActiveLoanCommands(loans, CLOCK);
         assertEquals("Asset ID | Borrower ID | Due date | Status\nA | A0123456X | 2026-10-13 | OVERDUE",
-                commands.execute("active-loans overdue"));
+                TableText.compact(commands.execute("active-loans overdue")));
 
         loan.markReturned(TODAY);
 
@@ -159,7 +159,7 @@ class ActiveLoanCommandsTest {
                 + "active-loans overdue\nreturn A\nactive-loans overdue\nexit\n"), new PrintStream(output));
 
         assertTrue(output.toString().contains("Error: Use: active-loans [overdue]"));
-        assertTrue(output.toString().contains("A | A0123456X | 2026-10-13 | OVERDUE"));
+        assertTrue(TableText.compact(output.toString()).contains("A | A0123456X | 2026-10-13 | OVERDUE"));
         assertTrue(output.toString().contains("No overdue loans."));
         assertFalse(overdue.isActive());
         assertEquals(TODAY, overdue.getReturnDate());
@@ -179,7 +179,7 @@ class ActiveLoanCommandsTest {
         LabLogStore reloaded = new LabLogStore(file);
 
         assertEquals("Asset ID | Borrower ID | Due date | Status\nA | A0123456X | 2026-10-13 | OVERDUE",
-                new ActiveLoanCommands(reloaded.getLoans(), CLOCK).execute("active-loans overdue"));
+                TableText.compact(new ActiveLoanCommands(reloaded.getLoans(), CLOCK).execute("active-loans overdue")));
         assertEquals(originalFile, Files.readString(file));
         assertTrue(reloaded.getLoans().getLoans().get(0).isActive());
         assertNull(reloaded.getLoans().getLoans().get(0).getReturnDate());

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -49,7 +50,7 @@ class HistoryCommandsTest {
                 + "2026-10-08 | FAULT | Power supply failed\n"
                 + "2026-10-09 | MAINTENANCE | Power supply replaced\n"
                 + "2026-10-15 | RESERVATION | Borrower A0123457X; confirmed\n4 records.",
-                commands.execute("  history\tOSC-001  "));
+                compact(commands.execute("  history\tOSC-001  ")));
         assertEquals("OTHER", loans.getLoans().get(0).getAssetId());
         assertEquals(HistoryEntry.Type.MAINTENANCE, otherHistory.get(0).getType());
     }
@@ -60,10 +61,10 @@ class HistoryCommandsTest {
         LocalDate date = LocalDate.parse("2026-10-01");
         Loan loan = new Loan("OSC-001", "A0123456X", date, date.plusDays(7));
         loans.addLoan(loan);
-        assertTrue(commands.execute("history OSC-001").contains("; active\n1 record."));
+        assertTrue(compact(commands.execute("history OSC-001")).contains("; active\n1 record."));
         loan.markReturned(date.plusDays(1));
         otherHistory.add(new HistoryEntry("OSC-001", date, HistoryEntry.Type.FAULT, "Reported"));
-        String result = commands.execute("history OSC-001");
+        String result = compact(commands.execute("history OSC-001"));
         assertTrue(result.contains("; returned 2026-10-02"));
         assertTrue(result.endsWith("2 records."));
         assertFalse(result.contains("; active"));
@@ -77,7 +78,7 @@ class HistoryCommandsTest {
         otherHistory.add(new HistoryEntry("OSC-001", date, HistoryEntry.Type.MAINTENANCE, "Repair"));
         otherHistory.add(new HistoryEntry("OSC-001", date, HistoryEntry.Type.FAULT, "A fault"));
         otherHistory.add(new HistoryEntry("OSC-001", date, HistoryEntry.Type.RESERVATION, "Booked"));
-        String result = commands.execute("history OSC-001");
+        String result = compact(commands.execute("history OSC-001"));
         assertTrue(result.indexOf("Booked") < result.indexOf("A fault"));
         assertTrue(result.indexOf("A fault") < result.indexOf("Z fault"));
         assertTrue(result.indexOf("Z fault") < result.indexOf("Repair"));
@@ -86,7 +87,7 @@ class HistoryCommandsTest {
     @Test
     void execute_emptyAndUnknownEquipment_distinguishesResults() {
         addEquipment();
-        assertEquals("No history found for OSC-001 - Scope.", commands.execute("history OSC-001"));
+        assertEquals("No history found for OSC-001 - Scope.", compact(commands.execute("history OSC-001")));
         assertEquals("Equipment osc-001 was not found.",
                 assertThrows(IllegalArgumentException.class, () -> commands.execute("history osc-001")).getMessage());
     }
@@ -95,7 +96,7 @@ class HistoryCommandsTest {
     void execute_invalidSyntax_rejectsInput() {
         for (String input : new String[]{null, "", "history", "history OSC-001 extra", "loans OSC-001"}) {
             assertEquals("Use: history ASSET_ID",
-                    assertThrows(IllegalArgumentException.class, () -> commands.execute(input)).getMessage());
+                    assertThrows(IllegalArgumentException.class, () -> compact(commands.execute(input))).getMessage());
         }
     }
 
@@ -124,7 +125,7 @@ class HistoryCommandsTest {
         new LabLog(inventory, loans, () -> otherHistory).run(new Scanner("add OSC-001\nScope\n"),
                 new PrintStream(output));
         assertTrue(inventory.getEquipmentUnits().isEmpty());
-        assertTrue(output.toString().contains("Equipment not added: incomplete input."));
+        assertTrue(compact(output.toString()).contains("Equipment not added: incomplete input."));
     }
 
     @Test

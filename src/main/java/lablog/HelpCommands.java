@@ -1,5 +1,7 @@
 package lablog;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 /** Displays command guidance without accessing or changing application records. */
@@ -7,46 +9,112 @@ public class HelpCommands {
     /** Records help requests at FINE level without including raw user input. */
     private static final Logger LOGGER = Logger.getLogger(HelpCommands.class.getName());
     private static final String USAGE = "Use: help [COMMAND]";
-    private static final String SUMMARY = "LabLog commands:\n"
-            + "reserve ASSET_ID b/BORROWER_ID from/START to/END - Create a confirmed reservation.\n"
-            + "edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END] - Edit a booking.\n"
-            + "cancel-reservation RESERVATION_ID reason/TEXT - Cancel a booking and retain its history.\n"
-            + "available from/START to/END [category/CATEGORY] - Find units free throughout an interval.\n"
-            + "why-unavailable ASSET_ID [from/START to/END] - Explain all booking blockers.\n"
-            + "wait-request b/USER category/CATEGORY from/START to/END - Record unallocated demand.\n"
-            + "waiting-requests - List waiting requests; these do not reserve units.\n"
-            + "reservations - List reservations, status and IDs.\n"
-            + "help [COMMAND] - Show common commands or detailed help.\n"
-            + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
-            + "fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS - Report a persistent equipment fault.\n"
-            + "repair FAULT_ID d/DATE desc/DETAILS - Record a repair and resolve one fault.\n"
-            + "list [filters] [sort/FIELD] - Filter and sort equipment (main console).\n"
-            + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
-            + "Edit equipment details (main console).\n"
-            + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
-            + "find ASSET_ID - Show one registered equipment unit (main console).\n"
-            + "search TEXT - Search equipment names and models by partial text (main console).\n"
-            + "active-loans [overdue] - List all active loans or only overdue loans (main console).\n"
-            + "overview - Show today's reservations, overdue loans and unresolved severe faults (main console).\n"
-            + "loan-audit [ASSET_ID] - View recorded borrowing/return events (main console).\n"
-            + "reverse-loan EVENT_ID reason/TEXT - Correct a mistaken loan and retain its evidence (main console).\n"
-            + "reverse-return EVENT_ID reason/TEXT - Correct a mistaken return after conflict checks (main console).\n"
-            + "loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE - Issue one or more loans (main console).\n"
-            + "lost ASSET_ID - Report an outstanding loan lost and keep its history (main console).\n"
-            + "renew ASSET_ID d/DUE_DATE - Extend an active loan and retain the change (main console).\n"
-            + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
-            + "return ASSET_ID ASSET_ID ... - Return multiple units (no faults/, main console).\n"
-            + "history ASSET_ID - View equipment history (main console).\n"
-            + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (both consoles).\n"
-            + "edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL] - Edit contacts (both consoles).\n"
-            + "export FILE - Export a complete snapshot to a new file (main console).\n"
-            + "import FILE --replace - Replace all records from a validated snapshot (main console).\n"
-            + "commands | recall INDEX - View recent input without executing it (both consoles).\n"
-            + "loans BORROWER_ID - View active loans (both consoles).\n"
-            + "exit - Close the main console.\n"
-            + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
-            + "copy SOURCE_ASSET_ID NEW_ASSET_ID - Copy details to a new equipment unit (main console).\n"
-            + "Use help COMMAND for syntax, fields, and usage examples.";
+    /**
+     * Rows of the plain help table. A one-element row is a section heading; a two-element row is a
+     * command and its description.
+     */
+    private static final String[][] SUMMARY_ROWS = {
+        {"Equipment"},
+        {"add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]", "Register equipment (main console)."},
+        {"copy SOURCE_ASSET_ID NEW_ASSET_ID", "Copy details to a new equipment unit (main console)."},
+        {"edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]", "Edit equipment (main console)."},
+        {"move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION", "Move selected equipment together (main console)."},
+        {"list [filters] [sort/FIELD]", "Filter and sort equipment (main console)."},
+        {"find ASSET_ID", "Show one registered equipment unit (main console)."},
+        {"search TEXT", "Search equipment names and models by partial text (main console)."},
+        {"history ASSET_ID", "View equipment history (main console)."},
+        {"Loans"},
+        {"loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE", "Issue one or more loans (main console)."},
+        {"return ASSET_ID [faults/DESCRIPTION]", "Record a return (main console)."},
+        {"return ASSET_ID ASSET_ID ...", "Return multiple units (no faults/, main console)."},
+        {"renew ASSET_ID d/DUE_DATE", "Extend an active loan and retain the change (main console)."},
+        {"lost ASSET_ID", "Report an outstanding loan lost and keep its history (main console)."},
+        {"active-loans [overdue]", "List all active loans or only overdue loans (main console)."},
+        {"loan-audit [ASSET_ID]", "View recorded borrowing/return events (main console)."},
+        {"reverse-loan EVENT_ID reason/TEXT", "Correct a mistaken loan and retain its evidence (main console)."},
+        {"reverse-return EVENT_ID reason/TEXT", "Correct a mistaken return after conflict checks (main console)."},
+        {"loans BORROWER_ID", "View active loans (both consoles)."},
+        {"Borrowers"},
+        {"add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL", "Register a borrower (both consoles)."},
+        {"edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL]", "Edit contacts (both consoles)."},
+        {"Reservations"},
+        {"reserve ASSET_ID b/BORROWER_ID from/START to/END", "Create a confirmed reservation."},
+        {"edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END]", "Edit a booking."},
+        {"cancel-reservation RESERVATION_ID reason/TEXT", "Cancel a booking and retain its history."},
+        {"available from/START to/END [category/CATEGORY]", "Find units free throughout an interval."},
+        {"why-unavailable ASSET_ID [from/START to/END]", "Explain all booking blockers."},
+        {"wait-request b/USER category/CATEGORY from/START to/END", "Record unallocated demand."},
+        {"waiting-requests", "List waiting requests; these do not reserve units."},
+        {"reservations", "List reservations, status and IDs."},
+        {"Faults and maintenance"},
+        {"fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS", "Report a persistent equipment fault."},
+        {"repair FAULT_ID d/DATE desc/DETAILS", "Record a repair and resolve one fault."},
+        {"reservation|maintenance ASSET_ID d/DATE desc/DETAILS", "Record a history note (main console)."},
+        {"Records and overview"},
+        {"overview", "Show today's reservations, overdue loans and unresolved severe faults (main console)."},
+        {"export FILE", "Export a complete snapshot to a new file (main console)."},
+        {"import FILE --replace", "Replace all records from a validated snapshot (main console)."},
+        {"General"},
+        {"help [COMMAND]", "Show common commands or detailed help."},
+        {"commands | recall INDEX", "View recent input without executing it (both consoles)."},
+        {"exit", "Close the main console."},
+    };
+    /** Longest description line in the help table; longer descriptions continue on the next line. */
+    private static final int DESCRIPTION_WIDTH = 45;
+    private static final String QUICK_START =
+            "Common commands: add-borrower, add, list, loan, return, history. Use help COMMAND for details.";
+    private static final String SUMMARY_FOOTER = "Use help COMMAND for syntax, fields, and usage examples.";
+    private static final String SUMMARY = buildSummary();
+
+    /**
+     * Lays out {@link #SUMMARY_ROWS} as a two-column text table split into titled sections. The
+     * command column is padded to its widest entry so the "|" separators line up in a monospaced
+     * console.
+     */
+    private static String buildSummary() {
+        String commandHeader = "Command";
+        int width = commandHeader.length();
+        for (String[] row : SUMMARY_ROWS) {
+            if (row.length == 2) {
+                width = Math.max(width, row[0].length());
+            }
+        }
+        String format = "%-" + width + "s | %s\n";
+        StringBuilder table = new StringBuilder("LabLog commands:\n" + QUICK_START + "\n\n");
+        table.append(String.format(format, commandHeader, "Description"));
+        table.append("-".repeat(width + 1)).append('+').append("-".repeat(13)).append('\n');
+        for (String[] row : SUMMARY_ROWS) {
+            if (row.length == 1) {
+                table.append('\n').append("== ").append(row[0]).append(" ==\n");
+            } else {
+                // Only the first line shows the command; continuation lines leave that column blank.
+                String command = row[0];
+                for (String line : wrap(row[1], DESCRIPTION_WIDTH)) {
+                    table.append(String.format(format, command, line));
+                    command = "";
+                }
+            }
+        }
+        return table.append('\n').append(SUMMARY_FOOTER).toString();
+    }
+
+    /**
+     * Splits text into lines of at most {@code width} characters, breaking only at spaces.
+     * A single word longer than {@code width} is kept whole on its own line.
+     */
+    private static List<String> wrap(String text, int width) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : text.split(" ")) {
+            if (line.length() > 0 && line.length() + 1 + word.length() > width) {
+                lines.add(line.toString());
+                line.setLength(0);
+            }
+            line.append(line.length() > 0 ? " " : "").append(word);
+        }
+        lines.add(line.toString());
+        return lines;
+    }
 
     /**
      * Returns the common command list or guidance for exactly one command name.
@@ -57,6 +125,10 @@ public class HelpCommands {
      */
     public String execute(String input) {
         String guidance = describe(input);
+        if (guidance.equals(SUMMARY)) {
+            // The summary has its own section headings, so it needs no dotted border.
+            return "\n" + guidance + "\n";
+        }
         String separator = "............................................................";
         return "\n" + separator + "\n" + guidance + "\n" + separator + "\n";
     }

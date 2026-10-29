@@ -2,6 +2,7 @@ package lablog;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -44,12 +45,13 @@ public class OverviewCommands {
             output.append("No reservations for today.\n");
             return;
         }
-        output.append("Reservation ID | Asset ID | Borrower ID | From | Through\n");
+        List<List<String>> rows = new ArrayList<>();
         for (Reservation item : current) {
-            output.append(item.id()).append(" | ").append(item.assetId()).append(" | ")
-                    .append(item.borrowerId()).append(" | ").append(item.window().start()).append(" | ")
-                    .append(item.window().end()).append('\n');
+            rows.add(List.of(item.id(), item.assetId(), item.borrowerId(), item.window().start().toString(),
+                    item.window().end().toString()));
         }
+        output.append(TableFormatter.format(
+                List.of("Reservation ID", "Asset ID", "Borrower ID", "From", "Through"), rows)).append('\n');
     }
 
     /** Uses the same active-state and strict due-date boundary as the overdue-loan listing. */
@@ -63,12 +65,13 @@ public class OverviewCommands {
             output.append("No overdue loans.\n");
             return;
         }
-        output.append("Loan ID | Asset ID | Borrower ID | Due date | Status\n");
+        List<List<String>> rows = new ArrayList<>();
         for (Loan loan : overdue) {
-            output.append(loan.getId()).append(" | ").append(loan.getAssetId()).append(" | ")
-                    .append(loan.getBorrowerId()).append(" | ").append(loan.getDueDate()).append(" | ")
-                    .append(loan.isLost() ? "LOST (overdue)" : "OVERDUE").append('\n');
+            rows.add(List.of(loan.getId(), loan.getAssetId(), loan.getBorrowerId(), loan.getDueDate().toString(),
+                    loan.isLost() ? "LOST (overdue)" : "OVERDUE"));
         }
+        output.append(TableFormatter.format(
+                List.of("Loan ID", "Asset ID", "Borrower ID", "Due date", "Status"), rows)).append('\n');
     }
 
     /** Includes every unresolved severe report, matching the shared lending restriction regardless of report date. */
@@ -81,10 +84,12 @@ public class OverviewCommands {
             output.append("No unresolved severe faults.\n");
             return;
         }
-        output.append("Fault ID | Asset ID | Report date | Description\n");
+        List<List<String>> rows = new ArrayList<>();
         for (Fault fault : severe) {
-            output.append(fault.getId()).append(" | ").append(fault.getAssetId()).append(" | ")
-                    .append(fault.getReportDate()).append(" | ").append(fault.getDescription()).append('\n');
+            rows.add(List.of(fault.getId(), fault.getAssetId(), fault.getReportDate().toString(),
+                    fault.getDescription()));
         }
+        output.append(TableFormatter.format(
+                List.of("Fault ID", "Asset ID", "Report date", "Description"), rows)).append('\n');
     }
 }
