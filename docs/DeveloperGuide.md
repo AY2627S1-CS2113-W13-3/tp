@@ -6,7 +6,7 @@
 * [Design & implementation](#design--implementation)
   * [Architecture](#architecture)
   * [Entry points and shared records](#entry-points-and-shared-records)
-  * [Borrower registration and active-loan listings (Zeph)](#borrower-registration-and-active-loan-listings-zeph)
+  * [Borrower registration and active-loan listings](#borrower-registration-and-active-loan-listings)
   * [Equipment listing, filters, and sorting](#equipment-listing-filters-and-sorting)
   * [Equipment search (US15)](#equipment-search-us15)
   * [Copying equipment](#copying-equipment)
@@ -29,6 +29,7 @@
 * [Instructions for manual testing](#instructions-for-manual-testing)
   * [Assertions and diagnostic logging](#assertions-and-diagnostic-logging)
   * [Automated and manual checks](#automated-and-manual-checks)
+  * [Manual test cases](#manual-test-cases)
 * [Equipment detail editing (issue #62)](#equipment-detail-editing-issue-62)
 * [Bulk equipment location updates (issue #64)](#bulk-equipment-location-updates-issue-64)
 * [Exact equipment lookup (issue #67)](#exact-equipment-lookup-issue-67)
@@ -114,7 +115,7 @@ shared instances to every handler it creates.*
 
 | Layer | Classes | Responsibility |
 | --- | --- | --- |
-| Console | `LabLog`, `BorrowerCli`, `CommandHistory`, `ConsoleWelcome` | Read command lines, recall recent commands, dispatch to a handler, save, and print results or errors. `BorrowerCli` is a separate borrower-only console. |
+| Console | `LabLog`, `BorrowerCli`, `CommandHistory`, `ConsoleWelcome`, `Messages`, `TableFormatter` | Read command lines, recall recent commands, dispatch to a handler, save, and print results or errors. Successful changes are prefixed with `[OK]` and listings are printed as aligned tables. `BorrowerCli` is a separate borrower-only console. |
 | Commands | `EquipmentAdd/Copy/Edit/Move/List/Find/SearchCommands`, `BorrowerCommands`, `LoanCommands`, `ReturnCommands`, `RenewCommands`, `LostCommands`, `ActiveLoanCommands`, `LoanAuditCommands`, `LoanCorrectionCommands`, `HistoryCommands`, `HistoryRecordCommands`, `RepairCommands`, `ReservationCommands`, `WaitingRequestCommands`, `AvailableEquipmentCommands`, `UnavailableReasonCommands`, `OverviewCommands`, `HelpCommands` | Parse and validate one command, read or change the books, and return the text to display. |
 | Model | `Inventory`, `BorrowerBook`, `LoanBook`, `FaultBook`, `ReservationBook`, `WaitingRequestBook`, `BookingAvailability`, and records such as `Equipment`, `Borrower`, `Loan` and `Fault` | Hold the application state in memory and enforce record rules. `BookingAvailability` is the shared booking-conflict rule used by lending, renewal, reservations and availability queries. |
 | Storage | `ApplicationSnapshot`, `LabLogStore`, and the `*Codec` classes | Encode all records as one versioned UTF-8 properties file, validate it on load, and replace it atomically on save. |
@@ -134,11 +135,19 @@ that writes the same complete snapshot.
 The production main entry point loads `ApplicationSnapshot` from `data/lablog.properties`
 or the optional command-line file path. It stores equipment, borrowers, loans,
 notes, faults, repairs, reservations, waiting requests, renewals, losses and loan
-audit events in one format-11 UTF-8 properties snapshot. Save to a temporary file
-in the destination directory, then atomically replace the snapshot before
-printing success. Unsupported atomic replacement is reported as a save failure;
-there is no non-atomic fallback. Save failure stops the session to avoid further
-unsaved operations. Legacy split-file installations load the sibling borrower file
+audit events in one UTF-8 properties snapshot. The snapshot's `format` key is
+its schema version. The current writer always saves format 11, and formats 2 to 10
+still load. Each version from 3 to 11 added one kind of record: faults, severity,
+repairs, reservations, reservation cancellation, waiting requests, renewals, loss
+reports, and finally stable loan IDs with audit events.
+
+Save to a temporary file in the destination directory, then atomically replace
+the snapshot before printing success. Unsupported atomic replacement is reported
+as a save failure; there is no non-atomic fallback. Most commands change the
+shared books first and then save, so a save failure stops the session to avoid
+further unsaved operations. Borrower, reservation and waiting-request changes are
+saved before they are published, so a failed save leaves them unchanged and the
+session continues. Legacy split-file installations load the sibling borrower file
 and migrate on the next save. Injected constructors remain in memory for unit tests.
 
 Loading rejects missing required fields, invalid dates, duplicate IDs, unknown
@@ -169,7 +178,7 @@ loan exists. These are lookup helpers, not an enforcement mechanism:
 not validate identifiers or dates. `LoanCommands` applies those checks before
 storing a record; any other issuing path must repeat them.
 
-### Borrower registration and active-loan listings (Zeph)
+### Borrower registration and active-loan listings
 
 This enhancement implements issues #10 and #11: registering a student's contact
 details and finding the equipment they currently hold. The design separates
@@ -248,13 +257,16 @@ including them in a name. Missing, repeated, empty, and unknown fields fail befo
 the book is modified. Surrounding field whitespace is removed; internal name
 spaces and letter case are preserved.
 
-The `Borrower` constructor enforces the record's invariants even when a caller
-bypasses the command parser. An ID contains an uppercase letter, seven digits,
-and an uppercase letter; this is a shape check, not a check-digit calculation.
-Names contain 1–100 characters with no control characters. Phone numbers contain
-exactly eight ASCII digits, and email addresses use the lowercase `u.nus.edu`
-domain and the supported local-part pattern. `BorrowerBook` separately enforces
-uniqueness because that rule depends on the collection, not one record.
+| Prefix | Field | Rule |
+| --- | --- | --- |
+| (none) | Borrower ID | An uppercase letter, seven digits and an uppercase letter, e.g. `A0123456X`. This is a shape check, not a check-digit calculation. |
+| `n/` | Name | 1–100 characters with no control characters. |
+| `p/` | Phone | Exactly eight ASCII digits. |
+| `e/` | Email | The lowercase `u.nus.edu` domain and the supported local-part pattern. |
+
+The `Borrower` constructor enforces these rules even when a caller bypasses the
+command parser. `BorrowerBook` separately enforces uniqueness because that rule
+depends on the collection, not one record.
 
 The following sequence shows a valid registration in the **main console**.
 `LabLog.load` installs a `BorrowerBook.Saver` lambda that builds an
@@ -382,8 +394,9 @@ not provide locking or prevent lost updates between concurrent processes.
 
 The standalone borrower CLI catches `IllegalArgumentException` for invalid
 commands and `IOException` for save failures, prints an error, and continues
-accepting input. The main console stops on a save failure to avoid further
-unsaved changes. Startup load
+accepting input. The main console does the same for borrower commands: the
+proposed borrowers are saved before they are published, so it prints
+`Error: Cannot save borrower data.` and `No changes saved.` and continues. Startup load
 errors stop the console because proceeding with an empty book could conceal
 existing data. Success is printed only after `addBorrower` returns.
 
@@ -392,7 +405,7 @@ records, and unmodifiable snapshots. `BorrowerCommandsTest` covers prefix order,
 invalid fields, duplicate IDs, name-length boundaries, unknown borrowers, empty
 results, filtering and ordering, local-date overdue behavior, and a return between
 two listings. It also checks that the console recovers from a rejected command.
-The [console test plan](../test/ui-test-plan.md) covers separate-process checks.
+The [console test plan](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/ui-test-plan.md) covers separate-process checks.
 
 **Integrated workflow.** `LabLog` passes the same borrower and loan books to
 issuing, return, and borrower handlers. Its equipment-name lookup reads the shared
@@ -777,7 +790,31 @@ registered equipment. Sorting by event date is stable, so events on one day keep
 their original acceptance order. Each event is numbered within the displayed
 selection and uses separate lines for its details and full identifiers.
 The formatter omits blank optional faults, related-event and reason lines.
-Queries leave book order and saved bytes unchanged.
+Queries leave book order and saved bytes unchanged. For example, after a loan,
+a renewal and a return with a fault:
+
+```text
+lablog> loan-audit OSC-001
+Loan audit for OSC-001:
+
+[1] LOAN — 2026-10-29
+    Asset: OSC-001
+    Borrower: A0123456X
+    Due: 2030-12-31
+    Event ID: E-4de63ec6-db60-4ccb-94df-629bbd5a717d
+    Loan ID: L-78e63761-fa3c-4700-90cd-e71567250071
+
+[2] RETURN — 2026-10-29
+    Asset: OSC-001
+    Borrower: A0123456X
+    Due: 2031-01-15
+    Faults: Damaged cable
+    Event ID: E-2f287422-2a5d-4714-a0ed-782fe52a0066
+    Loan ID: L-78e63761-fa3c-4700-90cd-e71567250071
+```
+
+The `LOAN` event keeps the issue-time due date, while the `RETURN` event records
+the renewed one. Renewals themselves appear in `history`, not in this log.
 
 Every `Loan` now has a stable `L-` ID. `LoanAuditEvent` is an immutable record
 with its own event ID, owning loan ID, local operation date, type, asset, borrower,
@@ -1222,10 +1259,11 @@ Assume `OSC-001` has a loan that has been returned with the fault description
    the same asset ID. In `LabLog`, this supplier combines caller-supplied entries
    with session notes from `HistoryRecordCommands`.
 5. The handler sorts the combined entries by date, oldest first. Ties are broken
-   by enum type order (`LOAN`, `RESERVATION`, `FAULT`, `MAINTENANCE`), then by
-   description.
-6. The application displays the equipment ID and name, the `Date | Type | Details`
-   rows, and the record count. No save is triggered by viewing history.
+   by enum type order (`LOAN`, `RESERVATION`, `FAULT`, `MAINTENANCE`, `RENEWAL`,
+   `LOST`), then by description; renewals keep their acceptance order.
+6. The application displays the equipment ID and name, an aligned table with
+   `Date`, `Type` and `Details` columns, and the record count. No save is
+   triggered by viewing history.
 
 The following sequence diagram shows a history request for registered equipment.
 Individual field accessors are omitted for readability.
@@ -1325,7 +1363,16 @@ student borrowers through a text interface.
 
 Keep equipment identity, borrower contacts, and loan history accessible from
 the command line. The main console shares records across registration, lending,
-returns, and lookups.
+returns, and lookups, so a technician can:
+
+* see which units are available, on loan, lost or blocked by a severe fault, and
+  why a unit cannot be booked for a date range;
+* lend and return several units in one command, with all-or-nothing validation;
+* keep the full history of loans, renewals, losses, faults and repairs for each
+  unit, and correct mistakes without erasing the original evidence;
+* plan ahead with reservations and waiting requests checked by the same conflict
+  rules as lending;
+* keep all records in one portable file that can be exported and imported safely.
 
 ## User Stories
 
@@ -1396,9 +1443,15 @@ separate fault note.
 
 ## Glossary
 
-* **Asset ID:** identifier of one physical equipment unit.
-* **Active loan:** a loan whose return date is absent.
+* **Asset ID:** case-sensitive identifier of one physical equipment unit.
+* **Active loan:** a loan that has been neither returned nor reversed. A lost loan
+  is still active because the borrower remains responsible for it.
 * **Overdue loan:** an active loan with a due date before today's local date.
+* **Severe fault:** an unresolved fault with severity `SEVERE`; it blocks lending.
+* **Snapshot format:** the schema version stored in the data file's `format` key;
+  the current writer uses format 11.
+* **Audit event:** an immutable record of one loan, return or correction, shown by
+  `loan-audit`.
 * **History entry:** a display snapshot of a record, not an immutable event log.
 
 ## Instructions for manual testing
@@ -1436,16 +1489,55 @@ python test/run-cli-smoke-tests.py
 The Python 3 runner checks the packaged JAR and separate borrower processes with
 temporary data. The existing PowerShell 7 runner also verifies exact borrower
 output: `pwsh -File test/run-borrower-ui-tests.ps1`. See the
-[console test plan](../test/ui-test-plan.md) and
-[verification report](../test/verification-report.md).
+[console test plan](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/ui-test-plan.md) and
+[verification report](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/verification-report.md).
 
-For a manual main-console check, run `java -jar build/libs/lablog.jar` with a
-disposable data-file path, register equipment with `add`, register a borrower
-with `add-borrower`, then issue a loan. Check `active-loans`, `loans
-BORROWER_ID`, `return ASSET_ID`, and `history ASSET_ID`. Restart with the same
-data path to confirm equipment, loans, returns, and borrowers reload. Use a
-separate disposable directory to isolate legacy borrower files beside the
-LabLog data file.
+### Manual test cases
+
+These are starting points for testers. Put `lablog.jar` in an empty folder and run
+`java -jar lablog.jar` there. No data file is written until the first command that
+changes records creates `data/lablog.properties`. Successful changes start with
+`[OK]`; rejected commands start with `Error:` and change nothing.
+
+**Equipment**
+
+1. `add OSC-001 n/Digital Oscilloscope c/Electronics m/DS1054Z l/Lab A`<br>
+   Expected: `[OK] Equipment added to inventory.` Repeating it gives
+   `Error: Equipment OSC-001 already exists.`
+2. `copy OSC-001 OSC-002`, then `list category/electronics sort/name`<br>
+   Expected: `[OK] Copied OSC-001 to OSC-002.`, then a table with both units `Available`.
+3. `find osc-001`<br>
+   Expected: `Error: Equipment osc-001 not found.`, because asset IDs are case-sensitive.
+
+**Borrowers and loans**
+
+1. `add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@gmail.com`<br>
+   Expected: an error asking for a `u.nus.edu` address. With
+   `e/jamietan@u.nus.edu` instead: `[OK] Added borrower A0123456X: Jamie Tan.`
+2. `loan OSC-001 OSC-002 b/A0123456X d/2030-12-31`<br>
+   Expected: both units loaned in one `[OK]` confirmation. Lending OSC-001 again
+   gives an error naming the current borrower and due date.
+3. `renew OSC-001 d/2031-01-15`, then `return OSC-001 faults/Damaged cable`<br>
+   Expected: the due date changes to 2031-01-15, then OSC-001 is returned with the
+   fault. A second `return OSC-001` gives `Error: Equipment OSC-001 is not currently on loan.`
+4. `loan-audit OSC-001` and `history OSC-001`<br>
+   Expected: numbered `LOAN` and `RETURN` events; history also shows a `RENEWAL` row.
+5. On the same day, `loan OSC-001 b/A0123456X d/2030-12-31`<br>
+   Expected: a conflict error. A returned loan still occupies its return date,
+   because booking ranges are inclusive. Lend a different unit to continue.
+6. Lend a new unit, then `lost ASSET_ID` and `list status/lost`<br>
+   Expected: the unit is listed as `Lost`, and `renew` on it is rejected.
+
+**Saving and loading**
+
+1. Make a change, `exit`, and run `java -jar lablog.jar` again.<br>
+   Expected: all records are restored.
+2. `export backup.properties` twice.<br>
+   Expected: the first succeeds; the second refuses to overwrite the file and
+   prints `Current records were not changed.`
+3. Exit, change `format=11` to `format=99` in `data/lablog.properties`, and launch again.<br>
+   Expected: `Error: Cannot load LabLog data. Invalid snapshot: Unsupported snapshot
+   format; ...` The file is left unchanged.
 
 ## Equipment detail editing (issue #62)
 
@@ -1822,4 +1914,4 @@ fault-repair workflow. It exports to a path containing spaces, imports into a
 new file and compares the queried records across fresh Java processes. It also
 checks that read-only queries do not rewrite the source snapshot. Run it after
 the shadowJar task; Gradle check and CI currently run JUnit/Checkstyle only.
-See the [verification report](../test/verification-report.md) for the checked revision and results.
+See the [verification report](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/verification-report.md) for the checked revision and results.
