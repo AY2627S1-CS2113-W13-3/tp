@@ -98,13 +98,13 @@ classDiagram
     LabLog --> "*" XyzCommands : dispatches to
     BorrowerCli ..> XyzCommands : creates
     LabLog ..> ApplicationSnapshot : loads and saves
-    XyzCommands ..> Inventory
-    XyzCommands ..> BorrowerBook
-    XyzCommands ..> LoanBook
-    XyzCommands ..> FaultBook
-    XyzCommands ..> ReservationBook
-    XyzCommands ..> WaitingRequestBook
-    XyzCommands ..> BookingAvailability
+    XyzCommands --> Inventory
+    XyzCommands --> BorrowerBook
+    XyzCommands --> LoanBook
+    XyzCommands --> FaultBook
+    XyzCommands --> ReservationBook
+    XyzCommands --> WaitingRequestBook
+    XyzCommands --> BookingAvailability
     ReservationBook --> "1" BookingAvailability : -availability
 ```
 
@@ -206,8 +206,8 @@ classDiagram
     BorrowerCommands --> "1" Function : -equipmentNames
     BorrowerCommands --> "1" Clock : -clock
     BorrowerBook --> "0..1" Saver : -saver
-    BorrowerBook --> "0..*" Borrower : -borrowers
-    LoanBook --> "0..*" Loan : -loans
+    BorrowerBook "1" *--> "0..*" Borrower : -borrowers
+    LoanBook "1" *--> "0..*" Loan : -loans
     class Borrower {
         -borrowerId: String
         -name: String
@@ -284,13 +284,14 @@ sequenceDiagram
     CLI->>+Commands: execute(input)
     Commands->>+Commands: addBorrower(arguments)
     create participant Record as borrower:Borrower
-    Commands->>Record: new Borrower(id, name, phone, email)
-    Record-->>Commands: borrower
+    Commands->>+Record: Borrower(id, name, phone, email)
+    Record-->>-Commands: borrower
     Commands->>+Book: addBorrower(borrower)
     Book->>+Book: persist(updated)
     Book->>+Saver: save(proposed)
     create participant Snapshot as :ApplicationSnapshot
-    Saver->>Snapshot: new ApplicationSnapshot(...)
+    Saver->>+Snapshot: ApplicationSnapshot(...)
+    Snapshot-->>-Saver: snapshot
     Saver->>+Snapshot: write(dataFile)
     Snapshot-->>-Saver: #nbsp;
     Saver-->>-Book: #nbsp;
@@ -337,12 +338,15 @@ visible on the next listing without synchronizing a borrower-specific cache.
 
 ```mermaid
 sequenceDiagram
+    actor User
     participant CLI as :LabLog
     participant Commands as :BorrowerCommands
     participant Borrowers as :BorrowerBook
     participant Loans as :LoanBook
+    participant Date as «class» LocalDate
     participant Names as equipmentNames:Function
-    CLI->>+Commands: execute("loans A0123456X")
+    User->>+CLI: loans A0123456X
+    CLI->>+Commands: execute(input)
     Commands->>+Commands: listLoans(id)
     Commands->>+Borrowers: getBorrower(id)
     Borrowers-->>-Commands: borrower
@@ -352,7 +356,8 @@ sequenceDiagram
     alt no matching active loans
         Note right of Commands: result = no-active-loans message
     else matching active loans
-        Note right of Commands: today = LocalDate.now(clock)
+        Commands->>+Date: now(clock)
+        Date-->>-Commands: today
         loop each matching loan
             Commands->>+Names: apply(assetId)
             Names-->>-Commands: equipment name or null
@@ -361,6 +366,7 @@ sequenceDiagram
     end
     Commands-->>-Commands: result
     Commands-->>-CLI: result
+    CLI-->>-User: display result
 ```
 
 **Lost loans remain outstanding** and appear with status `LOST`; other
@@ -477,7 +483,7 @@ classDiagram
     EquipmentSearchCommands --> "1" Inventory : -inventory
     EquipmentSearchCommands --> "1" LoanBook : -loans
     EquipmentSearchCommands --> "1" FaultBook : -faults
-    Inventory --> "0..*" Equipment : -equipmentUnits {ordered}
+    Inventory "1" *--> "0..*" Equipment : -equipmentUnits {ordered}
     EquipmentSearchCommands ..> Equipment : matches and displays
     class EquipmentSearchCommands {
         +execute(input: String) String
@@ -751,13 +757,15 @@ sequenceDiagram
     participant App as :LabLog
     participant Renew as :RenewCommands
     participant Book as :LoanBook
+    participant Date as «class» LocalDate
     participant Policy as :BookingAvailability
     participant Loan as loan:Loan
     User->>+App: renew OSC-001 d/2026-11-05
     App->>+Renew: execute(input)
     Renew->>+Book: findActiveLoan(assetId)
     Book-->>-Renew: loan
-    Note right of Renew: today = LocalDate.now(clock)
+    Renew->>+Date: now(clock)
+    Date-->>-Renew: today
     Renew->>+Book: validateActionDate(loan, today)
     Book-->>-Renew: #nbsp;
     Renew->>+Policy: requireAvailable(assetId, period, null, loan)
@@ -858,6 +866,7 @@ sequenceDiagram
     participant App as :LabLog
     participant Return as :ReturnCommands
     participant Book as :LoanBook
+    participant Event as «class» LoanAuditEvent
     participant Loan as loan:Loan
     User->>+App: return OSC-001 MIC-002
     App->>+Return: execute(input)
@@ -866,7 +875,11 @@ sequenceDiagram
         Book->>+Loan: validateReturn(today, faults)
         Loan-->>-Book: #nbsp;
     end
-    Note right of Book: pending = LoanAuditEvent.returned(loan, today, faults)<br/>for each selected loan (no state changed yet)
+    loop each selected loan
+        Book->>+Event: returned(loan, today, faults)
+        Event-->>-Book: pending event
+    end
+    Note right of Book: no loan has changed yet
     loop each selected loan
         Book->>+Loan: markReturned(today, faults)
         Loan-->>-Book: #nbsp;
@@ -947,11 +960,13 @@ sequenceDiagram
     actor User
     participant App as :LabLog
     participant Command as :LoanCorrectionCommands
+    participant Date as «class» LocalDate
     participant Book as :LoanBook
     participant Policy as :BookingAvailability
     User->>+App: reverse-return EVENT_ID reason/TEXT
     App->>+Command: execute(input)
-    Note right of Command: today = LocalDate.now(clock)
+    Command->>+Date: now(clock)
+    Date-->>-Command: today
     Command->>+Book: reverse(eventId, RETURN, today, reason, availability)
     Note right of Book: find original event, reject repeated<br/>reversals and later dependent loans
     Book->>+Policy: requireAvailable(assetId, window, null, loan)
@@ -1107,6 +1122,7 @@ sequenceDiagram
     participant Commands as :ReturnCommands
     participant Equipment as :Inventory
     participant Loans as :LoanBook
+    participant Date as «class» LocalDate
     User->>+CLI: return OSC-001 faults/Damaged cable
     CLI->>+Commands: execute(input)
     Note right of Commands: validate syntax and optional faults field
@@ -1116,7 +1132,8 @@ sequenceDiagram
     Commands->>+Loans: getLoans()
     Loans-->>-Commands: loans
     Commands-->>-Commands: the only active loan
-    Note right of Commands: today = LocalDate.now(clock)
+    Commands->>+Date: now(clock)
+    Date-->>-Commands: today
     Commands->>+Loans: returnLoans(selectedLoans, today, faults)
     Note right of Loans: validate every loan, prepare RETURN<br/>events, then mark loans returned
     Loans-->>-Commands: #nbsp;
