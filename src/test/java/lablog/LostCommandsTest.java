@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -180,7 +181,7 @@ class LostCommandsTest {
                 .filter(line -> line.startsWith("Example: ")).findFirst().orElseThrow().substring(9)
                 .replace("OSC-001", "OSC");
         LabLog app = new LabLog(inventory, loans, List::of, CLOCK, borrowers);
-        String output = run(app, example + "\nlost MIC\nfind OSC\nhistory OSC\nactive-loans\nloans " + USER);
+        String output = compact(run(app, example + "\nlost MIC\nfind OSC\nhistory OSC\nactive-loans\nloans " + USER));
         assertFalse(output.contains("Error:"), output);
         assertTrue(output.contains("Availability: Lost"));
         assertTrue(output.contains("; LOST since 2026-10-23"));
@@ -188,16 +189,16 @@ class LostCommandsTest {
         assertTrue(output.contains(" | RENEWAL | "));
         assertTrue(output.contains("Due | Overdue | Status"));
         assertTrue(output.contains("2026-10-25 | no | LOST"));
-        String overdueListing = new ActiveLoanCommands(loans, CLOCK).execute("active-loans overdue");
+        String overdueListing = compact(new ActiveLoanCommands(loans, CLOCK).execute("active-loans overdue"));
         assertTrue(overdueListing.contains("MIC | " + USER + " | 2026-10-22 | LOST"));
         assertFalse(overdueListing.contains("OSC"));
         EquipmentListCommands listing = new EquipmentListCommands(inventory, loans, faults);
-        assertTrue(listing.execute("list status/LoSt sort/availability").contains("OSC | OSC unit"));
-        assertFalse(listing.execute("list status/lost").contains("FREE |"));
+        assertTrue(compact(listing.execute("list status/LoSt sort/availability")).contains("OSC | OSC unit"));
+        assertFalse(compact(listing.execute("list status/lost")).contains("FREE |"));
         assertEquals("No equipment matches the supplied filters.", listing.execute("list status/on-loan"));
-        assertFalse(listing.execute("list status/available").contains("OSC |"));
-        assertTrue(listing.execute("list sort/availability").indexOf("FREE |")
-                < listing.execute("list sort/availability").indexOf("OSC |"));
+        assertFalse(compact(listing.execute("list status/available")).contains("OSC |"));
+        assertTrue(compact(listing.execute("list sort/availability")).indexOf("FREE |")
+                < compact(listing.execute("list sort/availability")).indexOf("OSC |"));
         assertTrue(new HelpCommands().execute("help").contains("lost ASSET_ID"));
         assertTrue(new HelpCommands().execute("help lost").contains("No recovery command"));
     }

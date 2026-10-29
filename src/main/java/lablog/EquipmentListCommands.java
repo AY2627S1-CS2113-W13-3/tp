@@ -62,14 +62,13 @@ public class EquipmentListCommands {
             units = new ArrayList<>(units);
             units.sort(comparatorFor(sortField));
         }
-        StringBuilder result = new StringBuilder("Asset ID | Name | Category | Model | Location | Availability");
+        List<List<String>> rows = new ArrayList<>();
         for (Equipment unit : units) {
-            result.append("\n").append(unit.getAssetId()).append(" | ").append(unit.getName())
-                    .append(" | ").append(unit.getCategory()).append(" | ").append(unit.getModel())
-                    .append(" | ").append(unit.getLocation()).append(" | ")
-                    .append(availabilityOf(unit));
+            rows.add(List.of(unit.getAssetId(), unit.getName(), unit.getCategory(), unit.getModel(),
+                    unit.getLocation(), availabilityOf(unit)));
         }
-        return result.toString();
+        return TableFormatter.format(
+                List.of("Asset ID", "Name", "Category", "Model", "Location", "Availability"), rows);
     }
 
     /** Parses filters and the sort option together, preserving spaces inside filter values. */

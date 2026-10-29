@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -43,11 +44,11 @@ class AvailabilityCommandsTest {
         seed();
         Reservation booking = bookings.reserve("A", "A0123456X", new DateWindow(TODAY.plusDays(1), TODAY.plusDays(2)));
         String query = "available category/lab electronics to/2026-10-24 from/2026-10-23";
-        String output = commands.execute(query);
+        String output = compact(commands.execute(query));
         assertFalse(output.contains("A | Scope"));
         assertTrue(output.indexOf("B | Scope") < output.indexOf("C | Scope"));
         bookings.cancel(booking.id(), "Postponed");
-        assertTrue(commands.execute(query).contains("A | Scope"));
+        assertTrue(compact(commands.execute(query)).contains("A | Scope"));
         assertEquals(List.of("B", "A", "C"), inventory.getEquipmentUnits().stream()
                 .map(Equipment::getAssetId).toList());
         assertThrows(UnsupportedOperationException.class,
@@ -63,10 +64,10 @@ class AvailabilityCommandsTest {
         Fault fault = faults.report("C", TODAY, "Damage", Fault.Severity.SEVERE);
         assertTrue(commands.execute("available from/2026-10-24 to/2026-10-24").contains("No equipment available"));
         loan.markReturned(TODAY);
-        assertTrue(commands.execute("available from/2026-10-24 to/2026-10-24").contains("A | Scope"));
+        assertTrue(compact(commands.execute("available from/2026-10-24 to/2026-10-24")).contains("A | Scope"));
         faults.resolve(fault.getId(), TODAY, "Repaired");
-        assertTrue(commands.execute("available from/2026-10-24 to/2026-10-24").contains("C | Scope"));
-        assertFalse(commands.execute("available from/2099-01-01 to/2099-01-02").contains("B | Scope"));
+        assertTrue(compact(commands.execute("available from/2026-10-24 to/2026-10-24")).contains("C | Scope"));
+        assertFalse(compact(commands.execute("available from/2099-01-01 to/2099-01-02")).contains("B | Scope"));
     }
 
     @Test
@@ -76,7 +77,7 @@ class AvailabilityCommandsTest {
                 "available from/2026-10-23 to/2026-10-24 from/2026-10-25",
                 "available from/2026-10-23 to/2026-10-24 status/free",
                 "available from/2026-10-23 to/2026-10-24 category/")) {
-            assertThrows(IllegalArgumentException.class, () -> commands.execute(input), input);
+            assertThrows(IllegalArgumentException.class, () -> compact(commands.execute(input)), input);
         }
         assertTrue(commands.execute("available from/2026-10-23 to/2026-10-23").contains("No equipment available"));
     }
@@ -90,7 +91,7 @@ class AvailabilityCommandsTest {
         String saved = Files.readString(file);
         output.reset();
         LabLog.load(file).run(new Scanner("available from/2099-01-01 to/2099-01-02\nexit\n"), new PrintStream(output));
-        assertTrue(output.toString().contains("OSC | Scope"));
+        assertTrue(compact(output.toString()).contains("OSC | Scope"));
         assertEquals(saved, Files.readString(file));
     }
 }

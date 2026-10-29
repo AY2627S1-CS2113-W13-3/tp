@@ -64,7 +64,7 @@ own caller.
 
 ## Verification
 
-See the [current verification report](../test/verification-report.md) for the
+See the [current verification report](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/verification-report.md) for the
 latest local checks and known limitations. The borrower tests cover field
 validation, prefix order, duplicate IDs, persistence, failed writes, corrupt
 records, filtering, sorting, due-date boundaries, and newly returned loans.

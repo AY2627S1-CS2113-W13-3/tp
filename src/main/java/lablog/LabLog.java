@@ -297,8 +297,7 @@ public class LabLog {
      * @param output destination for prompts and results
      */
     public void run(Scanner scanner, PrintStream output) {
-        output.println("Welcome to LabLog!");
-        output.println("Manage your laboratory equipment and loans here.");
+        ConsoleWelcome.print(output);
         output.println(help.execute("help"));
         while (true) {
             output.print("lablog> ");
@@ -322,7 +321,7 @@ public class LabLog {
             String command = input.split("\\s+", 2)[0];
             if (command.equals("export") || command.equals("import")) {
                 try {
-                    output.println(transfer(input, command));
+                    output.println(Messages.ok(transfer(input, command)));
                 } catch (IOException | IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                     output.println("Current records were not changed.");
@@ -331,7 +330,8 @@ public class LabLog {
             }
             if (List.of("reserve", "reservations", "edit-reservation", "cancel-reservation").contains(command)) {
                 try {
-                    output.println(reservationCommands.execute(input));
+                    String result = reservationCommands.execute(input);
+                    output.println(command.equals("reservations") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException | IOException exception) {
                     output.println("Error: " + exception.getMessage());
                     output.println("Reservations were not changed.");
@@ -340,7 +340,8 @@ public class LabLog {
             }
             if (command.equals("wait-request") || command.equals("waiting-requests")) {
                 try {
-                    output.println(waitingCommands.execute(input));
+                    String result = waitingCommands.execute(input);
+                    output.println(command.equals("waiting-requests") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException | IOException exception) {
                     output.println("Error: " + exception.getMessage());
                     output.println("Waiting requests were not changed.");
@@ -370,7 +371,7 @@ public class LabLog {
                     if (!saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -406,7 +407,7 @@ public class LabLog {
                     if (!saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -418,7 +419,7 @@ public class LabLog {
                     if (!saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -447,7 +448,7 @@ public class LabLog {
                     if (!command.equals("history") && !saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(command.equals("history") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -455,7 +456,8 @@ public class LabLog {
             }
             if (List.of("loans", "add-borrower", "edit-borrower").contains(command)) {
                 try {
-                    output.println(borrowerCommands.execute(input));
+                    String result = borrowerCommands.execute(input);
+                    output.println(command.equals("loans") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 } catch (IOException exception) {
@@ -470,7 +472,7 @@ public class LabLog {
                     if (!saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -504,7 +506,7 @@ public class LabLog {
                 if (!saveChanges(output)) {
                     return;
                 }
-                output.println(result);
+                output.println(Messages.ok(result));
             } catch (RegistrationCancelledException exception) {
                 output.println("Equipment registration cancelled.");
             } catch (IllegalArgumentException exception) {

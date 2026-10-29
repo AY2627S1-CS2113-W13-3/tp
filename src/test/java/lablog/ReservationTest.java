@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -131,7 +132,7 @@ class ReservationTest {
         String output = run(app, "reserve OSC b/A0123456X from/2099-02-01 to/2099-02-02");
         assertTrue(output.contains("Reservations were not changed"));
         assertFalse(output.contains("Reserved OSC"));
-        assertEquals(1, run(app, "reservations").lines().filter(line -> line.endsWith(" | OSC")).count());
+        assertEquals(1, compact(run(app, "reservations")).lines().filter(line -> line.contains(" | OSC | ")).count());
         assertTrue(saved.contains("reservation.count=1"));
         assertEquals("keep", Files.readString(live.resolve("keep")));
     }

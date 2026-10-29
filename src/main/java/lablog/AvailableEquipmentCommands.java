@@ -1,5 +1,6 @@
 package lablog;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,13 +29,12 @@ public class AvailableEquipmentCommands {
         if (units.isEmpty()) {
             return "No equipment available throughout " + window.start() + " through " + window.end() + ".";
         }
-        StringBuilder output = new StringBuilder("Available throughout " + window.start() + " through " + window.end()
-                + " (inclusive):\nAsset ID | Name | Category | Model | Location");
+        List<List<String>> rows = new ArrayList<>();
         for (Equipment unit : units) {
-            output.append('\n').append(unit.getAssetId()).append(" | ").append(unit.getName())
-                    .append(" | ").append(unit.getCategory()).append(" | ").append(unit.getModel())
-                    .append(" | ").append(unit.getLocation());
+            rows.add(List.of(unit.getAssetId(), unit.getName(), unit.getCategory(), unit.getModel(),
+                    unit.getLocation()));
         }
-        return output.toString();
+        return "Available throughout " + window.start() + " through " + window.end() + " (inclusive):\n"
+                + TableFormatter.format(List.of("Asset ID", "Name", "Category", "Model", "Location"), rows);
     }
 }

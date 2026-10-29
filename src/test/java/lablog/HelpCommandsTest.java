@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -96,8 +97,8 @@ class HelpCommandsTest {
         new LabLog().run(new Scanner("add OSC-001 n/Scope c/Electronics m/S1 l/Lab A\n"
                 + example + "\nlist\nexit\n"), new PrintStream(output));
 
-        assertTrue(output.toString().contains("Copied OSC-001 to OSC-002."));
-        assertTrue(output.toString().contains("OSC-002 | Scope | Electronics | S1 | Lab A | Available"));
+        assertTrue(compact(output.toString()).contains("Copied OSC-001 to OSC-002."));
+        assertTrue(compact(output.toString()).contains("OSC-002 | Scope | Electronics | S1 | Lab A | Available"));
     }
 
     @Test
@@ -107,7 +108,7 @@ class HelpCommandsTest {
         assertTrue(detail.endsWith("\n" + ".".repeat(60) + "\n"));
         assertTrue(detail.contains("Issue loans for one or more available equipment units.\n"
                 + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
-                + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"));
+                + "Example: loan OSC-001 b/A0123456X d/2099-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));
         assertTrue(detail.contains("Register the borrower with add-borrower"));
     }
@@ -138,7 +139,7 @@ class HelpCommandsTest {
             for (Loan loan : loans.getLoans()) {
                 assertEquals("A0123456X", loan.getBorrowerId());
                 assertEquals(LocalDate.of(2026, 9, 10), loan.getLoanDate());
-                assertEquals(LocalDate.of(2026, 9, 18), loan.getDueDate());
+                assertEquals(LocalDate.of(2099, 9, 18), loan.getDueDate());
                 assertTrue(loan.isActive());
             }
             count++;
@@ -231,7 +232,7 @@ class HelpCommandsTest {
         new LabLog(inventory, new LoanBook(), List::of).run(new Scanner(
                 "help history\nadd OSC-001\nScope\nElectronics\nS1\nLab\n" + example + "\nexit\n"),
                 new PrintStream(output));
-        assertTrue(output.toString().contains("No history found for OSC-001 - Scope."));
+        assertTrue(compact(output.toString()).contains("No history found for OSC-001 - Scope."));
         assertEquals(1, inventory.getEquipmentUnits().size());
     }
 
@@ -291,5 +292,31 @@ class HelpCommandsTest {
         assertTrue(output.toString().contains(help.execute("help loans")));
         assertEquals(List.of(borrower), borrowers.getBorrowers());
         assertEquals(saved, Files.readString(file));
+    }
+
+    @Test
+    void execute_summary_hasSectionsQuickStartAndNoDottedBorder() {
+        String summary = help.execute("help");
+
+        assertFalse(summary.contains("........"));
+        assertTrue(summary.contains("Common commands: add-borrower, add, list, loan, return, history."));
+        for (String section : List.of("Equipment", "Loans", "Borrowers", "Reservations",
+                "Faults and maintenance", "Records and overview", "General")) {
+            assertTrue(summary.contains("== " + section + " =="), section);
+        }
+        assertTrue(summary.lines().allMatch(line -> line.length() <= 120));
+    }
+
+    @Test
+    void run_successfulChange_isMarkedOkAndQueriesAreNot() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        new LabLog().run(new Scanner("add OSC-001 n/Scope c/Electronics m/S1 l/Lab\nlist\nbad\nexit\n"),
+                new PrintStream(output));
+
+        String text = output.toString();
+        assertTrue(text.contains("[OK] Equipment added"));
+        assertFalse(text.contains("[OK] Asset ID"));
+        assertTrue(text.contains("Error: Unknown command."));
     }
 }
