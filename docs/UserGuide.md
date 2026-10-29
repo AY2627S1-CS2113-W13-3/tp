@@ -296,11 +296,10 @@ Example: loan OSC-001 b/A0123456X d/2026-09-18
 Example: loan OSC-001 MIC-002 b/A0123456X d/2026-09-18
 ```
 
-Detailed help covers `add`, `copy`, `edit-equipment`, `move-equipment`, history-note commands,
-`active-loans`, `loan-audit`, `reverse-loan`, `reverse-return`, `list`, `find`,
-`loan`, `renew`, `lost`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
-commands belonging to the main or borrower console; viewing help does not make
-a command available in the other console.
+Detailed help is available for every command in the [Command Summary](#command-summary),
+including `search`, booking commands, `overview`, `why-unavailable`, data transfer,
+and command recall. The summary identifies the console in which each command
+can run; viewing help does not make a command available in the other console.
 
 Use `help return` to compare returning an item with and without new faults:
 
@@ -679,7 +678,7 @@ Repairs, cancellations, returns and imports are reflected on the next query.
 | `help [COMMAND]` | Both | View commands and explained examples |
 | `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
 | `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
-| `list` | Main | List equipment and availability |
+| `list [category/VALUE] [location/VALUE] [status/STATUS] [sort/FIELD]` | Main | List, filter and sort equipment; status is available, on-loan, unavailable or lost |
 | `active-loans [overdue]` | Main | List all active loans or only overdue loans |
 | `overview` | Main | Show today's reservations, overdue loans and unresolved severe faults |
 | `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |
@@ -692,12 +691,14 @@ Repairs, cancellations, returns and imports are reflected on the next query.
 | `why-unavailable ASSET_ID [from/START to/END]` | Main | Explain all applicable booking blockers |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
 | `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
-| `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a dated history note |
+| `reservation ASSET_ID d/DATE desc/DETAILS` | Main | Save a reservation history note, without making a booking |
+| `maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a maintenance history note |
 | `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
 | `repair FAULT_ID d/DATE desc/DETAILS` | Main | Resolve a fault and retain its repair history |
 | `edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]` | Main | Edit descriptive fields |
 | `move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION` | Main | Move selected units together |
 | `find ASSET_ID` | Main | Look up one exact asset ID |
+| `search TEXT` | Main | Search equipment names and models using partial text |
 | `reserve ASSET_ID b/USER from/START to/END` | Main | Create a reservation |
 | `reservations` | Main | List bookings and their IDs |
 | `edit-reservation ID [b/USER] [from/START] [to/END]` | Main | Edit a booking |
