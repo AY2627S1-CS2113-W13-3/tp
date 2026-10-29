@@ -74,6 +74,22 @@ relationships, and dependencies. Sequence diagrams show command flows between
 objects (`:ClassName` or `name:ClassName`), with activation bars; notes summarise
 steps that involve no message to another object.
 
+Class diagrams follow the [course UML conventions](https://se-education.org/se-book/uml/index.html).
+Solid arrows show stored references; dashed arrows show temporary use or creation.
+Association labels name fields where a concrete field is shown. Target
+multiplicities use `1`, `0..1` or `0..*`; omitted multiplicities are unspecified.
+Collection membership is an ordinary association, not a claim of exclusive
+composition ownership. Each association appears as a line rather than also as
+an attribute. The architecture diagram groups handlers conceptually; its
+unlabelled links summarise dependencies across the group, not fields of one class.
+
+Selected attributes use `name: Type`. Operations render as
+`name(parameter: Type): ReturnType`, including `void`; Mermaid inserts the colon
+before the return type. `+` means public, `-` private, and static operations are
+underlined. Interfaces and enumerations use stereotypes. Members irrelevant to
+an overview are omitted. Mermaid 10.9.1 still draws their empty compartments;
+these do not mean the corresponding Java classes have no fields or methods.
+
 ### Architecture
 
 LabLog is a single-process console application. All classes are in the `lablog`
@@ -104,7 +120,7 @@ classDiagram
         class WaitingRequestBook
         class BookingAvailability
     }
-    LabLog --> "*" XyzCommands : dispatches to
+    LabLog --> "0..*" XyzCommands : dispatches to
     BorrowerCli ..> XyzCommands : creates
     LabLog ..> ApplicationSnapshot : loads and saves
     XyzCommands --> Inventory
@@ -114,7 +130,7 @@ classDiagram
     XyzCommands --> ReservationBook
     XyzCommands --> WaitingRequestBook
     XyzCommands --> BookingAvailability
-    ReservationBook --> "1" BookingAvailability : -availability
+    ReservationBook --> "1" BookingAvailability : availability
 ```
 
 *`XyzCommands` stands for any of the 24 command handlers. Each handler depends only
@@ -227,16 +243,16 @@ return, renewal, loss and reversal state changes over time (see
 ```mermaid
 classDiagram
     direction LR
-    Inventory "1" *--> "*" Equipment
-    BorrowerBook "1" *--> "*" Borrower
-    LoanBook "1" *--> "*" Loan
-    LoanBook "1" *--> "*" LoanAuditEvent
-    Loan "1" *--> "*" LoanRenewal
-    FaultBook "1" *--> "*" Fault
-    Fault --> "1" Severity
-    ReservationBook "1" *--> "*" Reservation
-    WaitingRequestBook "1" *--> "*" WaitingRequest
-    class Severity {
+    Inventory --> "0..*" Equipment : equipmentUnits
+    BorrowerBook --> "0..*" Borrower : borrowers
+    LoanBook --> "0..*" Loan : loans
+    LoanBook --> "0..*" LoanAuditEvent : audit
+    Loan --> "0..*" LoanRenewal : renewals
+    FaultBook --> "0..*" Fault : faults
+    Fault --> "1" Severity : severity
+    ReservationBook --> "0..*" Reservation : reservations
+    WaitingRequestBook --> "0..*" WaitingRequest : requests
+    class Severity["Fault.Severity"] {
         <<enumeration>>
         UNSPECIFIED
         MINOR
@@ -260,11 +276,12 @@ waiting requests. `ReservationBook` creates it, and the two refer to each other.
 ```mermaid
 classDiagram
     direction LR
-    ReservationBook "1" <--> "1" BookingAvailability
-    WaitingRequestBook --> "1" BookingAvailability
-    BookingAvailability --> "1" Inventory
-    BookingAvailability --> "1" LoanBook
-    BookingAvailability --> "1" FaultBook
+    ReservationBook --> "1" BookingAvailability : availability
+    BookingAvailability --> "1" ReservationBook : reservations
+    WaitingRequestBook --> "1" BookingAvailability : availability
+    BookingAvailability --> "1" Inventory : inventory
+    BookingAvailability --> "1" LoanBook : loans
+    BookingAvailability --> "1" FaultBook : faults
 ```
 
 ### Storage
@@ -445,11 +462,11 @@ repair in the same session.
 
 ```mermaid
 classDiagram
-    LabLog --> "1" EquipmentSearchCommands : -equipmentSearch
-    EquipmentSearchCommands --> "1" Inventory : -inventory
-    EquipmentSearchCommands --> "1" LoanBook : -loans
-    EquipmentSearchCommands --> "1" FaultBook : -faults
-    Inventory "1" *--> "0..*" Equipment : -equipmentUnits {ordered}
+    LabLog --> "1" EquipmentSearchCommands : equipmentSearch
+    EquipmentSearchCommands --> "1" Inventory : inventory
+    EquipmentSearchCommands --> "1" LoanBook : loans
+    EquipmentSearchCommands --> "1" FaultBook : faults
+    Inventory --> "0..*" Equipment : equipmentUnits {ordered}
     EquipmentSearchCommands ..> Equipment : matches and displays
     class EquipmentSearchCommands {
         +execute(input: String) String
@@ -635,21 +652,21 @@ remains the source of loan state; borrower records do not contain copied loans.
 
 ```mermaid
 classDiagram
-    LabLog --> "1" BorrowerCommands : -borrowerCommands
+    LabLog --> "1" BorrowerCommands : borrowerCommands
     BorrowerCli ..> BorrowerCommands : creates
-    BorrowerCommands --> "1" BorrowerBook : -borrowers
-    BorrowerCommands --> "1" LoanBook : -loans
-    BorrowerCommands --> "1" Function : -equipmentNames
-    BorrowerCommands --> "1" Clock : -clock
-    BorrowerBook --> "0..1" Saver : -saver
-    BorrowerBook "1" *--> "0..*" Borrower : -borrowers
-    LoanBook "1" *--> "0..*" Loan : -loans
+    BorrowerCommands --> "1" BorrowerBook : borrowers
+    BorrowerCommands --> "1" LoanBook : loans
+    BorrowerCommands --> "1" Function : equipmentNames
+    BorrowerCommands --> "1" Clock : clock
+    BorrowerBook --> "0..1" Saver : saver
+    BorrowerBook --> "0..*" Borrower : borrowers
+    LoanBook --> "0..*" Loan : loans
     class Borrower {
         -borrowerId: String
         -name: String
         -phone: String
         -email: String
-        +validateId(borrowerId: String)$ void
+        +validateId(borrowerId: String) void$
     }
     class BorrowerBook {
         +addBorrower(borrower: Borrower) void
@@ -657,7 +674,7 @@ classDiagram
         +getBorrowers() List~Borrower~
         -persist(updated: Map) void
     }
-    class Saver {
+    class Saver["BorrowerBook.Saver"] {
         <<interface>>
         +save(proposed: List~Borrower~) void
     }
