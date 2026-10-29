@@ -14,6 +14,7 @@
     * [Import envelope validation](#import-envelope-validation)
 * [Implementation](#implementation)
   * [Equipment records](#equipment-records)
+    * [Equipment registration](#equipment-registration)
     * [Equipment listing, filters, and sorting](#equipment-listing-filters-and-sorting)
     * [Equipment search](#equipment-search)
     * [Exact equipment lookup](#exact-equipment-lookup)
@@ -49,6 +50,7 @@
     * [Daily operational overview](#daily-operational-overview)
     * [Help and command examples](#help-and-command-examples)
     * [Explicit command recall](#explicit-command-recall)
+  * [Console output](#console-output)
   * [Current integration limits and packaged verification](#current-integration-limits-and-packaged-verification)
 * [Appendix A: Product scope](#appendix-a-product-scope)
   * [Target user profile](#target-user-profile)
@@ -399,6 +401,113 @@ These commands register, change and find individual equipment units. `Inventory`
 keeps units in registration order, and loans, faults and history refer to units by
 asset ID, so edits never break those references.
 
+```mermaid
+classDiagram
+    EquipmentAddCommands --> "1" Inventory : inventory
+    EquipmentCopyCommands --> "1" Inventory : inventory
+    EquipmentEditCommands --> "1" Inventory : inventory
+    EquipmentMoveCommands --> "1" Inventory : inventory
+    EquipmentFindCommands --> "1" Inventory : inventory
+    EquipmentListCommands --> "1" Inventory : inventory
+    Inventory --> "0..*" Equipment : equipmentUnits {ordered}
+    class Inventory {
+        +addEquipment(equipment: Equipment) void
+        +containsAssetId(assetId: String) boolean
+        +getEquipment(assetId: String) Equipment
+        +updateEquipment(replacement: Equipment) void
+        +updateLocations(assetIds: List~String~, location: String) void
+        +getEquipmentUnits() List~Equipment~
+    }
+    class Equipment {
+        -assetId: String
+        -name: String
+        -category: String
+        -model: String
+        -location: String
+    }
+```
+
+*All six equipment handlers share the main console's one `Inventory`. Only those
+associations are shown: `LabLog` holds one instance of each handler (see
+[Architecture](#architecture)), and `EquipmentListCommands` and
+`EquipmentFindCommands` also read `LoanBook` and `FaultBook` to derive availability,
+as the [search diagram](#equipment-search) shows for `search`. `getEquipmentUnits()`
+returns an immutable copy, so handlers read units freely but change them only
+through the operations shown.*
+
+`Equipment` is immutable. Its constructor enforces the record's invariants for
+every caller, including loading a saved file: the asset ID must be a single
+non-empty word, and the name, category, model and location must each be non-empty
+and on one line. `Inventory` enforces what depends on the collection rather than
+one record: `addEquipment` rejects an asset ID that is already registered, and
+`updateEquipment` swaps a replacement into the position of the unit with the same
+ID, so registration order is kept.
+
+#### Equipment registration
+
+`add` registers one unit in either of two forms:
+
+```text
+add OSC-001 n/Digital Oscilloscope c/Electronics m/Rigol DS1054Z l/Lab 3
+add MUL-001
+```
+
+**Single-line form.** `EquipmentAddCommands` splits the arguments at
+whitespace-delimited prefixes and requires `n/`, `c/`, `m/` and `l/` exactly once
+each, in any order. Unknown, repeated, blank and multiline fields are rejected with
+the usage message before any record is created, as is an asset ID that is already
+registered. An asset ID containing a space, such as `add DMM 2 n/...`, also fails
+with the usage message, because the second word is read as the start of the fields.
+
+**Prompted form.** When `add` is followed by only an asset ID, `LabLog` handles the
+command itself, because it must read further lines from the console:
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant L as :LabLog
+    participant I as :Inventory
+    User->>+L: add MUL-001
+    L->>+I: containsAssetId("MUL-001")
+    I-->>-L: false
+    L->>+L: readEquipment("MUL-001", scanner, output)
+    loop name, category, model, location
+        Note over User,L: print "Enter FIELD: (type cancel to abort)",<br/>then read one line
+    end
+    create participant E as unit:Equipment
+    L->>+E: Equipment("MUL-001", name, category, model, location)
+    E-->>-L: unit
+    L-->>-L: unit
+    L->>+I: addEquipment(unit)
+    I-->>-L: #nbsp;
+    L->>+L: saveChanges(output)
+    L-->>-L: true
+    L-->>-User: [OK] Equipment added to inventory.
+```
+
+`LabLog` checks `Inventory#containsAssetId` before the first prompt, so a duplicate
+ID is reported immediately instead of after four answers. `readEquipment` then
+asks for the name, category, model and location in turn. Typing `cancel` at any
+prompt throws a private `RegistrationCancelledException`; `LabLog` prints
+`Equipment registration cancelled.`, adds nothing and keeps the session running. If
+input ends part-way, nothing is added and the console closes, because there is no
+further input to read. In both forms, the snapshot is saved before
+`[OK] Equipment added to inventory.` is printed.
+
+**Design choice.** The prompted form suits a technician registering one unit
+without remembering the prefixes, while the single-line form suits scripts,
+command recall and repeated entry. Both construct the same `Equipment`, so
+validation cannot drift between them. Reading the prompts inside
+`EquipmentAddCommands` was considered, but every other handler maps one input line
+to one result and never touches the console. Keeping the prompts in `LabLog`
+preserves that rule, so the handler stays testable without a `Scanner`.
+
+`EquipmentAddCommandsTest` covers fields in any order, missing, blank, repeated
+and unknown fields, and duplicate IDs. `EquipmentValidationTest` covers blank
+details for every field and checks that a rejected duplicate leaves the original
+unit unchanged. `RegistrationCancellationTest` cancels at each prompt and
+checks that no partial unit is stored and the session continues.
+
 #### Equipment listing, filters, and sorting
 
 `EquipmentListCommands` accepts `list` with optional `category/`, `location/`,
@@ -425,18 +534,20 @@ books. Actual reservations block loans for overlapping date ranges but do not
 change this undated status; display-only history notes do not participate in
 booking checks.
 
+For example, `list location/lab 5 sort/name` matches `Lab 5` without case
+sensitivity and prints the matching units as a table (see
+[Console output](#console-output)):
+
+```text
+Asset ID | Name                 | Category    | Model         | Location | Availability
+---------+----------------------+-------------+---------------+----------+-------------
+OSC-001  | Digital Oscilloscope | Electronics | Rigol DS1054Z | Lab 5    | Available
+MUL-001  | Multimeter           | Electronics | Fluke 117     | Lab 5    | Available
+```
+
 `EquipmentListCommandsTest` covers each filter, case-insensitive field values,
 combined filters and sorting, option ordering, unchanged inventory order,
 status changes, invalid inputs, no matches, and severe-fault status filtering.
-
-##### Sorting filtered equipment
-
-Use `list [category/VALUE] [location/VALUE] [status/available|on-loan|unavailable|lost] [sort/FIELD]`.
-Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
-`name`, `category`, `model`, `location`, and `availability`. For example,
-`list category/Electronics sort/name` sorts only matching units. Comparisons
-are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
-Sorting a copied snapshot preserves the stored registration order.
 
 #### Equipment search
 
@@ -585,11 +696,29 @@ checks that the syntax and behavior described by `help search` remain available.
 
 #### Exact equipment lookup
 
-EquipmentFindCommands resolves one case-sensitive asset ID from the shared
-inventory and reports descriptive fields with availability derived from active
-loans and severe faults. The lookup is read-only and returns a clear error for unknown IDs.
+`find ASSET_ID` shows every field of one unit. `EquipmentFindCommands` matches the
+asset ID exactly and case-sensitively, then derives availability with the same
+precedence as `list` and `search`: lost, then on loan, then unavailable because of
+an unresolved severe fault, otherwise available. The lookup is read-only, so
+`LabLog` does not save after it.
 
-EquipmentFindCommandsTest covers details, availability, invalid syntax,
+```text
+lablog> find OSC-001
+Asset ID: OSC-001
+Name: Digital Oscilloscope
+Category: Electronics
+Model: Rigol DS1054Z
+Location: Lab 5
+Availability: Available
+```
+
+**Design choice.** `find` is deliberately exact, unlike `search`: asset IDs are
+the stable keys that loans, faults and history use, so a lookup that might match
+several units would be ambiguous whenever a technician needs one specific unit.
+An unknown ID produces `Error: Equipment ASSET_ID not found.` rather than an
+empty result, so a typo is reported instead of looking like a missing unit.
+
+`EquipmentFindCommandsTest` covers details, availability, invalid syntax,
 unknown IDs, and unchanged equipment and loan records.
 
 #### Copying equipment
@@ -606,24 +735,82 @@ records attached to the original ID.
 
 #### Equipment detail editing
 
-EquipmentEditCommands parses optional name, category, model, and location fields
-and constructs a fully validated immutable Equipment record. Inventory replaces
-the record at its existing position while retaining the same asset ID, so loan
-and history references remain valid. LabLog saves the updated equipment through
-the existing snapshot store after the command succeeds.
+`edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]` changes any
+subset of a unit's descriptive fields; at least one field is required. For
+example, `edit-equipment MUL-001 l/Store B m/Fluke 117` changes the location and
+model and keeps the name and category.
 
-EquipmentEditCommandsTest covers partial edits, field ordering, validation,
+`EquipmentEditCommands` first resolves the unit with `Inventory#getEquipment`, so
+an unknown ID fails before the fields are parsed. Fields may appear in any order;
+an unknown, repeated or empty field is rejected with the usage message. The
+handler then builds a new `Equipment` from the supplied fields and the current
+values of the others. Because the constructor validates the complete record, an
+edit cannot produce a unit that registration would reject. Finally,
+`Inventory#updateEquipment` swaps the new record into the old one's position.
+`LabLog` saves before printing `[OK] Updated equipment MUL-001.`
+
+**Design choice.** The asset ID cannot be edited. Loans, faults, reservations and
+history refer to units by asset ID, so changing it would either break those
+references or require every book to be rewritten. To renumber a unit, a
+technician can `copy` it to the new ID. Replacing an immutable record, rather than
+adding setters to `Equipment`, means no other component can observe a
+half-edited unit, and the inventory snapshots handed out earlier keep their
+original values.
+
+`EquipmentEditCommandsTest` covers partial edits, field ordering, validation,
 stable asset references, and persistence after restart.
 
 #### Bulk equipment location updates
 
-EquipmentMoveCommands parses a comma-separated selection and one target
-location. Inventory validates every distinct asset ID and constructs all
-replacement Equipment records before installing any of them, so an invalid
-selection or location leaves the batch unchanged. LabLog then persists the
-updated inventory through the existing snapshot store.
+`move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION` moves several units to one
+location, for example after a lab is reorganised:
 
-EquipmentMoveCommandsTest covers successful partial batch updates, validation
+```mermaid
+sequenceDiagram
+    actor User
+    participant L as :LabLog
+    participant M as :EquipmentMoveCommands
+    participant I as :Inventory
+    User->>+L: move-equipment OSC-001,MUL-001 l/Lab 5
+    L->>+M: execute(input)
+    Note right of M: split the selection at commas<br/>and read the location after l/
+    M->>+I: updateLocations(assetIds, "Lab 5")
+    loop each selected asset ID
+        I->>+I: getEquipment(assetId)
+        I-->>-I: current
+        create participant R as replacement:Equipment
+        I->>+R: Equipment(assetId, ..., "Lab 5")
+        R-->>-I: replacement
+    end
+    Note right of I: every ID found and unique,<br/>every replacement valid
+    loop each replacement
+        I->>+I: updateEquipment(replacement)
+        I-->>-I: #nbsp;
+    end
+    I-->>-M: #nbsp;
+    M-->>-L: Moved 2 equipment unit(s) to Lab 5.
+    L->>+L: saveChanges(output)
+    L-->>-L: true
+    L-->>-User: [OK] Moved 2 equipment unit(s) to Lab 5.
+```
+
+`EquipmentMoveCommands` only parses: it splits the selection at commas, trims each
+ID and reads the location after `l/`. `Inventory#updateLocations` then works in two
+passes. The first pass resolves every ID, rejects blank and repeated IDs, and
+constructs each replacement `Equipment`, which also validates the new location.
+Only when the whole selection has passed does the second pass install the
+replacements. A failure in the first pass therefore leaves every unit where it
+was: `move-equipment OSC-001,NOPE-9 l/Lab 6` reports
+`Error: Equipment NOPE-9 not found.` and does not move `OSC-001` either.
+
+**Design choice.** Validating the whole batch first makes the command
+all-or-nothing, so a technician who sees an error can fix the command and run it
+again without first checking which units moved. Moving units one at a time and
+reporting failures per unit was considered, but it leaves a partly applied batch
+whose state the user must work out. The two passes live in `Inventory`, not the
+handler, because they depend on the collection's contents and ordering.
+
+`EquipmentMoveCommandsTest` covers successful batch updates, validation
 atomicity, stable loan references, and persistence after restart.
 
 ### Borrowers
@@ -1921,6 +2108,67 @@ documented interaction. No terminal dependency or hidden execution is needed.
 CommandHistoryTest covers empty history, invalid/overflowing indices, eviction,
 session isolation, wizard-answer exclusion, both consoles and explicit execution
 after editing a recalled command.
+
+### Console output
+
+All main-console results share one look: listings are aligned tables, successful
+changes start with `[OK]`, and rejected commands start with `Error:` and change
+nothing.
+
+```mermaid
+classDiagram
+    LabLog ..> Messages : prefixes successful changes
+    BorrowerCli ..> Messages : prefixes successful changes
+    EquipmentListCommands ..> TableFormatter : formats rows
+    EquipmentSearchCommands ..> TableFormatter : formats rows
+    ActiveLoanCommands ..> TableFormatter : formats rows
+    class Messages {
+        ~OK_PREFIX: String$
+        ~ok(result: String) String$
+    }
+    class TableFormatter {
+        -COLUMN_SEPARATOR: String$
+        -HEADER_JOINT: String$
+        ~format(headers: List~String~, rows: List~List~String~~) String$
+        -appendRow(table: StringBuilder, cells: List~String~, widths: int[]) void$
+    }
+```
+
+*Three of the nine `TableFormatter` callers are shown; `AvailableEquipmentCommands`,
+`BorrowerCommands`, `HistoryCommands`, `OverviewCommands`, `ReservationCommands`
+and `WaitingRequestCommands` use it the same way. Both classes are
+package-private utilities with only static members.*
+
+`TableFormatter.format(headers, rows)` computes each column's width from its
+widest cell, header included, and pads every column except the last. The last
+column is left unpadded so no line ends in trailing spaces, which keeps the
+output stable for the exact-text UI tests. A separator line of dashes joined by
+`-+-` follows the header. A row whose cell count differs from the header count
+throws `IllegalArgumentException`, because a misaligned table would silently
+mislabel data. With no rows, only the header and separator are printed, but
+handlers print their own empty-state message, such as
+`No equipment matches the supplied filters.`, instead.
+
+`Messages.ok(result)` prepends `[OK] ` to the text a handler returns. Handlers
+return plain results and never add the prefix themselves. `LabLog` and
+`BorrowerCli` add it only to commands that changed records, and only once the
+change is saved: by `LabLog.saveChanges`, or, for borrowers, reservations and
+waiting requests, by the book's `Saver` before the handler returns. An `[OK]` line
+therefore means the change is both applied and saved, and read-only commands such
+as `list`, `find` and `history` are never prefixed.
+
+The `help` summary uses the same visual layout but formats itself, because it
+needs things `TableFormatter` does not provide: section rows such as
+`== Equipment ==`, and descriptions wrapped at 45 characters onto continuation
+rows with an empty command column.
+
+**Design choice.** Formatting is centralised in two small classes rather than
+in each handler, so all listings line up the same way and the success and failure
+wording cannot drift between commands. A general table library was considered
+unnecessary for fixed-width console output and would add a dependency.
+
+`TableFormatterTest` covers padding, the separator, empty tables, rejected rows
+with the wrong cell count, and the absence of trailing spaces.
 
 ### Current integration limits and packaged verification
 
