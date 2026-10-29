@@ -61,8 +61,8 @@ Both provide command help and examples.
    java -jar lablog.jar
    ```
 
-4. The command list appears once at startup; after that, the short `lablog>`
-   prompt waits for your input. Try `help`, then `help loan`, then `exit`.
+4. A LabLog banner with the version and the command list appear once at startup;
+   after that, the short `lablog>` prompt waits for your input. Try `help`, then `help loan`, then `exit`.
 
 For the standalone borrower console, run `java -cp lablog.jar lablog.BorrowerCli`
 in the same folder. Exit either console with `exit`, or end input with Ctrl+Z then

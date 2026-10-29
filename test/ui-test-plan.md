@@ -39,7 +39,7 @@ Expected stdout (last prompt has a trailing space and no newline):
 
 ```text
 LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.
-lablog> Added borrower A0123456X: Jamie Tan.
+lablog> [OK] Added borrower A0123456X: Jamie Tan.
 Phone: 91234567 | Email: jamie@u.nus.edu
 lablog> Error: Borrower ID A0123456X already exists. Choose a different borrower ID.
 No changes saved.
