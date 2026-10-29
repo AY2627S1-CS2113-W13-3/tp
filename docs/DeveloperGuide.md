@@ -123,21 +123,21 @@ sequenceDiagram
     I-->>-C: false
     create participant E as :Equipment
     C->>+E: Equipment("OSC-002", ...)
-    E-->>-C: 
+    E-->>-C: #nbsp;
     C->>+I: addEquipment(copy)
-    I-->>-C: 
+    I-->>-C: #nbsp;
     C-->>-L: "Copied OSC-001 to OSC-002."
     L->>+L: saveChanges(output)
     L->>+L: snapshot(borrowers)
     create participant S as :ApplicationSnapshot
     L->>+S: ApplicationSnapshot(...)
-    S-->>-L: 
+    S-->>-L: #nbsp;
     deactivate L
     L->>+S: write(dataFile)
     Note over S: write a temporary file,<br/>then replace the data file atomically
-    S-->>-L: 
+    S-->>-L: #nbsp;
     L-->>-L: true
-    L-->>-User: Copied OSC-001 to OSC-002.
+    L-->>-User: [OK] Copied OSC-001 to OSC-002.
 ```
 
 1. `CommandHistory` first handles `commands` and `recall INDEX`. It returns `null`
@@ -145,7 +145,8 @@ sequenceDiagram
 2. The handler validates the whole command before changing any record. Invalid
    input throws `IllegalArgumentException`; `LabLog` prints `Error: ...` and the
    session continues.
-3. Commands that change records are saved before success is printed. Read-only
+3. Commands that change records are saved before success is printed with the
+   `[OK]` prefix supplied by `Messages.ok`. Read-only
    commands such as `list`, `find`, `history` and `loan-audit` never save.
 
 The feature diagrams later in this guide start at the call from `:LabLog` to the
@@ -367,6 +368,7 @@ classDiagram
     BorrowerCommands --> "1" BorrowerBook
     BorrowerCommands --> "1" LoanBook
     BorrowerCommands --> "1" Clock
+    BorrowerCommands --> "1" Function : equipmentNames
     BorrowerBook "1" *--> "*" Borrower
     BorrowerBook --> "0..1" Saver
     LoanBook "1" *--> "*" Loan
@@ -389,8 +391,14 @@ classDiagram
     class BorrowerCommands {
         +execute(input: String) String
     }
-    note for BorrowerCommands "Equipment names are looked up through<br/>an injected String-to-String function"
+    class Function {
+        <<interface>>
+        +apply(assetId: String) String
+    }
 ```
+
+`Function` denotes `java.util.function.Function<String, String>`, and `Saver`
+denotes the package-private `BorrowerBook.Saver` interface.
 
 `LabLog` keeps one `BorrowerCommands` and shares its borrower and loan books with
 the loan handlers. `BorrowerCli` creates its own `BorrowerCommands` with a
@@ -425,24 +433,24 @@ sequenceDiagram
     participant S as saver:Saver
     L->>+C: execute(input)
     C->>+V: validateId(id)
-    V-->>-C: 
+    V-->>-C: #nbsp;
     Note over C: read the n/, p/ and e/ fields
     create participant R as :Borrower
     C->>+R: Borrower(id, name, phone, email)
-    R-->>-C: 
+    R-->>-C: #nbsp;
     C->>+B: addBorrower(borrower)
     Note over B: reject a duplicate ID,<br/>copy the map and add the borrower
     B->>+B: persist(updated)
     B->>+S: save(proposed)
     create participant A as :ApplicationSnapshot
     S->>+A: ApplicationSnapshot(...)
-    A-->>-S: 
+    A-->>-S: #nbsp;
     S->>+A: write(dataFile)
-    A-->>-S: 
-    S-->>-B: 
+    A-->>-S: #nbsp;
+    S-->>-B: #nbsp;
     deactivate B
     Note over B: publish the borrower<br/>in the live map
-    B-->>-C: 
+    B-->>-C: #nbsp;
     C-->>-L: "Added borrower A0123456X: Jamie Tan. ..."
 ```
 
@@ -471,7 +479,7 @@ sequenceDiagram
     K-->>-C: loans
     Note over C: keep active loans of this borrower,<br/>sort by due date, then asset ID
     alt no matching loan
-        C-->>L: no-active-loans message
+        Note over C: result = no-active-loans message
     else matching loans
         C->>+D: now(clock)
         D-->>-C: today
@@ -479,8 +487,9 @@ sequenceDiagram
             C->>+N: apply(assetId)
             N-->>-C: equipment name or null
         end
-        C-->>-L: rows with overdue flag, status and count
+        Note over C: result = rows with overdue flag, status and count
     end
+    C-->>-L: result
 ```
 
 A loan due before today is overdue; one due today is not. A lost loan stays in the
@@ -501,6 +510,32 @@ missing equipment record shows `Unknown equipment` rather than hiding the loan.
 A `Loan` records one unit lent to one borrower. It is never deleted: returning,
 renewing, reporting loss or reversing it changes its state, so history and the
 audit log can always find it.
+
+The commands below move a loan between these states. `Loan` validates state
+transitions, while `LoanBook` and `BookingAvailability` check correction
+dependencies and booking conflicts. Rejected changes throw
+`IllegalArgumentException`.
+
+```mermaid
+%%{init: {"state": {"nodeSpacing": 90, "rankSpacing": 70}}}%%
+stateDiagram-v2
+    state "On loan" as OnLoan
+    state "Returned" as Returned
+    state "Lost" as Lost
+    state "Reversed" as Reversed
+    [*] --> OnLoan : loan
+    OnLoan --> OnLoan : renew [new due date later]
+    OnLoan --> Returned : return
+    Returned --> OnLoan : reverse-return [no booking conflict]
+    OnLoan --> Lost : lost
+    OnLoan --> Reversed : reverse-loan [no renewals]
+```
+
+*Each transition is labelled with the command that triggers it and its guard.
+`Loan#isActive()` is true in On loan and Lost. A lost loan is still
+outstanding, so it stays in borrower and active-loan listings. No command
+leaves Lost or Reversed, so they have no outgoing transitions. To reverse the issue of a returned loan, reverse
+its return first.*
 
 #### Issuing single and batch loans
 
@@ -548,10 +583,10 @@ sequenceDiagram
     R->>+D: now(clock)
     D-->>-R: today
     R->>+P: requireAvailable(assetId, period, null, loan)
-    P-->>-R: 
+    P-->>-R: #nbsp;
     R->>+N: renew(newDueDate, today)
     Note over N: append a LoanRenewal,<br/>then update the due date
-    N-->>-R: 
+    N-->>-R: #nbsp;
     R-->>-L: confirmation text
 ```
 
@@ -589,7 +624,7 @@ sequenceDiagram
     R->>+B: returnLoans(selectedLoans, today, faults)
     loop each selected loan
         B->>+N: validateReturn(today, faults)
-        N-->>-B: 
+        N-->>-B: #nbsp;
     end
     loop each selected loan
         B->>+E: returned(loan, today, faults)
@@ -597,10 +632,10 @@ sequenceDiagram
     end
     loop each selected loan
         B->>+N: markReturned(today, faults)
-        N-->>-B: 
+        N-->>-B: #nbsp;
     end
     Note over B: append the RETURN events
-    B-->>-R: 
+    B-->>-R: #nbsp;
     R-->>-L: confirmation text
 ```
 
@@ -710,15 +745,14 @@ sequenceDiagram
     C->>+B: reverse(eventId, RETURN, today, reason, policy)
     Note over B: find the original event and<br/>check later corrections and loans
     B->>+P: requireAvailable(assetId, period, null, loan)
-    P-->>-B: 
-    alt conflict or dependency found
-        B-->>C: IllegalArgumentException
-    else correction is valid
-        Note over B: validate a detached copy of the loan<br/>and the new event, then apply both
-        B-->>-C: correction event
-    end
-    C-->>-L: confirmation text
+    P-->>-B: #nbsp;
+    Note over B: validate a detached copy of the loan and event,<br/>then apply both only when all checks pass
+    B-->>-C: correction event or exception
+    C-->>-L: confirmation or exception
 ```
+
+A rejected correction throws `IllegalArgumentException` through the handler to
+`LabLog`, which prints the error without saving or displaying success.
 
 `LoanBook` applies the change to a copy and validates the complete set of loans
 and events before changing the shared loan. The loan object keeps its identity for
@@ -746,7 +780,7 @@ sequenceDiagram
     loop each loan of the asset
         create participant E as :HistoryEntry
         H->>+E: HistoryEntry(assetId, date, type, details)
-        E-->>-H: 
+        E-->>-H: #nbsp;
     end
     H->>+O: get()
     O-->>-H: fault, repair, reservation and note entries
@@ -838,6 +872,13 @@ scheduling is not supported, and the output says so.
 **Help.** `HelpCommands` holds shared guidance for both consoles and has no record
 dependencies. `help` lists commands; `help COMMAND` shows syntax, fields and
 examples. Tests run every documented example against the real handlers.
+
+**Console formatting.** `TableFormatter` aligns listing columns and adds a header
+and separator. Equipment lists, search, availability, active and borrower loans,
+history, reservations, waiting requests and overview share this formatter.
+Reservation and waiting-request tables include a Status column. `help` groups
+commands into sections and wraps descriptions; `help COMMAND` retains its border.
+Queries have no `[OK]` prefix.
 
 **Command recall.** `CommandHistory` keeps the last 20 commands of the session.
 `commands` lists them and `recall INDEX` displays one for copying and editing. A
@@ -996,11 +1037,11 @@ future.
 ### Equipment
 
 1. `add OSC-001 n/Digital Oscilloscope c/Electronics m/DS1054Z l/Lab A`<br>
-   Expected: `Equipment added to inventory.`
+   Expected: `[OK] Equipment added to inventory.`
 2. Repeat the same command.<br>
    Expected: `Error: Equipment OSC-001 already exists.`
 3. `copy OSC-001 OSC-002`, then `add MIC-001 n/Microscope c/Optics m/CX23 l/Lab B`.<br>
-   Expected: `Copied OSC-001 to OSC-002.` and a third unit.
+   Expected: `[OK] Copied OSC-001 to OSC-002.` and a third unit.
 4. `list category/electronics sort/name`<br>
    Expected: only the two oscilloscopes, both `Available`.
 5. `search scope`<br>
@@ -1015,7 +1056,7 @@ future.
 1. `add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@gmail.com`<br>
    Expected: an error asking for a `u.nus.edu` address.
 2. `add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu`<br>
-   Expected: `Added borrower A0123456X: Jamie Tan.`
+   Expected: `[OK] Added borrower A0123456X: Jamie Tan.` followed by contact details.
 3. `loan OSC-001 OSC-002 b/A0123456X d/2030-12-31`<br>
    Expected: both units loaned in one confirmation.
 4. `loan OSC-001 b/A0123456X d/2030-12-31`<br>

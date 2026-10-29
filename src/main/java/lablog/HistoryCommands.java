@@ -50,12 +50,12 @@ public class HistoryCommands {
         if (entries.isEmpty()) {
             return "No history found for " + label + ".";
         }
-        StringBuilder output = new StringBuilder("History for " + label + ":\nDate | Type | Details\n");
+        List<List<String>> rows = new ArrayList<>();
         for (HistoryEntry entry : entries) {
-            output.append(entry.getDate()).append(" | ").append(entry.getType()).append(" | ")
-                    .append(entry.getDescription()).append('\n');
+            rows.add(List.of(entry.getDate().toString(), entry.getType().toString(), entry.getDescription()));
         }
-        return output.append(entries.size()).append(entries.size() == 1 ? " record." : " records.").toString();
+        return "History for " + label + ":\n" + TableFormatter.format(List.of("Date", "Type", "Details"), rows)
+                + "\n" + entries.size() + (entries.size() == 1 ? " record." : " records.");
     }
 
     /**

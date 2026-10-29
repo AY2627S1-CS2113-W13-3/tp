@@ -1,6 +1,8 @@
 package lablog;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,11 +22,13 @@ public class WaitingRequestCommands {
             if (requests.getRequests().isEmpty()) {
                 return "No waiting requests.";
             }
-            StringBuilder output = new StringBuilder("WAITING requests (not confirmed reservations):");
+            List<List<String>> rows = new ArrayList<>();
             for (WaitingRequest request : requests.getRequests()) {
-                output.append('\n').append(describe(request));
+                rows.add(List.of(request.id(), request.borrowerId(), request.category(),
+                        request.window().start().toString(), request.window().end().toString(), "WAITING"));
             }
-            return output.toString();
+            return "WAITING requests (not confirmed reservations):\n" + TableFormatter.format(
+                    List.of("Request ID", "Borrower ID", "Category", "From", "Through", "Status"), rows);
         }
         if (parts.length != 2 || !parts[0].equals("wait-request")) {
             throw new IllegalArgumentException(USAGE);

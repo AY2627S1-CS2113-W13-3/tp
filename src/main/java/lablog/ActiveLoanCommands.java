@@ -2,6 +2,7 @@ package lablog;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -37,12 +38,11 @@ public class ActiveLoanCommands {
         if (active.isEmpty()) {
             return overdueOnly ? "No overdue loans." : "No active loans.";
         }
-        StringBuilder result = new StringBuilder("Asset ID | Borrower ID | Due date | Status");
+        List<List<String>> rows = new ArrayList<>();
         for (Loan loan : active) {
-            result.append("\n").append(loan.getAssetId()).append(" | ").append(loan.getBorrowerId())
-                    .append(" | ").append(loan.getDueDate()).append(" | ")
-                    .append(loan.isLost() ? "LOST" : loan.getDueDate().isBefore(today) ? "OVERDUE" : "On time");
+            rows.add(List.of(loan.getAssetId(), loan.getBorrowerId(), loan.getDueDate().toString(),
+                    loan.isLost() ? "LOST" : loan.getDueDate().isBefore(today) ? "OVERDUE" : "On time"));
         }
-        return result.toString();
+        return TableFormatter.format(List.of("Asset ID", "Borrower ID", "Due date", "Status"), rows);
     }
 }

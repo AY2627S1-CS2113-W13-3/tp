@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -96,7 +97,7 @@ class RenewalPersistenceTest {
         assertEquals(today.plusDays(1), saved.getRenewals().getFirst().previousDueDate());
         assertEquals(1, ApplicationSnapshot.read(data).getReservations().size());
         byte[] after = Files.readAllBytes(data);
-        String listing = run(LabLog.load(data), "history OSC\nactive-loans\nloans A0123456X");
+        String listing = compact(run(LabLog.load(data), "history OSC\nactive-loans\nloans A0123456X"));
         assertTrue(listing.contains(" | RENEWAL | "));
         assertTrue(listing.contains(today.plusDays(2).toString()));
         assertTrue(java.util.Arrays.equals(after, Files.readAllBytes(data)));
@@ -213,7 +214,7 @@ class RenewalPersistenceTest {
         Files.delete(file);
         Files.createDirectory(file);
         Files.writeString(file.resolve("keep.txt"), "keep");
-        String output = run(app, "renew OSC d/" + today.plusDays(2) + "\nhistory OSC");
+        String output = compact(run(app, "renew OSC d/" + today.plusDays(2) + "\nhistory OSC"));
         assertTrue(output.contains("Changes could not be saved"));
         assertFalse(output.contains("Renewed OSC"));
         assertFalse(output.contains("History for OSC"));

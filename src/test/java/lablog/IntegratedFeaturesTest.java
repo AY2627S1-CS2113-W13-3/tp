@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -45,12 +46,12 @@ class IntegratedFeaturesTest {
         run(app, "add OLD n/Old c/Old m/Old l/Old");
         assertTrue(run(app, "import " + source + " --replace").contains("All current records were replaced"));
         assertTrue(run(app, "find OSC-001").contains("Unavailable: severe fault"));
-        assertTrue(run(app, "list category/Electronics status/available sort/name")
+        assertTrue(compact(run(app, "list category/Electronics status/available sort/name"))
                 .contains("No equipment matches"));
         assertTrue(run(app, "loan OSC-001 b/A0123456X d/" + LocalDate.now().plusDays(1))
                 .contains("unresolved severe fault"));
         assertTrue(run(app, "repair F-1 d/2024-01-02 desc/Replaced screen").contains("Resolved fault F-1"));
-        assertTrue(run(app, "list status/available sort/name").contains("OSC-001 | Scope"));
+        assertTrue(compact(run(app, "list status/available sort/name")).contains("OSC-001 | Scope"));
         assertTrue(ApplicationSnapshot.read(live).getFaults().getFirst().isResolved());
         assertTrue(run(LabLog.load(live), "history OSC-001").contains("Replaced screen"));
         Path exported = directory.resolve("export.properties");
@@ -70,17 +71,17 @@ class IntegratedFeaturesTest {
         inventory.addEquipment(new Equipment("A", "Probe", "Electronics", "P1", "Lab A"));
         FaultBook faults = new FaultBook(inventory);
         EquipmentListCommands commands = new EquipmentListCommands(inventory, new LoanBook(), faults);
-        String expected = commands.execute("list category/Electronics sort/name");
-        assertEquals(expected, commands.execute("list sort/name category/Electronics"));
+        String expected = compact(commands.execute("list category/Electronics sort/name"));
+        assertEquals(expected, compact(commands.execute("list sort/name category/Electronics")));
         assertTrue(expected.indexOf("A | Probe") < expected.indexOf("B | Scope"));
         assertFalse(expected.contains("C | Fan"));
         Fault fault = faults.report("A", LocalDate.of(2024, 1, 1), "Damage", Fault.Severity.SEVERE);
-        assertFalse(commands.execute("list status/available sort/name").contains("A | Probe"));
+        assertFalse(compact(commands.execute("list status/available sort/name")).contains("A | Probe"));
         faults.resolve(fault.getId(), LocalDate.of(2024, 1, 2), "Repaired");
-        assertTrue(commands.execute("list status/available sort/name").contains("A | Probe"));
+        assertTrue(compact(commands.execute("list status/available sort/name")).contains("A | Probe"));
         assertEquals(List.of("B", "C", "A"), inventory.getEquipmentUnits().stream()
                 .map(Equipment::getAssetId).toList());
-        assertThrows(IllegalArgumentException.class, () -> commands.execute("list sort/name sort/location"));
+        assertThrows(IllegalArgumentException.class, () -> compact(commands.execute("list sort/name sort/location")));
     }
 
     @Test

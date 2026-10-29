@@ -155,16 +155,15 @@ public class BorrowerCommands {
             return "No active loans for " + label + ".";
         }
         LocalDate today = LocalDate.now(clock);
-        StringBuilder output = new StringBuilder("Active loans for " + label + ":\n"
-                + "Asset ID | Equipment | Issued | Due | Overdue | Status\n");
+        List<List<String>> rows = new ArrayList<>();
         for (Loan loan : active) {
             String name = equipmentNames.apply(loan.getAssetId());
-            output.append(loan.getAssetId()).append(" | ")
-                    .append(name == null ? "Unknown equipment" : name).append(" | ")
-                    .append(loan.getLoanDate()).append(" | ").append(loan.getDueDate()).append(" | ")
-                    .append(today.isAfter(loan.getDueDate()) ? "yes" : "no").append(" | ")
-                    .append(loan.isLost() ? "LOST" : "On loan").append('\n');
+            rows.add(List.of(loan.getAssetId(), name == null ? "Unknown equipment" : name,
+                    loan.getLoanDate().toString(), loan.getDueDate().toString(),
+                    today.isAfter(loan.getDueDate()) ? "yes" : "no", loan.isLost() ? "LOST" : "On loan"));
         }
-        return output.append(active.size()).append(active.size() == 1 ? " active loan." : " active loans.").toString();
+        return "Active loans for " + label + ":\n"
+                + TableFormatter.format(List.of("Asset ID", "Equipment", "Issued", "Due", "Overdue", "Status"), rows)
+                + "\n" + active.size() + (active.size() == 1 ? " active loan." : " active loans.");
     }
 }
