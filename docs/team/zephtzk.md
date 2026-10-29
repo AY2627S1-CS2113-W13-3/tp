@@ -35,8 +35,8 @@ reservations and faults, and keeps every record in one validated local file.
 
 * Wrote the sections on editing borrowers, export, import, invalid-import
   protection and command recall.
-* Wrote the Current limitations and FAQ sections, and completed the Command
-  Summary ([#124](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/124),
+* Wrote the Current limitations section, updated the existing FAQ, and completed
+  the Command Summary ([#124](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/124),
   [#132](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/132)).
 
 **Contributions to the DG:**
@@ -62,4 +62,5 @@ reservations and faults, and keeps every record in one validated local file.
   [#112](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/112) to
   [#117](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/117),
   [#127](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/127) and
-  [#128](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/128) (11 reviews).
+  [#128](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/128) (10 distinct PRs; 11 submitted reviews,
+  including two approvals on #128).
