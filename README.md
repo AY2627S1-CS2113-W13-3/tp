@@ -56,10 +56,10 @@ On macOS/Linux, use `./gradlew run --console=plain`. Enter `help` for the comman
 list or `help return` for explained examples. To register equipment, enter
 `add OSC-001`, then answer the name, category, model, and location prompts. Add
 a borrower with `add-borrower` before using
-`loan OSC-001 b/A0123456X d/2026-10-30` to lend it. Use `history OSC-001` to
+`loan OSC-001 b/A0123456X d/2030-12-31` to lend it. Use `history OSC-001` to
 check its history, or `exit` to close.
 
-To extend an active loan, use `renew OSC-001 d/2026-11-05`. The new date must
+To extend an active loan, use `renew OSC-001 d/2031-01-15`. The new date must
 be later than its current deadline and no earlier than today. Shared booking
 checks apply, and `history OSC-001` retains each successful deadline change.
 
@@ -121,7 +121,7 @@ loans A0123456X
 Expected responses, following the `lablog>` prompts:
 
 ```text
-Added borrower A0123456X: Jamie Tan.
+[OK] Added borrower A0123456X: Jamie Tan.
 Phone: 91234567 | Email: jamietan@u.nus.edu
 No active loans for A0123456X - Jamie Tan.
 ```

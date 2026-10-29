@@ -61,7 +61,7 @@ class CliSmokeTests(unittest.TestCase):
 
     def test_main_registration_history_and_unavailable_commands(self):
         output = self.run_java(["-jar", str(JAR)],
-            "loan OSC-001 b/A0123456X d/2026-09-18\nloans A0123456X\n"
+            "loan OSC-001 b/A0123456X d/2099-09-18\nloans A0123456X\n"
             "add-borrower A0123456X\n\nOSC 001\n"
             "add OSC-001\nScope\nElectronics\nS1\nLab\nhistory OSC-001\nreturn OSC-001\nexit\n")
         self.assertNotIn("is not available in this console", output)
@@ -145,7 +145,7 @@ class CliSmokeTests(unittest.TestCase):
                 "add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu\n"
                 "add-borrower A0123456X n/Other p/91234567 e/other@u.nus.edu\nloans A0123456X\n")
             self.assertEqual(GREETING
-                + "lablog> Added borrower A0123456X: Jamie Tan.\n"
+                + "lablog> [OK] Added borrower A0123456X: Jamie Tan.\n"
                 + "Phone: 91234567 | Email: jamie@u.nus.edu\n"
                 + "lablog> Error: Borrower ID A0123456X already exists. Choose a different borrower ID.\n"
                 + "No changes saved.\nlablog> No active loans for A0123456X - Jamie Tan.\nlablog> ", output)
