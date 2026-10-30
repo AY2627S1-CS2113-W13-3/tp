@@ -3,6 +3,7 @@ package lablog;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -22,7 +23,7 @@ class LabLogTest {
             new LabLog(inventory, new LoanBook(), List::of).run(new Scanner(input + "\nhelp\nexit\n"),
                     new PrintStream(output));
             assertFalse(output.toString().contains("is not available in this console"));
-            assertTrue(output.toString().contains("Common Version 1 commands:"));
+            assertTrue(output.toString().contains("LabLog commands:"));
             assertFalse(output.toString().contains("Enter name:"));
             assertTrue(inventory.getEquipmentUnits().isEmpty());
         }
@@ -55,7 +56,7 @@ class LabLogTest {
         new LabLog(inventory, new LoanBook(), List::of).run(
                 new Scanner("list\nexit\n"), new PrintStream(output));
 
-        String result = output.toString();
+        String result = compact(output.toString());
         assertTrue(result.contains("Asset ID | Name | Category | Model | Location"));
         assertTrue(result.contains("OSC-001 | Scope | Electronics | S1 | Lab 1"));
         assertTrue(result.contains("MIC-002 | Microscope | Optics | M2 | Lab 2"));

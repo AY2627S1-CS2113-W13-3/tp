@@ -28,7 +28,8 @@ public class EquipmentFindCommands {
         Equipment equipment = inventory.getEquipmentUnits().stream()
                 .filter(unit -> unit.getAssetId().equals(assetId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Equipment " + assetId + " not found."));
-        String availability = loans.hasActiveLoan(assetId) ? "On loan"
+        String availability = loans.hasLostLoan(assetId) ? "Lost"
+                : loans.hasActiveLoan(assetId) ? "On loan"
                 : faults.blocksLending(assetId) ? "Unavailable: severe fault" : "Available";
         return "Asset ID: " + equipment.getAssetId() + "\n"
                 + "Name: " + equipment.getName() + "\n"

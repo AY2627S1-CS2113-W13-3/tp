@@ -1,55 +1,68 @@
 # Current feature verification
 
-Verified locally on 15 October 2026 from upstream `develop` revision
-`53dc4c00a414cb3e405ca131c12dd3741333d132`, with the uncommitted changes on
-`bugfix/integrated-develop-audit`. Runtime: Temurin Java 25.0.4.
+Verified locally on 29 October 2026 against upstream develop revision 5691cc0
+(v2.0 candidate), with the test-expectation and documentation updates on
+chore/update-lulu-ppp-and-ui-tests. Runtime: OpenJDK 25.0.4.1, PowerShell 7.6.
+Application code is unchanged by that branch.
 
 ## Results
 
 | Check | Result |
 | --- | --- |
-| `./gradlew check` | Passed; 83 tests, Checkstyle main and test passed |
-| `./gradlew shadowJar` | Passed; executable JAR built |
-| `python3 test/run-cli-smoke-tests.py` | Passed; 6 packaged CLI checks |
+| Gradle clean check shadowJar | Passed; 305 JUnit tests, no failures/errors/skips, Checkstyle main/test passed, executable JAR built |
+| python test/run-cli-smoke-tests.py | Passed; eight packaged CLI checks |
+| pwsh -File test/run-borrower-ui-tests.ps1 | Passed; two exact-output cases and restart persistence |
+| git diff --check | Passed |
 
-The JUnit suite covers equipment registration and validation, loan and return
-flows, borrower sharing and persistence, history, help, and recovery from
-invalid console input. The packaged smoke checks cover both consoles, command
-help, registration, loan and return persistence across restarts, and error
-recovery.
+## Coverage
 
-## Changes prompted by the audit
+JUnit covers equipment copy/edit/move and validation; borrower registration and
+contact edits; single/batch loans and returns; overdue boundaries, renewal, loss
+and audit records; booking conflicts, reservation edits/cancellation, interval
+availability and waiting demand; faults and repairs; snapshot migration and
+failed-import preservation; command recall, help and console recovery.
 
-The merged `LabLog` assigned its final history handler twice, preventing
-compilation. Its main loop also printed a long prompt and did not route explicit
-equipment registration to `EquipmentAddCommands`; that made valid registration
-forms fail and broke the integrated history and loan flows. The loop now uses
-the short prompt, handles both supported `add` forms, reports cancellation and
-validation errors, and saves before showing success. Persistent main sessions
-now load borrowers from `borrowers.properties` beside the selected LabLog data
-file, matching the documented shared workflow.
+The packaged checks query help for every supported command name. An
+integrated workflow issues two loans, renews one, reports it lost, returns the
+other, creates a reservation and waiting request, and reports/resolves a severe
+fault. It exports to a path containing spaces, imports into a new data file,
+restarts, and compares loan audit, history, bookings, waiting demand and loss
+listings. Read-only queries must leave the saved bytes unchanged.
 
-The audit also updated the CLI smoke inputs and corrected stale command,
-persistence, integration, and setup guidance across the Markdown documents.
-The placeholder John Doe portfolio page and its fake links were removed.
+The borrower transcript records the current standalone console output, including
+the `[OK]` prefix for successful changes; the runner's disposable data path is
+shown as `<run-id>`. These local checks do not replace GitHub Actions. CI runs
+Gradle check on Windows, macOS and Ubuntu; the Python and PowerShell runners are
+explicit local checks.
+
+## Documentation corrections
+
+The User Guide was aligned with v2.0: Quick Start uses the released JAR, example
+due dates are in the future, sample output includes `[OK]` and aligned tables,
+and save-failure behaviour is described once in the FAQ. The Developer Guide was
+regrouped after peer review, and its diagrams follow the course UML notation.
 
 ## Remaining limitations
 
-- Reservation, fault, and maintenance history notes are session-only.
-- The standalone borrower console starts with an empty loan book and cannot
-  issue loans; use the main console for the shared workflow.
-- Concurrent writers to the same data files are unsupported. Direct callers of
-  `LoanBook.addLoan` can bypass the validation in `LoanCommands`.
-- These checks were run locally; they do not replace a fresh GitHub Actions run.
+- Equipment list/find labels omit reservations; use the available interval
+  query to check bookings. Loans, losses and severe faults do affect labels.
+- Lost-equipment recovery and automatic waiting-request allocation are absent.
+- Renewals and loss reports cannot be reversed; `reverse-loan` and
+  `reverse-return` correct only loans and returns.
+- The standalone borrower console has its own borrower file and empty loan
+  book; it does not edit contacts in the current main snapshot.
+- One main-console process per data file is supported.
 
 ## Repeat the checks
 
-With Java 25 on `PATH`, run from the repository root:
+Use Java 25 and Python 3 from the repository root:
 
-```sh
-./gradlew check shadowJar
-python3 test/run-cli-smoke-tests.py
-```
+~~~powershell
+.\gradlew.bat clean check shadowJar --console=plain
+python test/run-cli-smoke-tests.py
+pwsh -File test/run-borrower-ui-tests.ps1
+~~~
 
-On Windows, use `gradlew.bat` in place of `./gradlew`. The smoke runner requires
-Python 3 and creates disposable data under `build/`.
+On macOS/Linux use ./gradlew instead of .\gradlew.bat. The PowerShell runner
+requires PowerShell 7. Test data under build/ is disposable; use another
+location for real records. See ui-test-plan.md for console inputs.

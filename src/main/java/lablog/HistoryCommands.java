@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * Displays a single equipment unit's loan, reservation, fault, and maintenance records.
+ * Displays one unit's loan, renewal, reservation, fault and maintenance records.
  */
 public class HistoryCommands {
     private final Inventory inventory;
@@ -50,29 +50,43 @@ public class HistoryCommands {
         if (entries.isEmpty()) {
             return "No history found for " + label + ".";
         }
-        StringBuilder output = new StringBuilder("History for " + label + ":\nDate | Type | Details\n");
+        List<List<String>> rows = new ArrayList<>();
         for (HistoryEntry entry : entries) {
-            output.append(entry.getDate()).append(" | ").append(entry.getType()).append(" | ")
-                    .append(entry.getDescription()).append('\n');
+            rows.add(List.of(entry.getDate().toString(), entry.getType().toString(), entry.getDescription()));
         }
-        return output.append(entries.size()).append(entries.size() == 1 ? " record." : " records.").toString();
+        return "History for " + label + ":\n" + TableFormatter.format(List.of("Date", "Type", "Details"), rows)
+                + "\n" + entries.size() + (entries.size() == 1 ? " record." : " records.");
     }
 
     /**
      * Builds fresh display entries so subsequent loan returns and source updates appear immediately.
-     * Same-day entries are ordered by type, then description, for consistent output.
+     * Same-day entries are ordered by type, then description; renewals retain their acceptance order.
      */
     private List<HistoryEntry> getHistory(String assetId) {
         List<HistoryEntry> entries = new ArrayList<>();
         for (Loan loan : loans.getLoans()) {
             if (assetId.equals(loan.getAssetId())) {
                 String details = "Borrower " + loan.getBorrowerId() + "; due " + loan.getDueDate()
-                        + (loan.isActive() ? "; active" : "; returned " + loan.getReturnDate());
-                if (!loan.isActive()) {
+                        + (loan.isReversed() ? "; REVERSED (loan cancelled)"
+                                : loan.isActive() ? "; active" : "; returned " + loan.getReturnDate());
+                if (loan.isLost()) {
+                    details += "; LOST since " + loan.getLostDate();
+                }
+                if (loan.getReturnDate() != null) {
                     details += loan.getReturnFaults().isEmpty()
                             ? "; no faults reported on return" : "; faults: " + loan.getReturnFaults();
                 }
                 entries.add(new HistoryEntry(assetId, loan.getLoanDate(), HistoryEntry.Type.LOAN, details));
+                if (loan.isLost()) {
+                    entries.add(new HistoryEntry(assetId, loan.getLostDate(), HistoryEntry.Type.LOST,
+                            "Borrower " + loan.getBorrowerId() + "; equipment reported lost; due "
+                                    + loan.getDueDate()));
+                }
+                for (LoanRenewal event : loan.getRenewals()) {
+                    entries.add(new HistoryEntry(assetId, event.date(), HistoryEntry.Type.RENEWAL,
+                            "Borrower " + loan.getBorrowerId() + "; due changed from "
+                                    + event.previousDueDate() + " to " + event.newDueDate()));
+                }
             }
         }
         for (HistoryEntry entry : otherHistory.get()) {
@@ -81,7 +95,8 @@ public class HistoryCommands {
             }
         }
         entries.sort(Comparator.comparing(HistoryEntry::getDate)
-                .thenComparing(HistoryEntry::getType).thenComparing(HistoryEntry::getDescription));
+                .thenComparing(HistoryEntry::getType)
+                .thenComparing(entry -> entry.getType() == HistoryEntry.Type.RENEWAL ? "" : entry.getDescription()));
         return entries;
     }
 }

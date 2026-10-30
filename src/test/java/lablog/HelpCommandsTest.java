@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static lablog.TableText.compact;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -29,7 +30,7 @@ class HelpCommandsTest {
         assertEquals(summary, help.execute("  help\t "));
         assertFalse(summary.contains("Example:"));
         for (String command : List.of("help", "loan", "return", "list", "edit-equipment", "move-equipment",
-                "find", "history", "copy", "add-borrower", "loans", "exit")) {
+                "find", "search", "history", "copy", "add-borrower", "loans", "exit")) {
             assertTrue(summary.contains(command));
             String detail = help.execute("help " + command);
             assertTrue(detail.contains("Format: " + command));
@@ -39,13 +40,34 @@ class HelpCommandsTest {
     }
 
     @Test
+    void execute_activeLoanHelp_documentsOverdueModeAndBothExamples() {
+        String detail = help.execute("help active-loans");
+        assertTrue(help.execute("help").contains("active-loans [overdue]"));
+        assertTrue(detail.contains("Format: active-loans [overdue]"));
+        assertTrue(detail.contains("Loans due today are not overdue."));
+        assertTrue(detail.contains("ordered by due date then asset ID"));
+        assertTrue(detail.contains("Fields: overdue"));
+        ActiveLoanCommands commands = new ActiveLoanCommands(new LoanBook(), Clock.systemDefaultZone());
+        int count = 0;
+        for (String line : detail.split("\n")) {
+            if (line.startsWith("Example: ")) {
+                String example = line.substring(9);
+                assertEquals(example.endsWith(" overdue") ? "No overdue loans." : "No active loans.",
+                        commands.execute(example));
+                count++;
+            }
+        }
+        assertEquals(2, count);
+    }
+
+    @Test
     void execute_listHelp_documentsFiltersAndAvailabilityRules() {
         String detail = help.execute("help list");
         assertTrue(detail.contains("Format: list [category/VALUE] [location/VALUE]"
-                + " [status/available|on-loan] [sort/FIELD]"));
+                + " [status/available|on-loan|unavailable|lost] [sort/FIELD]"));
         assertTrue(detail.contains("Example: list category/Electronics location/Lab A status/available"));
         assertTrue(detail.contains("Match category and location exactly, ignoring case; combine any filters."));
-        assertTrue(detail.contains("unresolved severe faults exclude units from available results"));
+        assertTrue(detail.contains("severe faults and lost units are unavailable"));
     }
 
     @Test
@@ -57,6 +79,16 @@ class HelpCommandsTest {
     }
 
     @Test
+    void execute_searchHelp_documentsCaseInsensitiveNameAndModelSearch() {
+        String detail = help.execute("help search");
+
+        assertTrue(detail.contains("Format: search TEXT"));
+        assertTrue(detail.contains("Match text anywhere in an equipment name or model, ignoring case."));
+        assertTrue(detail.contains("asset IDs, categories and locations are not searched."));
+        assertTrue(detail.contains("Search does not change inventory or saved records."));
+    }
+
+    @Test
     void run_copyHelpExampleWorksAfterRegistration() {
         String example = help.execute("help copy").lines()
                 .filter(line -> line.startsWith("Example: ")).findFirst().orElseThrow().substring(9);
@@ -65,8 +97,8 @@ class HelpCommandsTest {
         new LabLog().run(new Scanner("add OSC-001 n/Scope c/Electronics m/S1 l/Lab A\n"
                 + example + "\nlist\nexit\n"), new PrintStream(output));
 
-        assertTrue(output.toString().contains("Copied OSC-001 to OSC-002."));
-        assertTrue(output.toString().contains("OSC-002 | Scope | Electronics | S1 | Lab A | Available"));
+        assertTrue(compact(output.toString()).contains("Copied OSC-001 to OSC-002."));
+        assertTrue(compact(output.toString()).contains("OSC-002 | Scope | Electronics | S1 | Lab A | Available"));
     }
 
     @Test
@@ -74,18 +106,52 @@ class HelpCommandsTest {
         String detail = help.execute("  help\tloan  ");
         assertTrue(detail.startsWith("\n" + ".".repeat(60) + "\n"));
         assertTrue(detail.endsWith("\n" + ".".repeat(60) + "\n"));
-        assertTrue(detail.contains("Issue a loan for an available equipment item.\n"
-                + "Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE\n"
-                + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"));
+        assertTrue(detail.contains("Issue loans for one or more available equipment units.\n"
+                + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
+                + "Example: loan OSC-001 b/A0123456X d/2099-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));
         assertTrue(detail.contains("Register the borrower with add-borrower"));
+    }
+
+    @Test
+    void execute_loanExamples_supportSingleAndBatchWithRegisteredBorrower() throws Exception {
+        String detail = help.execute("help loan");
+        assertTrue(detail.contains("an invalid batch records no loans"));
+        assertTrue(detail.contains("distinct, case-sensitive asset IDs"));
+        Clock clock = Clock.fixed(Instant.parse("2026-09-10T12:00:00Z"), ZoneOffset.UTC);
+        int count = 0;
+        for (String line : detail.split("\n")) {
+            if (!line.startsWith("Example: ")) {
+                continue;
+            }
+            String example = line.substring(9);
+            Inventory inventory = new Inventory();
+            inventory.addEquipment(new Equipment("OSC-001", "Scope", "Electronics", "S1", "Lab A"));
+            inventory.addEquipment(new Equipment("MIC-002", "Microscope", "Optics", "M2", "Lab B"));
+            LoanBook loans = new LoanBook();
+            BorrowerBook borrowers = new BorrowerBook();
+            borrowers.addBorrower(new Borrower("A0123456X", "Jamie", "91234567", "jamie@u.nus.edu"));
+
+            new LoanCommands(inventory, loans, clock, borrowers).execute(example);
+
+            assertEquals(example.contains("MIC-002") ? List.of("OSC-001", "MIC-002") : List.of("OSC-001"),
+                    loans.getLoans().stream().map(Loan::getAssetId).toList());
+            for (Loan loan : loans.getLoans()) {
+                assertEquals("A0123456X", loan.getBorrowerId());
+                assertEquals(LocalDate.of(2026, 9, 10), loan.getLoanDate());
+                assertEquals(LocalDate.of(2099, 9, 18), loan.getDueDate());
+                assertTrue(loan.isActive());
+            }
+            count++;
+        }
+        assertEquals(2, count);
     }
 
     @Test
     void execute_listHelp_documentsSortFieldsAndTieHandling() {
         String detail = help.execute("help list");
 
-        assertTrue(detail.contains("[status/available|on-loan] [sort/FIELD]"));
+        assertTrue(detail.contains("[status/available|on-loan|unavailable|lost] [sort/FIELD]"));
         assertTrue(detail.contains("Example: list sort/name"));
         assertTrue(detail.contains("asset-id, name, category, model, location, availability"));
         assertTrue(detail.contains("case-insensitive"));
@@ -166,7 +232,7 @@ class HelpCommandsTest {
         new LabLog(inventory, new LoanBook(), List::of).run(new Scanner(
                 "help history\nadd OSC-001\nScope\nElectronics\nS1\nLab\n" + example + "\nexit\n"),
                 new PrintStream(output));
-        assertTrue(output.toString().contains("No history found for OSC-001 - Scope."));
+        assertTrue(compact(output.toString()).contains("No history found for OSC-001 - Scope."));
         assertEquals(1, inventory.getEquipmentUnits().size());
     }
 
@@ -226,5 +292,31 @@ class HelpCommandsTest {
         assertTrue(output.toString().contains(help.execute("help loans")));
         assertEquals(List.of(borrower), borrowers.getBorrowers());
         assertEquals(saved, Files.readString(file));
+    }
+
+    @Test
+    void execute_summary_hasSectionsQuickStartAndNoDottedBorder() {
+        String summary = help.execute("help");
+
+        assertFalse(summary.contains("........"));
+        assertTrue(summary.contains("Common commands: add-borrower, add, list, loan, return, history."));
+        for (String section : List.of("Equipment", "Loans", "Borrowers", "Reservations",
+                "Faults and maintenance", "Records and overview", "General")) {
+            assertTrue(summary.contains("== " + section + " =="), section);
+        }
+        assertTrue(summary.lines().allMatch(line -> line.length() <= 120));
+    }
+
+    @Test
+    void run_successfulChange_isMarkedOkAndQueriesAreNot() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        new LabLog().run(new Scanner("add OSC-001 n/Scope c/Electronics m/S1 l/Lab\nlist\nbad\nexit\n"),
+                new PrintStream(output));
+
+        String text = output.toString();
+        assertTrue(text.contains("[OK] Equipment added"));
+        assertFalse(text.contains("[OK] Asset ID"));
+        assertTrue(text.contains("Error: Unknown command."));
     }
 }

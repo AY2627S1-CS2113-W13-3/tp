@@ -22,6 +22,10 @@ public class LabLog {
     private final HistoryCommands history;
     private final ReturnCommands returns;
     private final LoanCommands loanCommands;
+    private final RenewCommands renewals;
+    private final LostCommands lost;
+    private final LoanAuditCommands loanAudit;
+    private final LoanCorrectionCommands corrections;
     private final HelpCommands help = new HelpCommands();
     /** Present only for persistent CLI sessions; injected test sessions remain in memory. */
     private Path dataFile;
@@ -37,9 +41,17 @@ public class LabLog {
     private final HistoryRecordCommands historyRecords;
     private final FaultBook faults;
     private final RepairCommands repairs;
+    private final ReservationBook reservations;
+    private final ReservationCommands reservationCommands;
+    private final AvailableEquipmentCommands availableEquipment;
+    private final UnavailableReasonCommands unavailableReasons;
+    private final WaitingRequestBook waiting;
+    private final WaitingRequestCommands waitingCommands;
     private final ActiveLoanCommands activeLoans;
+    private final OverviewCommands overview;
     private final EquipmentListCommands equipmentList;
     private final EquipmentFindCommands equipmentFind;
+    private final EquipmentSearchCommands equipmentSearch;
 
 
 
@@ -86,21 +98,36 @@ public class LabLog {
         this.borrowers = borrowers;
         this.loans = loans;
         this.otherHistory = otherHistory;
+        this.reservations = new ReservationBook(inventory, borrowers, loans, faults, clock);
+        this.reservationCommands = new ReservationCommands(reservations);
+        this.waiting = new WaitingRequestBook(inventory, borrowers, faults, reservations.getAvailability(), clock);
+        this.waitingCommands = new WaitingRequestCommands(waiting);
+        this.availableEquipment = new AvailableEquipmentCommands(reservations.getAvailability());
+        this.unavailableReasons = new UnavailableReasonCommands(reservations.getAvailability(), clock);
         this.equipmentAdd = new EquipmentAddCommands(inventory);
         this.equipmentCopy = new EquipmentCopyCommands(inventory);
         this.equipmentEdit = new EquipmentEditCommands(inventory);
         this.equipmentMove = new EquipmentMoveCommands(inventory);
         this.historyRecords = new HistoryRecordCommands(inventory, faults);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
+        this.overview = new OverviewCommands(reservations, loans, faults, clock);
         this.history = new HistoryCommands(inventory, loans, () -> {
             List<HistoryEntry> entries = new ArrayList<>(otherHistory.get());
             entries.addAll(historyRecords.getEntries());
+            reservations.getReservations().stream().flatMap(item -> item.toHistoryEntries().stream())
+                    .forEach(entries::add);
             return entries;
         });
         this.equipmentList = new EquipmentListCommands(inventory, loans, faults);
         this.equipmentFind = new EquipmentFindCommands(inventory, loans, faults);
+        this.equipmentSearch = new EquipmentSearchCommands(inventory, loans, faults);
         this.returns = new ReturnCommands(inventory, loans, clock);
-        this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers, faults);
+        this.loanCommands = new LoanCommands(inventory, loans, clock, borrowers, faults,
+                reservations.getAvailability());
+        this.loanAudit = new LoanAuditCommands(inventory, loans);
+        this.corrections = new LoanCorrectionCommands(loans, reservations.getAvailability(), clock);
+        this.lost = new LostCommands(inventory, loans, clock);
+        this.renewals = new RenewCommands(loans, reservations.getAvailability(), clock);
         this.borrowerCommands = new BorrowerCommands(borrowers, loans,
                 assetId -> inventory.getEquipmentUnits().stream()
                         .filter(unit -> unit.getAssetId().equals(assetId)).map(Equipment::getName)
@@ -132,6 +159,8 @@ public class LabLog {
         FaultBook faults;
         BorrowerBook borrowers = new BorrowerBook();
         List<HistoryEntry> notes = List.of();
+        List<Reservation> bookings = List.of();
+        List<WaitingRequest> waitingRequests = List.of();
         Properties records = Files.exists(absolute) ? ApplicationSnapshot.readProperties(absolute) : null;
         if (records != null && ("2".equals(records.getProperty("format"))
                 || records.containsKey("borrower.count"))) {
@@ -139,9 +168,11 @@ public class LabLog {
             inventory = new Inventory();
             inventory.replaceAll(snapshot.getEquipment());
             loans = new LoanBook();
-            loans.replaceAll(snapshot.getLoans());
+            loans.replaceAll(snapshot.getLoans(), snapshot.getAuditEvents());
             borrowers.replaceAll(snapshot.getBorrowers());
             notes = snapshot.getNotes();
+            bookings = snapshot.getReservations();
+            waitingRequests = snapshot.getWaitingRequests();
             faults = new FaultBook(inventory);
             faults.replaceAll(snapshot.getFaults());
         } else {
@@ -155,6 +186,12 @@ public class LabLog {
         LabLog application = new LabLog(inventory, loans, List::of, Clock.systemDefaultZone(), borrowers, faults);
         application.dataFile = absolute;
         application.historyRecords.replaceAll(notes);
+        application.reservations.replaceAll(bookings);
+        application.waiting.replaceAll(waitingRequests);
+        application.waiting.setSaver(proposed -> application.snapshot(borrowers.getBorrowers(),
+                application.reservations.getReservations(), proposed).write(absolute));
+        application.reservations.setSaver(proposed -> application.snapshot(borrowers.getBorrowers(), proposed)
+                .write(absolute));
         // Persist proposed borrowers in the same atomic file as their equipment and loan references.
         borrowers.setSaver(proposed -> application.snapshot(proposed).write(absolute));
         return application;
@@ -162,10 +199,21 @@ public class LabLog {
 
     /** Captures supported history notes as well as borrowers, equipment and complete loans. */
     private ApplicationSnapshot snapshot(List<Borrower> proposedBorrowers) {
+        return snapshot(proposedBorrowers, reservations.getReservations());
+    }
+
+    /** Saves a proposed booking change before publishing it to the shared book. */
+    private ApplicationSnapshot snapshot(List<Borrower> proposedBorrowers, List<Reservation> proposedReservations) {
+        return snapshot(proposedBorrowers, proposedReservations, waiting.getRequests());
+    }
+
+    /** Saves proposed demand without changing confirmed reservations. */
+    private ApplicationSnapshot snapshot(List<Borrower> proposedBorrowers, List<Reservation> proposedReservations,
+            List<WaitingRequest> proposedWaiting) {
         List<HistoryEntry> notes = new ArrayList<>(otherHistory.get());
         notes.addAll(historyRecords.getNotes());
         return new ApplicationSnapshot(inventory.getEquipmentUnits(), proposedBorrowers, loans.getLoans(), notes,
-                faults.getFaults());
+                faults.getFaults(), proposedReservations, proposedWaiting, loans.getAuditEvents());
     }
 
     /** Validates and saves an import before replacing any of the shared live books. */
@@ -178,10 +226,12 @@ public class LabLog {
             replacement.write(dataFile);
         }
         inventory.replaceAll(replacement.getEquipment());
-        loans.replaceAll(replacement.getLoans());
+        loans.replaceAll(replacement.getLoans(), replacement.getAuditEvents());
         borrowers.replaceAll(replacement.getBorrowers());
         historyRecords.replaceAll(replacement.getNotes());
         faults.replaceAll(replacement.getFaults());
+        reservations.replaceAll(replacement.getReservations());
+        waiting.replaceAll(replacement.getWaitingRequests());
     }
 
     /** Uses explicit replacement syntax and never overwrites an existing export destination. */
@@ -239,7 +289,7 @@ public class LabLog {
     }
 
     /**
-     * Accepts equipment add/copy, help, loan, history or return commands, or exit at the
+     * Accepts equipment add/copy, help, loan, renew, history or return commands, or exit at the
      * initial prompt.
      * Incomplete equipment input is discarded at EOF rather than saving a partial unit.
      *
@@ -247,8 +297,7 @@ public class LabLog {
      * @param output destination for prompts and results
      */
     public void run(Scanner scanner, PrintStream output) {
-        output.println("Welcome to LabLog!");
-        output.println("Manage your laboratory equipment and loans here.");
+        ConsoleWelcome.print(output);
         output.println(help.execute("help"));
         while (true) {
             output.print("lablog> ");
@@ -272,10 +321,39 @@ public class LabLog {
             String command = input.split("\\s+", 2)[0];
             if (command.equals("export") || command.equals("import")) {
                 try {
-                    output.println(transfer(input, command));
+                    output.println(Messages.ok(transfer(input, command)));
                 } catch (IOException | IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                     output.println("Current records were not changed.");
+                }
+                continue;
+            }
+            if (List.of("reserve", "reservations", "edit-reservation", "cancel-reservation").contains(command)) {
+                try {
+                    String result = reservationCommands.execute(input);
+                    output.println(command.equals("reservations") ? result : Messages.ok(result));
+                } catch (IllegalArgumentException | IOException exception) {
+                    output.println("Error: " + exception.getMessage());
+                    output.println("Reservations were not changed.");
+                }
+                continue;
+            }
+            if (command.equals("wait-request") || command.equals("waiting-requests")) {
+                try {
+                    String result = waitingCommands.execute(input);
+                    output.println(command.equals("waiting-requests") ? result : Messages.ok(result));
+                } catch (IllegalArgumentException | IOException exception) {
+                    output.println("Error: " + exception.getMessage());
+                    output.println("Waiting requests were not changed.");
+                }
+                continue;
+            }
+            if (command.equals("available") || command.equals("why-unavailable")) {
+                try {
+                    output.println(command.equals("available") ? availableEquipment.execute(input)
+                            : unavailableReasons.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
                 }
                 continue;
             }
@@ -293,15 +371,23 @@ public class LabLog {
                     if (!saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
                 continue;
             }
-            if (command.equals("active-loans")) {
+            if (command.equals("loan-audit")) {
                 try {
-                    output.println(activeLoans.execute(input));
+                    output.println(loanAudit.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("active-loans") || command.equals("overview")) {
+                try {
+                    output.println(command.equals("overview") ? overview.execute(input) : activeLoans.execute(input));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -321,7 +407,7 @@ public class LabLog {
                     if (!saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -333,7 +419,7 @@ public class LabLog {
                     if (!saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -347,13 +433,22 @@ public class LabLog {
                 }
                 continue;
             }
-            if (command.equals("history") || command.equals("return") || command.equals("loan")) {
+            if (command.equals("search")) {
+                try {
+                    output.println(equipmentSearch.execute(input));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (List.of("history", "return", "loan", "renew", "lost", "reverse-loan", "reverse-return")
+                    .contains(command)) {
                 try {
                     String result = executeRecordCommand(command, input);
                     if (!command.equals("history") && !saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(command.equals("history") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -361,7 +456,8 @@ public class LabLog {
             }
             if (List.of("loans", "add-borrower", "edit-borrower").contains(command)) {
                 try {
-                    output.println(borrowerCommands.execute(input));
+                    String result = borrowerCommands.execute(input);
+                    output.println(command.equals("loans") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 } catch (IOException exception) {
@@ -376,7 +472,7 @@ public class LabLog {
                     if (!saveChanges(output)) {
                         return;
                     }
-                    output.println(result);
+                    output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
                     output.println("Error: " + exception.getMessage());
                 }
@@ -410,7 +506,7 @@ public class LabLog {
                 if (!saveChanges(output)) {
                     return;
                 }
-                output.println(result);
+                output.println(Messages.ok(result));
             } catch (RegistrationCancelledException exception) {
                 output.println("Equipment registration cancelled.");
             } catch (IllegalArgumentException exception) {
@@ -428,7 +524,8 @@ public class LabLog {
      */
     private String executeRecordCommand(String command, String input) {
         // Only the record-command branch in run should call this helper.
-        assert List.of("history", "return", "loan").contains(command) : "Unexpected record command";
+        assert List.of("history", "return", "loan", "renew", "lost", "reverse-loan", "reverse-return")
+                .contains(command) : "Unexpected record command";
         switch (command) {
         case "history":
             return history.execute(input);
@@ -436,6 +533,13 @@ public class LabLog {
             return returns.execute(input);
         case "loan":
             return loanCommands.execute(input);
+        case "renew":
+            return renewals.execute(input);
+        case "lost":
+            return lost.execute(input);
+        case "reverse-loan":
+        case "reverse-return":
+            return corrections.execute(input);
         default:
             throw new IllegalArgumentException("Unknown command: " + command);
         }

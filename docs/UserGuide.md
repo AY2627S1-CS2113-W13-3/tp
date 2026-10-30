@@ -1,48 +1,138 @@
 # User Guide
 
+## Table of contents
+
+* [Introduction](#introduction)
+* [Quick Start](#quick-start)
+* [Features](#features)
+  * [Viewing common commands and examples: `help`](#viewing-common-commands-and-examples-help)
+  * [Registering equipment](#registering-equipment)
+  * [Copying equipment details: `copy`](#copying-equipment-details-copy)
+  * [Editing equipment details](#editing-equipment-details)
+  * [Moving several equipment units together](#moving-several-equipment-units-together)
+  * [Listing, filtering, and sorting equipment: `list`](#listing-filtering-and-sorting-equipment-list)
+  * [Finding one unit: `find`](#finding-one-unit-find)
+  * [Searching equipment by name or model: `search`](#searching-equipment-by-name-or-model-search)
+  * [Registering borrowers: `add-borrower`](#registering-borrowers-add-borrower)
+  * [Editing borrower contacts: `edit-borrower`](#editing-borrower-contacts-edit-borrower)
+  * [Viewing a borrower's loans: `loans`](#viewing-a-borrowers-loans-loans)
+  * [Issuing one or more loans: `loan`](#issuing-one-or-more-loans-loan)
+  * [Listing active or overdue loans: `active-loans`](#listing-active-or-overdue-loans-active-loans)
+  * [Renewing an active loan: `renew`](#renewing-an-active-loan-renew)
+  * [Recording a return: `return`](#recording-a-return-return)
+  * [Reporting loaned equipment lost: `lost`](#reporting-loaned-equipment-lost-lost)
+  * [Viewing borrowing and return evidence: `loan-audit`](#viewing-borrowing-and-return-evidence-loan-audit)
+  * [Correcting a mistaken loan or return](#correcting-a-mistaken-loan-or-return)
+  * [Viewing equipment history: `history`](#viewing-equipment-history-history)
+  * [Recording equipment history notes](#recording-equipment-history-notes)
+  * [Recording fault severity and description](#recording-fault-severity-and-description)
+  * [Recording repairs and resolving faults: `repair`](#recording-repairs-and-resolving-faults-repair)
+  * [Reserving equipment: `reserve`](#reserving-equipment-reserve)
+  * [Booking conflicts](#booking-conflicts)
+  * [Editing a reservation: `edit-reservation`](#editing-a-reservation-edit-reservation)
+  * [Cancelling a reservation: `cancel-reservation`](#cancelling-a-reservation-cancel-reservation)
+  * [Finding equipment for a period: `available`](#finding-equipment-for-a-period-available)
+  * [Explaining unavailable equipment: `why-unavailable`](#explaining-unavailable-equipment-why-unavailable)
+  * [Recording waiting demand: `wait-request`](#recording-waiting-demand-wait-request)
+  * [Viewing the daily overview: `overview`](#viewing-the-daily-overview-overview)
+  * [Exporting data: `export`](#exporting-data-export)
+  * [Importing data: `import`](#importing-data-import)
+  * [Invalid import protection](#invalid-import-protection)
+  * [Recalling recent commands: `commands`, `recall`](#recalling-recent-commands-commands-recall)
+* [Current limitations](#current-limitations)
+* [FAQ](#faq)
+* [Command Summary](#command-summary)
+
 ## Introduction
 
 LabLog helps laboratory technicians manage loanable electronics equipment and
-borrowers. The main console shares equipment, loans, and borrowers for registration,
-lending, returns, and loan lookups. A standalone borrower console remains available.
+borrowers. The main console shares equipment, borrowers, loans, reservations,
+waiting requests, faults, repairs and audit records across its commands. A standalone borrower console remains available.
 Both provide command help and examples.
 
 ## Quick Start
 
-Use Java 25. From the repository root in PowerShell:
+1. Install Java 25. Check it with `java -version`.
+2. Download the latest `lablog.jar` from the
+   [Releases page](https://github.com/AY2627S1-CS2113-W13-3/tp/releases).
+3. Put `lablog.jar` in an empty folder, open a terminal in that folder and run:
 
-```powershell
-java -version
-.\gradlew.bat run --console=plain
+   ```text
+   java -jar lablog.jar
+   ```
+
+4. A LabLog banner with the version and the command list appear once at startup;
+   after that, the short `lablog>` prompt waits for your input. Try `help`, then `help loan`, then `exit`.
+
+For the standalone borrower console, run `java -cp lablog.jar lablog.BorrowerCli`
+in the same folder. Exit either console with `exit`, or end input with Ctrl+Z then
+Enter on Windows, or Ctrl+D on macOS/Linux. The borrower console's default data
+file is `data/borrowers.properties`; add another path after `lablog.BorrowerCli`
+to use a different file.
+
+**Where your data is saved.** The main console saves every equipment, borrower,
+loan, reservation, waiting-request, fault and history record in
+`data/lablog.properties` after each successful change, and reloads them at
+startup. To use another file, run `java -jar lablog.jar PATH/TO/FILE.properties`.
+A missing file starts a new collection. An invalid file stops startup without
+being overwritten. Run only one main console against a given data file at a time.
+See the [FAQ](#faq) for what happens if saving fails.
+
+## Features
+
+**Notes about the command format**
+
+* Words in `UPPER_CASE` are values you supply. For example, in `find ASSET_ID`,
+  type `find OSC-001`.
+* Items in square brackets are optional, e.g. `return ASSET_ID [faults/DESCRIPTION]`.
+* Items followed by `...` can be repeated, e.g. `loan ASSET_ID [ASSET_ID ...]`.
+* Prefixed fields such as `b/` and `d/` may usually appear in any order, at most
+  once each. The few commands that need a fixed order say so.
+* Command names and asset IDs are case-sensitive. Dates use `YYYY-MM-DD`.
+* Successful changes start with `[OK]`. Rejected commands start with `Error:` and
+  change nothing. Listings are shown as aligned tables.
+* Commands that change records save automatically; read-only commands never save.
+
+### Viewing common commands and examples: `help`
+
+Format: `help [COMMAND]`
+
+Enter `help` for the concise LabLog command list, or supply one command name
+to see its syntax, fields, and explained usage examples. Help is available in both consoles
+and does not change records. Command names are case-sensitive; unknown names
+and extra arguments produce an error and let you try again.
+
+For example, `help loan` includes the following format and examples:
+
+```text
+Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE
+Example: loan OSC-001 b/A0123456X d/2099-09-18
+Example: loan OSC-001 MIC-002 b/A0123456X d/2099-09-18
 ```
 
-The command summary appears once at startup. Subsequent input uses the short
-`lablog> ` prompt so results remain easy to find.
+Detailed help is available for every command in the [Command Summary](#command-summary),
+including `search`, booking commands, `overview`, `why-unavailable`, data transfer,
+and command recall. The summary identifies the console in which each command
+can run; viewing help does not make a command available in the other console.
 
-Enter `help` to see commands, `help COMMAND` for examples, and `exit` to close
-the main console. On macOS/Linux, replace `.\gradlew.bat` with `./gradlew`.
+Use `help return` to compare returning an item with and without new faults:
 
-For the borrower console, compile and run:
-
-```powershell
-.\gradlew.bat classes
-java -cp build/classes/java/main lablog.BorrowerCli
+```text
+Example: return OSC-001 faults/cracked screen
+  Return the unit and record a cracked screen on its loan.
+Example: return OSC-001
+  Return the unit with no new faults reported.
 ```
 
-Exit the borrower console with `exit` or EOF: Ctrl+Z then Enter on Windows, or Ctrl+D
-on macOS/Linux. Its default data file is `data/borrowers.properties`; pass a
-different path after `lablog.BorrowerCli` to select another file.
+These are alternatives: the unit must have an active loan, and a loan cannot be
+returned twice. Use `help add-borrower` to see registrations with different field
+orders, and `help loans` for lookups using those borrowers' IDs. Use `help history`
+for a history lookup and its registration prerequisite, or `help help` to see how
+to switch between the concise list and command-specific guidance.
 
-The main console saves equipment, loans, return dates, return faults and structured fault reports
-in `data/lablog.properties` after each successful change. It reloads them on
-startup. To select another file, run
-`java -jar build/libs/lablog.jar PATH/TO/lablog.properties`.
-A missing file starts a new collection. Invalid existing data stops startup
-without overwriting it. If saving fails, the console reports the failure and
-stops; fix file access and restart with the previous saved records. Run only one
-main console against a given data file at a time.
-
-## Features 
+Lines beginning with `Example:` contain commands you can type; the indented lines
+explain their outcomes. Viewing an example never executes it. Replace sample IDs,
+contact details, and dates with your own when entering a command.
 
 ### Registering equipment
 
@@ -63,7 +153,7 @@ Lab A
 Type `cancel` at any of the four detail prompts to discard the entry and return
 to the main prompt. No partial equipment record is added.
 
-LabLog confirms `Equipment added to inventory.` An incomplete entry at EOF is
+LabLog confirms `[OK] Equipment added to inventory.` An incomplete entry at EOF is
 discarded. Unknown commands and bare asset IDs are rejected with a help hint.
 Registration begins only after an explicit `add` command.
 
@@ -113,16 +203,20 @@ location, and availability for each registered unit. Add any combination of
 category, location, and status filters:
 
 ```text
-list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]
+list [category/VALUE] [location/VALUE] [status/available|on-loan|unavailable|lost] [sort/FIELD]
 ```
 
 For example, `list category/Electronics location/Lab A status/available` shows
-electronics stored in Lab A that are not currently on loan. Category and
+electronics stored in Lab A that are currently available. Category and
 location values match exactly, ignoring case; when combined, all supplied
-filters must match. Status is `on-loan` when a unit has an active loan and
-`available` only when it has neither an active loan nor an unresolved severe
-fault. Severe faults display `Unavailable: severe fault` and are excluded from
-`status/available` results. Reservation and legacy fault notes do not block loans.
+filters must match. This status is current operational status, not availability
+for a requested date range. Status precedence is `lost`, `on-loan`,
+`unavailable`, then `available`: lost equipment is `lost`; equipment with an
+active loan is `on-loan`; equipment with an unresolved severe fault and no
+higher-priority status is `unavailable`; otherwise it is `available`.
+Unavailable equipment displays `Unavailable: severe fault`. A reservation does
+not change this undated operational status; reservations block loans only when
+their date ranges overlap.
 Add `sort/FIELD` to sort the matching units in ascending order by `asset-id`,
 `name`, `category`, `model`, `location`, or `availability`. For example,
 `list sort/name` sorts all units, while
@@ -142,19 +236,356 @@ location, and current availability. For example, `find OSC-001` performs an
 exact, case-sensitive lookup. Unknown IDs produce an error, and the lookup does
 not change equipment or loan records.
 
+### Searching equipment by name or model: `search`
+
+Enter `search TEXT` to find equipment whose name or model contains the supplied
+text. Matching ignores case and collapses repeated spaces, so `search scope`
+matches both `Digital Oscilloscope` and a model such as `ScopeMate`. Results
+remain in inventory order and show current availability. Search only checks
+names and models; it does not search asset IDs, categories, or locations.
+
+An empty inventory reports `No equipment registered.` No matches reports the
+query that was searched. Search is read-only and does not change inventory or
+saved records.
+
+### Registering borrowers: `add-borrower`
+
+In either console:
+
+```text
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu
+```
+
+The ID must be an uppercase letter, seven digits, and an uppercase letter.
+Names contain 1-100 characters and no control characters; phone numbers contain
+eight digits; email addresses use `u.nus.edu`. All three prefixes are required
+exactly once and may appear in any order. Duplicate IDs and invalid fields are
+rejected. Registration saves the borrower before reporting success; a failed
+save leaves the borrower book unchanged.
+
+### Editing borrower contacts: `edit-borrower`
+
+Use edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL] in either console.
+For example, edit-borrower A0123456X p/92345678 e/new@u.nus.edu.
+Supply at least one non-empty field; prefixes may occur once each, in any order.
+Omitted values stay unchanged. Existing name, phone and email validation applies.
+The borrower ID and loan references remain stable. Invalid input or a failed save
+leaves the original contacts unchanged.
+
+### Viewing a borrower's loans: `loans`
+
+In the main console, enter `loans A0123456X` for a registered borrower.
+Active loans are ordered by due date, then asset ID. Rows include the equipment
+name, issue date, due date, whether the loan is overdue, and its status.
+Outstanding lost loans remain listed with status `LOST`. Returned loans are
+excluded; a loan becomes overdue after its due date, not on that date.
+
+The standalone console has no loan-creation command, so after registration it
+reports `No active loans for A0123456X - Jamie Tan.` Unknown borrowers produce
+an error. In the main console, active loans are shared with the loan and return
+commands.
+
+### Issuing one or more loans: `loan`
+
+At the initial prompt, enter
+`loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE`:
+
+```text
+loan OSC-001 b/A0123456X d/2030-12-31
+loan OSC-001 MIC-002 b/A0123456X d/2030-12-31
+```
+
+These are alternative examples: use one unit or select several distinct units
+separated by spaces. All selected units share the borrower, loan date, and due
+date. A batch confirmation lists every selected asset ID, for example:
+`[OK] Loaned OSC-001, MIC-002 to A0123456X on 2026-10-29. Due 2030-12-31.`
+
+The loan date is today's date according to the computer's clock and local time
+zone. The due date uses `YYYY-MM-DD` and must not be earlier than today. Both
+`b/` and `d/` are required exactly once and may appear in either order after the
+asset IDs. Asset IDs are case-sensitive; repeated IDs are rejected.
+
+The equipment must be registered and must not already be out. Unknown equipment,
+malformed or past due dates, and missing, repeated, or unknown prefixes are
+rejected without recording anything. A unit that someone still has is refused with
+a message naming the current borrower and due date, so the same unit cannot be
+lent twice. Unresolved severe faults also prevent new loans, including after a
+return. Minor, moderate and unspecified faults do not block lending.
+
+The inclusive period from the loan date through its due date must also pass
+the shared booking checks. A reservation overlapping even the due date blocks
+the loan, including reservations made for the same borrower. A returned unit is
+still occupied on its return date, so it can be lent again from the next day.
+
+LabLog validates the entire selection before adding any loan. If any unit,
+borrower, date, or field is invalid, no loans from that command are recorded.
+In particular, an unavailable unit later in the selection does not cause the
+earlier units to be lent out. Existing loans and their history remain intact.
+
+Borrower IDs must already exist in the shared borrower book. The main console
+rejects unknown borrower IDs. A successful batch is saved once, together with
+equipment, borrowers, and loan history, in the complete LabLog snapshot and is
+reloaded on restart.
+
+### Listing active or overdue loans: `active-loans`
+
+Format: `active-loans [overdue]`
+
+Enter `active-loans` to show every current loan, or `active-loans overdue` to
+show only active loans whose due date is before today's local date. For example:
+
+```text
+active-loans overdue
+```
+
+Both modes order results by due date, then asset ID when dates match. Each row
+includes asset ID, borrower ID, due date, and status. Lost loans remain listed
+as `LOST`, including in overdue-only mode when their due date is before today.
+Returned loans are excluded. The overdue-only view also excludes loans due today or later.
+It reports `No overdue loans.` when there are no matches; the full view reports
+`No active loans.` when no loans remain active.
+
+`overdue` is an optional, case-sensitive keyword. Unknown or extra arguments
+produce a usage error. Listing changes no records or files; a returned loan
+disappears from subsequent listings automatically.
+
+### Renewing an active loan: `renew`
+
+Format: `renew ASSET_ID d/YYYY-MM-DD`
+
+```text
+renew OSC-001 d/2031-01-15
+```
+
+Use one case-sensitive asset ID and exactly one `d/` date. The equipment must
+have an active, non-lost loan; overdue loans can also be renewed. The new due date must
+be later than its current due date and no earlier than today in the computer's
+local time zone. For an overdue loan, today is an acceptable new deadline.
+Renewal keeps the borrower and original loan date unchanged.
+
+LabLog checks the entire proposed loan-to-new-due period against shared
+availability rules, excluding only the loan being renewed. Reservations,
+including those for the same borrower, still conflict at shared endpoints.
+Cancelled reservations are ignored; unresolved severe faults block renewal.
+An unknown asset, returned loan, invalid date or conflict leaves both the loan
+and its renewal records unchanged.
+
+Each successful renewal records its date and previous/new due dates. View these
+entries with `history OSC-001`; active-loan and borrower-loan listings immediately
+use the new deadline. Renewal records persist through restart, export and import,
+and remain attached to the loan after return or a later loan of the same unit.
+
+### Recording a return: `return`
+
+At the initial prompt, use either format:
+
+```text
+return ASSET_ID [faults/DESCRIPTION]
+return ASSET_ID ASSET_ID ...
+```
+
+For example, return two units together, then return a third with reported damage:
+
+```text
+return OSC-001 OSC-002
+return OSC-003 faults/cracked screen
+```
+
+Separate asset IDs with spaces to return multiple units in one operation.
+Each ID must appear only once, identify registered equipment, and have exactly
+one active loan. All selected loans are checked before any are changed. If
+any selection or return date is invalid, the entire batch is rejected.
+
+Batch returns record no new faults. To report damage, return the affected
+unit individually using `faults/DESCRIPTION`. Supplying `faults/` with multiple
+asset IDs is rejected without changing any loan. All units in a successful
+batch receive the same return date. Their loan records remain available in
+history and are saved together with the LabLog data.
+
+The return date is today's date according to the computer's clock and local time
+zone. Omit `faults/` if the unit is returned in its original condition with no new
+damage to report. This records "No faults reported on return"; it does not clear
+existing equipment faults. If supplied, `faults/` must appear once with a non-empty,
+single-line description. Asset IDs are case-sensitive.
+
+The equipment must exist and have exactly one active loan. Invalid commands,
+repeated returns, multiple active loans, and returns before the loan date or latest renewal are
+rejected without changing records. Returned loans remain in equipment history,
+including their reported faults, and are excluded from active-loan listings.
+Lost loans cannot be returned using this command.
+
+Fault details are stored on the loan only; this command does not create a separate
+fault record or certify that the equipment is available for lending. The updated
+loan and return details are saved with the LabLog data.
+
+### Reporting loaned equipment lost: `lost`
+
+Format: `lost ASSET_ID`
+
+```text
+lost OSC-001
+```
+
+Supply one case-sensitive asset ID with exactly one active loan. LabLog records
+today's local date as the loss report date. The loan remains outstanding, with
+its borrower, issue date, original/current deadlines and renewal history intact.
+Returned equipment, duplicate reports and malformed input are rejected without
+changes. A report date cannot precede the loan or its latest renewal.
+
+`list` and `find` show `Lost`; `list status/lost` selects only lost units.
+`list status/on-loan` selects ordinary outstanding loans, excluding lost units.
+`active-loans` and `loans BORROWER_ID` retain the borrower association and display
+`LOST`. The overdue-only view includes a lost loan only when its due date is
+before today; its status still reads `LOST`. `history` includes a dated loss row
+alongside the original loan and any renewal events.
+
+Lost units stay unavailable for all periods, including after the original due
+date. New lending, reservations, ordinary returns and renewals are rejected.
+A batch return containing a lost unit changes none of the selected loans.
+Existing reservations remain recorded and must be handled explicitly; reporting
+a loss does not cancel them. A category with only lost or severely faulty units
+has no operationally suitable capacity for a waiting request.
+
+Loss reports survive restart, export and import. There is no recovery command
+in this version.
+
+### Viewing borrowing and return evidence: `loan-audit`
+
+```text
+loan-audit
+loan-audit OSC-001
+```
+
+Omit the asset ID to show all recorded borrowing/return events, or supply one
+case-sensitive registered asset ID to filter the view. Each numbered event uses
+separate lines for the date, type, equipment, borrower, deadline and complete
+event/loan IDs. Empty Faults, Related event and Reason fields are omitted.
+Events are ordered oldest first; same-day events keep their acceptance
+order, including the selection order of a batch return. The query never saves
+or changes records.
+
+For example, after a loan, a renewal and a return with reported damage:
+
+```text
+lablog> loan-audit OSC-001
+Loan audit for OSC-001:
+
+[1] LOAN — 2026-10-29
+    Asset: OSC-001
+    Borrower: A0123456X
+    Due: 2030-12-31
+    Event ID: E-4de63ec6-db60-4ccb-94df-629bbd5a717d
+    Loan ID: L-78e63761-fa3c-4700-90cd-e71567250071
+
+[2] RETURN — 2026-10-29
+    Asset: OSC-001
+    Borrower: A0123456X
+    Due: 2031-01-15
+    Faults: Damaged cable
+    Event ID: E-2f287422-2a5d-4714-a0ed-782fe52a0066
+    Loan ID: L-78e63761-fa3c-4700-90cd-e71567250071
+```
+
+Both events share the loan ID. The `LOAN` event keeps the original due date; the
+renewal itself is shown by `history`, not here.
+
+Each accepted loan creates a `LOAN` event and each accepted return creates a
+`RETURN` event. Their stored facts do not change when a loan is renewed, returned
+or marked lost. Different loans of the same equipment have different loan IDs;
+the related loan/return events share that loan ID. Rejected commands add no events.
+Renewal, loss, fault and maintenance records remain available through `history`.
+
+Correction evidence uses `REVERSE_LOAN` or `REVERSE_RETURN`, with the original
+event ID and a reason. Both events remain visible; this query does not apply a
+correction. Use `reverse-loan` or `reverse-return` to apply an explicit correction.
+
+Older saved files have no complete event log, so LabLog does not invent past
+operations when loading them. `history ASSET_ID` still shows those loans. The
+first successful save retains their newly assigned loan IDs; later borrowing
+and return operations create actual events. An old loan returned after migration
+may therefore have a return event without a recorded issue event.
+
+Events and IDs survive restart, export and replacement import.
+
+### Correcting a mistaken loan or return
+
+First run `loan-audit [ASSET_ID]` and copy the complete **Event ID** of the original
+`LOAN` or `RETURN` event. Use that event ID rather than the asset ID or loan ID:
+
+```text
+reverse-loan E-123 reason/Equipment was not handed over
+reverse-return E-456 reason/Equipment has not been returned
+```
+
+The example IDs are placeholders; replace them with IDs from your own audit output.
+Both commands require one case-sensitive event ID and one non-empty, single-line
+`reason/` field. The correction uses today's local date and must not precede that
+loan's recorded actions. Each original event can be reversed only once.
+
+* `reverse-loan` cancels the effect of an erroneous issue. The loan remains in
+  `history` as `REVERSED` and no longer blocks availability or appears in active
+  loan lists. A return must be reversed first; renewed or lost loans cannot be
+  cancelled by this command.
+* `reverse-return` reopens the same loan, retaining its borrower, deadline and
+  renewal history. Current return date/fault details are cleared, while their
+  original audit evidence stays intact. The equipment becomes outstanding again.
+  A later genuine return creates a new `RETURN` event.
+
+A later effective loan of the same equipment blocks either correction, even if
+that later loan has since been returned. Correct later mistakes first; do not
+reverse genuine transactions just to bypass this protection. Reopening also
+checks shared availability for the original loan-to-due interval, or indefinitely
+if overdue. Overlapping reservations (including endpoints), other loans and
+unresolved severe faults block reopening. Other reservations and fault records
+are never automatically cancelled or cleared.
+
+Successful output identifies the correction event and echoes the reason.
+`loan-audit` retains both the original and corrective events with their related
+IDs; restart, export and import preserve them. Older loans without an original
+`LOAN` event cannot be cancelled using `reverse-loan`, but a return recorded after
+migration can be reversed. Legacy same-day loan ordering without issue evidence
+is treated conservatively as a possible dependency.
+
+Rejected corrections change no records.
+
+### Viewing equipment history: `history`
+
+At the main prompt, enter `history ASSET_ID`, for example `history OSC-001`.
+The identifier is case-sensitive and must be a single token. Register the
+equipment first using `add`.
+
+The display combines loan, reservation, fault, and maintenance records for that
+unit, oldest first. Loans include both active and returned records, with borrower
+ID, due date, and return date where available. Renewals add separate rows with
+the previous and new due dates; loss reports add dated `LOST` rows. Other rows represent current records rather
+than every change made to them. Reservation, fault, and maintenance details
+are supplied by their respective features.
+
+Dates mean loan date, reservation start date, fault report date, maintenance date,
+renewal date, or loss report date. Future reservations are included. Same-day entries are ordered by type
+(loan, reservation, fault, maintenance, renewal, lost), then description. Renewals on
+the same day retain the order in which they were accepted.
+
+Unknown equipment produces an error; registered equipment with no supplied records
+produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
+
+Use `loan-audit [ASSET_ID]` for the separate borrowing/return event log.
+The application combines loan history with notes recorded through `reservation`,
+`fault`, and `maintenance`. These records and notes survive restarts and are
+included in snapshot exports. Only command recall history is session-only.
+
 ### Recording equipment history notes
 
-Use `reservation ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION`, `fault` with the same
-fields, or `maintenance` with the same fields. For example:
-`fault OSC-001 d/2026-10-14 desc/Cracked screen`.
-The equipment must already be registered. Dates must be real calendar dates,
-and descriptions must be non-empty and single-line. View recorded notes using
-`history ASSET_ID`. Notes describe events only: they do not reserve availability
-or prevent loans. Reservation and maintenance notes are saved in the snapshot.
-Fault reports receive a unique `F-...` ID shown on success and in history. They
-are saved across restarts and included in exports. Multiple reports for the same
-equipment are allowed, each with its own ID. Past and future dates are accepted,
-as with the original dated notes. Use `repair` to resolve an identified fault.
+Use `reservation ASSET_ID d/YYYY-MM-DD desc/DESCRIPTION` or `maintenance` with
+the same fields, with `d/` before `desc/`. For example:
+`maintenance OSC-001 d/2026-10-14 desc/Calibrated probes`.
+The equipment must already be registered. Dates must be real calendar dates, past
+or future, and descriptions must be non-empty and single-line. View recorded notes
+using `history ASSET_ID`. Notes describe events only: they do not reserve
+equipment or prevent loans. Notes are saved and included in exports.
+
+To book a unit, use [`reserve`](#reserving-equipment-reserve). To report a defect
+that can block lending, use `fault`, described next.
 
 ### Recording fault severity and description
 
@@ -163,6 +594,10 @@ Use `fault ASSET_ID d/YYYY-MM-DD [s/SEVERITY] desc/DESCRIPTION`, for example:
 ```text
 fault OSC-001 d/2026-10-22 s/severe desc/Cracked screen
 ```
+
+Each report receives a unique `F-...` ID, shown on success and in `history`.
+Multiple reports for the same equipment are allowed, and past or future report
+dates are accepted. Reports are saved and included in exports.
 
 The optional severity goes between the date and description. Values ignore case:
 
@@ -209,234 +644,167 @@ report a new fault if a repaired problem occurs again.
 Resolving the last unresolved severe fault removes that equipment's fault-based
 lending restriction immediately. Other unresolved severe faults still block
 lending, and an active loan still makes the unit unavailable. Repairs do not
-return a loan. If saving fails, the session stops without reporting success;
-the previous saved state remains unchanged.
+return a loan.
 
-### Listing all active loans: `active-loans`
+### Reserving equipment: `reserve`
 
-Enter `active-loans` to show every current loan, ordered by due date. Each row
-includes asset ID, borrower ID, due date, and overdue status. Returned loans are
-excluded; a loan due today is not overdue.
+Use `reserve ASSET_ID b/BORROWER_ID from/YYYY-MM-DD to/YYYY-MM-DD`.
+Both the equipment and intended borrower must already be registered. Supply each
+field once, in any order. Dates are inclusive: a one-day reservation is valid,
+and a shared endpoint is occupied by both periods. Start dates cannot be before
+today. `reservations` lists stable reservation IDs; `history ASSET_ID` shows the
+period and intended borrower. Invalid input or a failed save changes no bookings.
 
-### Registering borrowers: `add-borrower`
+These are structured records introduced in snapshot format 6, preserved by restart, export
+and replacement import. Older formats load with no bookings. The existing
+`reservation ... d/DATE desc/TEXT` command remains a history note and cannot
+reserve a unit. Overlapping reservations and loans are rejected.
 
-In either console:
+### Booking conflicts
 
-```text
-add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu
-```
+Reservations and loans occupy inclusive start/end dates. A booking ending on
+Friday conflicts with another starting Friday; starting Saturday is valid.
+Returned loans occupy their actual loan-to-return dates. An active loan occupies
+its loan-to-due dates; once overdue, it blocks future periods until returned.
+Lost equipment also blocks every period without an assumed recovery date.
+Unresolved severe faults block reservations and lending for every period because
+there is no known repair completion date. Errors identify the conflicting booking
+or loan. The same rule applies even for the same borrower: cancel a reservation
+before issuing its loan. Legacy notes are not booking constraints.
 
-The ID must be an uppercase letter, seven digits, and an uppercase letter.
-Names contain 1-100 characters and no control characters; phone numbers contain
-eight digits; email addresses use `u.nus.edu`. All three prefixes are required
-exactly once and may appear in any order. Duplicate IDs and invalid fields are
-rejected. Registration saves the borrower before reporting success; a failed
-save leaves the borrower book unchanged.
+### Editing a reservation: `edit-reservation`
 
-### Viewing a borrower's loans: `loans`
+Use `edit-reservation RESERVATION_ID [b/BORROWER_ID] [from/START] [to/END]`.
+Find IDs with `reservations`. Supply at least one field, once each, in any order.
+Omitted fields stay unchanged; the unit and reservation ID remain stable.
+The intended borrower must be registered. Changed start dates cannot be past;
+an unchanged start may be past for an ongoing booking, but the new end must be
+today or later. The full proposed period is checked against all other bookings,
+loans and severe faults. A rejected edit or failed save leaves the original intact.
 
-In the main console, enter `loans A0123456X` for a registered borrower.
-Active loans are ordered by due date, then asset ID. Rows include the equipment
-name, issue date, due date, and whether the loan is overdue. Returned loans are
-excluded; a loan becomes overdue after its due date, not on that date.
+### Cancelling a reservation: `cancel-reservation`
 
-The standalone console has no loan-creation command, so after registration it
-reports `No active loans for A0123456X - Jamie Tan.` Unknown borrowers produce
-an error. In the main console, active loans are shared with the loan and return
-commands.
+Use `cancel-reservation RESERVATION_ID reason/TEXT`. A non-empty, single-line
+reason is required. Cancellation releases that booking's interval immediately
+but does not alter loans, faults or other bookings. The original user and period
+remain in `reservations` with cancelled status; `history ASSET_ID` also shows
+the cancellation date and reason. Unknown or already-cancelled IDs are errors.
+Cancelled records cannot be edited or reactivated. Failed saves leave the booking
+confirmed. Snapshot format 7 preserves cancellations; format-6 bookings load as
+confirmed, and earlier formats have no structured bookings.
 
-### Viewing common commands and examples: `help`
+### Finding equipment for a period: `available`
 
-Format: `help [COMMAND]`
+Use `available from/START to/END [category/CATEGORY]`, for example
+`available from/2099-01-01 to/2099-01-02 category/Electronics`. The interval is
+inclusive and starts today or later. Options may appear in any order, once each;
+category matches exactly ignoring case and may contain spaces. Results are
+ordered by asset ID. Every listed unit is free for the entire interval under the
+same loan, reservation and severe-fault rules used by booking. Cancelled bookings
+are ignored. This is a read-only query, not a reservation or a guarantee against
+later changes. Invalid queries are rejected even when inventory is empty.
 
-Enter `help` for the concise Version 1 command list, or supply one command name
-to see its syntax, fields, and explained usage examples. Help is available in both consoles
-and does not change records. Command names are case-sensitive; unknown names
-and extra arguments produce an error and let you try again.
+### Explaining unavailable equipment: `why-unavailable`
 
-For example, `help loan` displays:
-
-```text
-Issue a loan for an available equipment item.
-Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE
-Example: loan OSC-001 b/A0123456X d/2026-09-18
-  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.
-  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.
-Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; d/ gives the due date in YYYY-MM-DD format.
-The main console checks borrower IDs against registered borrowers before lending.
-```
-
-Detailed help covers `add`, `copy`, `edit-equipment`, `move-equipment`, history-note commands,
-`active-loans`, `list`, `find`,
-`loan`, `return`, `history`, `add-borrower`, `loans`, and `exit`. The list labels
-commands belonging to the main or borrower console; viewing help does not make
-a command available in the other console.
-
-Use `help return` to compare returning an item with and without new faults:
-
-```text
-Example: return OSC-001 faults/cracked screen
-  Return the unit and record a cracked screen on its loan.
-Example: return OSC-001
-  Return the unit with no new faults reported.
-```
-
-These are alternatives: the unit must have an active loan, and a loan cannot be
-returned twice. Use `help add-borrower` to see registrations with different field
-orders, and `help loans` for lookups using those borrowers' IDs. Use `help history`
-for a history lookup and its registration prerequisite, or `help help` to see how
-to switch between the concise list and command-specific guidance.
-
-Lines beginning with `Example:` contain commands you can type; the indented lines
-explain their outcomes. Viewing an example never executes it. Replace sample IDs,
-contact details, and dates with your own when entering a command.
-
-### Issuing a loan: `loan`
-
-At the initial prompt, enter `loan ASSET_ID b/BORROWER_ID d/DUE_DATE`:
+Use `why-unavailable ASSET_ID` to check one registered unit for today in the
+application's local time zone, or supply both dates to check a future interval:
 
 ```text
-loan OSC-001 b/A0123456X d/2026-10-30
+why-unavailable OSC-001
+why-unavailable OSC-001 from/2099-01-01 to/2099-01-02
 ```
 
-LabLog confirms `Loaned OSC-001 (Oscilloscope) to A0123456X on 2026-10-13. Due
-2026-10-30.` The loan date is today's date according to the computer's clock and
-local time zone. The due date uses `YYYY-MM-DD` and must not be earlier than
-today. Both `b/` and `d/` are required exactly once and may appear in either
-order. Asset IDs are case-sensitive.
+Asset IDs are exact and case-sensitive. `from/` and `to/` may appear in either
+order, once each. Both are required when specifying dates; the start must be
+today or later and the end must be on or after the start. Invalid dates, unknown
+equipment, extra fields and duplicate fields produce an error without changes.
 
-The equipment must be registered and must not already be out. Unknown equipment,
-malformed or past due dates, and missing, repeated, or unknown prefixes are
-rejected without recording anything. A unit that someone still has is refused with
-a message naming the current borrower and due date, so the same unit cannot be
-lent twice. Unresolved severe faults also prevent new loans, including after a
-return. Minor, moderate and unspecified faults do not block lending.
+The result shows every applicable reason: loss, each unresolved severe fault
+(with ID, date and description), overlapping reservations (with ID, borrower and
+dates), and overlapping loans (with ID, borrower, due date and return state).
+Multiple reasons can apply simultaneously. Resolved faults, cancelled bookings
+and records for other equipment are excluded. No blockers produces an explicit
+available-throughout-the-interval message.
 
-Borrower IDs must already exist in the shared borrower book. The main console
-rejects unknown borrower IDs. Equipment and loan history are saved in the
-configured LabLog file; borrower records are saved in the sibling
-`borrowers.properties` file. Both are reloaded on restart.
+These are the same inclusive interval rules used by `available` and lending:
+the return day remains occupied, an overdue unreturned loan blocks future dates
+indefinitely, and losses or blocking faults apply regardless of the query dates.
+Consequently `list`/`find` may show a returned unit as available while this query
+explains its occupied return day or a reservation. Use this command for a full
+booking explanation. Queries do not reserve equipment or rewrite saved data.
+Repairs, cancellations, returns and imports are reflected on the next query.
 
-### Recording a return: `return`
+### Recording waiting demand: `wait-request`
 
-At the initial prompt, use either format:
+Use `wait-request b/A0123456X category/Lab Electronics from/2099-01-01 to/2099-01-02`
+when every operationally suitable unit in that category is booked for at least
+part of the requested interval. Categories match exactly ignoring case and can
+contain spaces. The borrower must be registered. Dates use YYYY-MM-DD, include
+both endpoints, allow a same-day request and must start today or later.
+
+`waiting-requests` lists IDs, users, categories, periods and WAITING status.
+These requests do not reserve a unit, change loans, or block availability.
+They remain waiting if capacity becomes available; there is no automatic
+allocation or conversion. Check `available` and explicitly create a reservation
+when appropriate. Resolving/removing waiting requests is outside this version.
+
+Missing or repeated fields, invalid dates, an unknown borrower, duplicate demand
+(same user, category and dates), unknown categories and available capacity are
+rejected without changes. A category containing only severely faulty units is
+not considered fully booked: it has no operationally suitable units.
+
+Format 8 saves waiting requests separately from reservations and preserves both
+through restart, export and import. Formats 2 through 7 remain readable with an
+empty waiting list. Validation or save failure leaves previous records intact.
+
+### Viewing the daily overview: `overview`
+
+Enter `overview` in the main console to view three sections for the application's
+current local date:
 
 ```text
-return ASSET_ID [faults/DESCRIPTION]
-return ASSET_ID ASSET_ID ...
+overview
 ```
 
-For example, return two units together, then return a third with reported damage:
+- **Today's reservations:** non-cancelled bookings whose inclusive period covers
+  today, including bookings that started earlier or end today. Rows show booking
+  ID, equipment ID, borrower ID and dates, ordered by equipment ID then booking ID.
+- **Overdue loans:** outstanding loans due strictly before today, ordered by due
+  date, equipment ID then loan ID. Loans due today, returned loans and reversed
+  issues are excluded. Outstanding lost loans remain included when overdue and
+  are labelled `LOST (overdue)`.
+- **Unresolved severe faults:** each blocking severe report, with fault ID,
+  equipment ID, report date and description, ordered by report date, equipment ID
+  then fault ID. Repaired, minor, moderate and unspecified faults are excluded.
+  Future-dated severe reports are included because they already block lending
+  under the shared fault rules.
 
-```text
-return OSC-001 OSC-002
-return OSC-003 faults/cracked screen
-```
+Each section includes a record count and a clear message when empty. Equipment
+can appear in multiple sections, and multiple severe reports are shown separately.
+Reservations remain listed even if equipment later becomes lost or develops a
+fault; the overview does not cancel bookings or certify availability.
 
-Separate asset IDs with spaces to return multiple units in one operation.
-Each ID must appear only once, identify registered equipment, and have exactly
-one active loan. All selected loans are checked before any are changed. If
-any selection or return date is invalid, the entire batch is rejected.
+The command takes no arguments and does not change or save records. Each call
+reflects current bookings, returns, renewals, reversals, repairs and imports.
+Maintenance scheduling is outside the approved scope: maintenance history notes
+are not treated as due-maintenance tasks, and no maintenance schedule is invented.
 
-Batch returns record no new faults. To report damage, return the affected
-unit individually using `faults/DESCRIPTION`. Supplying `faults/` with multiple
-asset IDs is rejected without changing any loan. All units in a successful
-batch receive the same return date. Their loan records remain available in
-history and are saved together with the LabLog data.
-
-The return date is today's date according to the computer's clock and local time
-zone. Omit `faults/` if the unit is returned in its original condition with no new
-damage to report. This records "No faults reported on return"; it does not clear
-existing equipment faults. If supplied, `faults/` must appear once with a non-empty,
-single-line description. Asset IDs are case-sensitive.
-
-The equipment must exist and have exactly one active loan. Invalid commands,
-repeated returns, multiple active loans, and returns before the loan date are
-rejected without changing records. Returned loans remain in equipment history,
-including their reported faults, and are excluded from active-loan listings.
-
-Fault details are stored on the loan only; this command does not create a separate
-fault record or certify that the equipment is available for lending. The updated
-loan and return details are saved with the LabLog data.
-
-### Viewing equipment history: `history`
-
-At the main prompt, enter `history ASSET_ID`, for example `history OSC-001`.
-The identifier is case-sensitive and must be a single token. Register the
-equipment first using `add`.
-
-The display combines loan, reservation, fault, and maintenance records for that
-unit, oldest first. Loans include both active and returned records, with borrower
-ID, due date, and return date where available. Each row represents one record,
-not every change made to that record. Reservation, fault, and maintenance details
-are supplied by their respective features.
-
-Dates mean loan date, reservation start date, fault report date, or maintenance
-date. Future reservations are included. Same-day entries are ordered by type
-(loan, reservation, fault, maintenance), then description.
-
-Unknown equipment produces an error; registered equipment with no supplied records
-produces `No history found`. Enter `exit` at the initial prompt to close LabLog.
-
-The application combines loan history with notes recorded through `reservation`,
-`fault`, and `maintenance`. Fault records survive restarts; reservation and
-maintenance notes last only for the session.
-
-## FAQ
-
-**Q**: How do I transfer my data to another computer? 
-
-**A**: Close both consoles and copy `data/lablog.properties` for equipment and
-loan history, plus `data/borrowers.properties` for borrower records. Start the
-main JAR or `BorrowerCli` with the corresponding file path on the other computer.
-Files under `build/` are disposable and are removed by Gradle `clean`.
-
-## Command Summary
-
-| Input | Console | Purpose |
-| --- | --- | --- |
-| `help [COMMAND]` | Both | View commands and explained examples |
-| `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
-| `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
-| `list` | Main | List equipment and availability |
-| `active-loans` | Main | List all active loans |
-| `loan ASSET_ID b/BORROWER_ID d/DUE_DATE` | Main | Lend an available unit |
-| `history ASSET_ID` | Main | View supplied equipment records |
-| `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
-| `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
-| `reservation|maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a dated history note |
-| `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
-| `repair FAULT_ID d/DATE desc/DETAILS` | Main | Resolve a fault and retain its repair history |
-| `exit` | Main | End the session |
-| `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
-| `loans BORROWER_ID` | Both | List a registered borrower's active loans |
-
-Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
-to record a dated event in the main console. Fault reports are persistent records.
-
-## Edit borrower contacts (US21)
-
-Use edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL] in either console.
-For example, edit-borrower A0123456X p/92345678 e/new@u.nus.edu.
-Supply at least one non-empty field; prefixes may occur once each, in any order.
-Omitted values stay unchanged. Existing name, phone and email validation applies.
-The borrower ID and loan references remain stable. Invalid input or a failed save
-leaves the original contacts unchanged.
-
-## Export application data (US61)
+### Exporting data: `export`
 
 Use export FILE in the main console, for example export backups/lablog.properties.
 FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
 they include borrower contact details.
 
-Format 5 contains equipment, borrowers, complete loans and returns, history
-notes, and structured faults with severity, resolution dates and repair details.
-Formats 2, 3 and 4 remain readable. Legacy fault notes remain notes; format-3
-faults have unspecified severity, and older faults load as unresolved.
-Reservation domain records and audit records require future schema extensions.
+Format 11 contains equipment, borrowers, complete loans and returns, structured
+renewal events, loss reports, stable loan IDs, borrowing/return audit events,
+history notes, faults with severity and repair details, reservations and waiting
+requests. Formats 2 through 10 remain readable. Formats before 10 load without
+loss reports; formats before 9 have no renewal events and treat the saved due
+date as the original deadline. Formats before 11 have no event log. Legacy fault notes remain notes. Unknown future fields
+are rejected instead of silently discarded.
 
-## Import application data (US62)
+### Importing data: `import`
 
 Use import FILE --replace in the main console. This replaces all current records,
 rather than merging them. Export a backup first if the current records are needed.
@@ -444,28 +812,31 @@ For example: import backups/lablog.properties --replace. Paths may contain space
 and may be enclosed in double quotes. A successful import takes effect immediately
 and survives restart. Missing --replace or invalid records cause an error.
 
-The main console now saves one format-5 file containing equipment, borrowers,
-loans, returns, structured faults, repairs and history notes. It also loads legacy equipment/loan data with
+The main console now saves one format-11 file containing equipment, borrowers,
+loans, returns, renewal events, loss reports, stable IDs and borrowing/return audit
+events, structured faults, repairs, history notes, reservations and waiting
+requests. It also loads legacy equipment/loan data with
 the sibling borrowers.properties and migrates on the next successful save.
 That old borrower file is retained, but is no longer read after migration.
 The standalone borrower console continues to use its own borrower file; it no
 longer edits the main console's contacts after migration. Use edit-borrower in
 the main console for those records.
 
-## Invalid import protection (US63)
+### Invalid import protection
 
 Imports reject unsupported versions, missing or unknown fields, duplicate
 property keys or equipment/borrower IDs, broken references, impossible dates,
 multiple active loans for one unit, and invalid contact details. Files must be
 valid UTF-8 regular files no larger than 10 MiB. Counts are bounded at 100,000
-records per section. Audit records are unsupported in the current schema.
+records per section. Borrowing/return audit events and stable IDs are supported.
+Duplicate IDs, invalid event ownership and broken correction references are rejected. Invalid renewal chains or dates, and loss reports on returned
+loans or before the latest renewal, are rejected.
 
 Any validation or save failure reports an error and preserves current live and
 saved records. Fix the reported problem and submit the import again. Unknown
 fields are rejected so a newer feature's data cannot be silently discarded.
 
-
-### Unknown snapshot fields
+#### Unknown snapshot fields
 
 Each supported version has a closed schema: an unrecognized property is rejected, even if all
 required fields are valid. This includes extra record fields and indexed fields
@@ -475,7 +846,7 @@ The source and current saved records remain unchanged. Unsupported fields are
 never accepted and then discarded by re-exporting. Use a compatible application
 version when a file contains data from a newer feature.
 
-## Recall and adapt commands (US64)
+### Recalling recent commands: `commands`, `recall`
 
 Use commands to list the last 20 submitted lines, oldest first, then recall INDEX
 to display one. For example, recall 1 displays the oldest retained command.
@@ -488,11 +859,81 @@ and answers to equipment-registration prompts. Indices shift when the oldest
 line is discarded. Both consoles support this feature. Recent input may contain
 contact details, so avoid displaying it when sharing your screen.
 
-### Sorting filtered equipment
+## Current limitations
 
-Use `list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]`.
-Filtering and sorting can be combined in any order. Sort fields are `asset-id`,
-`name`, `category`, `model`, `location`, and `availability`. For example,
-`list category/Electronics sort/name` sorts only matching units. Comparisons
-are ascending and case-insensitive, with asset ID and exact ID case as tie-breakers.
-Sorting a copied snapshot preserves the stored registration order.
+- `list` and `find` derive their labels from loans, losses and severe faults;
+  they do not yet account for structured reservations. Use `available from/START
+  to/END` to check bookings for the entire intended interval before lending.
+- `loan-audit` displays stored events, including correction records. Use
+  `reverse-loan` or `reverse-return` with an event ID and reason to correct a
+  mistaken issue or return; dependency and availability checks may reject a
+  correction.
+- There is no lost-equipment recovery or automatic waiting-request allocation.
+
+## FAQ
+
+**Q**: How do I transfer my data to another computer? 
+
+**A**: Export a snapshot with `export FILE`, or close the main console and copy
+its configured `data/lablog.properties` file. That single file includes borrowers
+and all main-console records. Start the main JAR with that path on the other
+computer, or use `import FILE --replace` to replace an existing collection.
+If you use the standalone `BorrowerCli` separately, close it and copy its own
+borrower file too; it is independent of the current main snapshot. The sibling
+borrower file is used by the main console only when migrating legacy split-file data.
+Files under `build/` are disposable and are removed by Gradle `clean`.
+
+**Q**: What happens if saving fails, for example because the folder is read-only?
+
+**A**: LabLog never leaves the data file half-written: the previous file stays
+intact. Borrower, reservation, waiting-request and import changes are saved before
+they take effect, so LabLog shows an error, keeps the previous records and lets
+you continue. Any other change shows the error and then closes the main console,
+so no further unsaved work is accepted. Fix the file access problem and start
+LabLog again; it reloads the last saved records.
+
+## Command Summary
+
+| Input | Console | Purpose |
+| --- | --- | --- |
+| `help [COMMAND]` | Both | View commands and explained examples |
+| `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
+| `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
+| `list [category/VALUE] [location/VALUE] [status/STATUS] [sort/FIELD]` | Main | List, filter and sort equipment; status is available, on-loan, unavailable or lost |
+| `active-loans [overdue]` | Main | List all active loans or only overdue loans |
+| `overview` | Main | Show today's reservations, overdue loans and unresolved severe faults |
+| `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |
+| `renew ASSET_ID d/YYYY-MM-DD` | Main | Extend an active loan and retain the change |
+| `loan-audit [ASSET_ID]` | Main | View stored borrowing/return events and related corrections |
+| `reverse-loan EVENT_ID reason/TEXT` | Main | Correct a mistaken loan and retain its original evidence |
+| `reverse-return EVENT_ID reason/TEXT` | Main | Correct a mistaken return after dependency and availability checks |
+| `lost ASSET_ID` | Main | Record a loss while retaining the outstanding loan |
+| `history ASSET_ID` | Main | View equipment records, renewal events and loss reports |
+| `why-unavailable ASSET_ID [from/START to/END]` | Main | Explain all applicable booking blockers |
+| `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |
+| `return ASSET_ID ASSET_ID ...` | Main | Return multiple units together, with no new faults reported |
+| `reservation ASSET_ID d/DATE desc/DETAILS` | Main | Save a reservation history note, without making a booking |
+| `maintenance ASSET_ID d/DATE desc/DETAILS` | Main | Save a maintenance history note |
+| `fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS` | Main | Save an identifiable equipment fault |
+| `repair FAULT_ID d/DATE desc/DETAILS` | Main | Resolve a fault and retain its repair history |
+| `edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]` | Main | Edit descriptive fields |
+| `move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION` | Main | Move selected units together |
+| `find ASSET_ID` | Main | Look up one exact asset ID |
+| `search TEXT` | Main | Search equipment names and models using partial text |
+| `reserve ASSET_ID b/USER from/START to/END` | Main | Create a reservation |
+| `reservations` | Main | List bookings and their IDs |
+| `edit-reservation ID [b/USER] [from/START] [to/END]` | Main | Edit a booking |
+| `cancel-reservation ID reason/TEXT` | Main | Cancel and retain its history |
+| `available from/START to/END [category/CATEGORY]` | Main | Query the full requested interval |
+| `wait-request b/USER category/CATEGORY from/START to/END` | Main | Record unallocated demand |
+| `waiting-requests` | Main | List waiting demand |
+| `edit-borrower ID [n/NAME] [p/PHONE] [e/EMAIL]` | Both | Edit contacts |
+| `export FILE` | Main | Save a snapshot to a new file |
+| `import FILE --replace` | Main | Validate and replace all records |
+| `commands` / `recall INDEX` | Both | Display recent input without executing it |
+| `exit` | Both | End the session |
+| `add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL` | Both | Register and save a borrower |
+| `loans BORROWER_ID` | Both | List a registered borrower's active loans |
+
+Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
+to record a dated event in the main console. Fault reports are persistent records.

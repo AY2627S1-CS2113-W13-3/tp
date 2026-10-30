@@ -1,5 +1,7 @@
 package lablog;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 /** Displays command guidance without accessing or changing application records. */
@@ -7,31 +9,112 @@ public class HelpCommands {
     /** Records help requests at FINE level without including raw user input. */
     private static final Logger LOGGER = Logger.getLogger(HelpCommands.class.getName());
     private static final String USAGE = "Use: help [COMMAND]";
-    private static final String SUMMARY = "Common Version 1 commands:\n"
-            + "help [COMMAND] - Show common commands or detailed help.\n"
-            + "reservation|maintenance ASSET_ID d/DATE desc/DETAILS - Record a history note (main console).\n"
-            + "fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS - Report a persistent equipment fault.\n"
-            + "repair FAULT_ID d/DATE desc/DETAILS - Record a repair and resolve one fault.\n"
-            + "list [filters] [sort/FIELD] - Filter and sort equipment (main console).\n"
-            + "edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION] - "
-            + "Edit equipment details (main console).\n"
-            + "move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION - Move selected equipment together (main console).\n"
-            + "find ASSET_ID - Show one registered equipment unit (main console).\n"
-            + "active-loans - List all active loans and overdue status (main console).\n"
-            + "loan ASSET_ID b/BORROWER_ID d/DUE_DATE - Issue a loan (main console).\n"
-            + "return ASSET_ID [faults/DESCRIPTION] - Record a return (main console).\n"
-            + "return ASSET_ID ASSET_ID ... - Return multiple units (no faults/, main console).\n"
-            + "history ASSET_ID - View equipment history (main console).\n"
-            + "add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL - Register a borrower (both consoles).\n"
-            + "edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL] - Edit contacts (both consoles).\n"
-            + "export FILE - Export a complete snapshot to a new file (main console).\n"
-            + "import FILE --replace - Replace all records from a validated snapshot (main console).\n"
-            + "commands | recall INDEX - View recent input without executing it (both consoles).\n"
-            + "loans BORROWER_ID - View active loans (both consoles).\n"
-            + "exit - Close the main console.\n"
-            + "add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION] - Register equipment (main console).\n"
-            + "copy SOURCE_ASSET_ID NEW_ASSET_ID - Copy details to a new equipment unit (main console).\n"
-            + "Use help COMMAND for syntax, fields, and usage examples.";
+    /**
+     * Rows of the plain help table. A one-element row is a section heading; a two-element row is a
+     * command and its description.
+     */
+    private static final String[][] SUMMARY_ROWS = {
+        {"Equipment"},
+        {"add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]", "Register equipment (main console)."},
+        {"copy SOURCE_ASSET_ID NEW_ASSET_ID", "Copy details to a new equipment unit (main console)."},
+        {"edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]", "Edit equipment (main console)."},
+        {"move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION", "Move selected equipment together (main console)."},
+        {"list [filters] [sort/FIELD]", "Filter and sort equipment (main console)."},
+        {"find ASSET_ID", "Show one registered equipment unit (main console)."},
+        {"search TEXT", "Search equipment names and models by partial text (main console)."},
+        {"history ASSET_ID", "View equipment history (main console)."},
+        {"Loans"},
+        {"loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE", "Issue one or more loans (main console)."},
+        {"return ASSET_ID [faults/DESCRIPTION]", "Record a return (main console)."},
+        {"return ASSET_ID ASSET_ID ...", "Return multiple units (no faults/, main console)."},
+        {"renew ASSET_ID d/DUE_DATE", "Extend an active loan and retain the change (main console)."},
+        {"lost ASSET_ID", "Report an outstanding loan lost and keep its history (main console)."},
+        {"active-loans [overdue]", "List all active loans or only overdue loans (main console)."},
+        {"loan-audit [ASSET_ID]", "View recorded borrowing/return events (main console)."},
+        {"reverse-loan EVENT_ID reason/TEXT", "Correct a mistaken loan and retain its evidence (main console)."},
+        {"reverse-return EVENT_ID reason/TEXT", "Correct a mistaken return after conflict checks (main console)."},
+        {"loans BORROWER_ID", "View active loans (both consoles)."},
+        {"Borrowers"},
+        {"add-borrower BORROWER_ID n/NAME p/PHONE e/EMAIL", "Register a borrower (both consoles)."},
+        {"edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL]", "Edit contacts (both consoles)."},
+        {"Reservations"},
+        {"reserve ASSET_ID b/BORROWER_ID from/START to/END", "Create a confirmed reservation."},
+        {"edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END]", "Edit a booking."},
+        {"cancel-reservation RESERVATION_ID reason/TEXT", "Cancel a booking and retain its history."},
+        {"available from/START to/END [category/CATEGORY]", "Find units free throughout an interval."},
+        {"why-unavailable ASSET_ID [from/START to/END]", "Explain all booking blockers."},
+        {"wait-request b/USER category/CATEGORY from/START to/END", "Record unallocated demand."},
+        {"waiting-requests", "List waiting requests; these do not reserve units."},
+        {"reservations", "List reservations, status and IDs."},
+        {"Faults and maintenance"},
+        {"fault ASSET_ID d/DATE [s/SEVERITY] desc/DETAILS", "Report a persistent equipment fault."},
+        {"repair FAULT_ID d/DATE desc/DETAILS", "Record a repair and resolve one fault."},
+        {"reservation|maintenance ASSET_ID d/DATE desc/DETAILS", "Record a history note (main console)."},
+        {"Records and overview"},
+        {"overview", "Show today's reservations, overdue loans and unresolved severe faults (main console)."},
+        {"export FILE", "Export a complete snapshot to a new file (main console)."},
+        {"import FILE --replace", "Replace all records from a validated snapshot (main console)."},
+        {"General"},
+        {"help [COMMAND]", "Show common commands or detailed help."},
+        {"commands | recall INDEX", "View recent input without executing it (both consoles)."},
+        {"exit", "Close the main console."},
+    };
+    /** Longest description line in the help table; longer descriptions continue on the next line. */
+    private static final int DESCRIPTION_WIDTH = 45;
+    private static final String QUICK_START =
+            "Common commands: add-borrower, add, list, loan, return, history. Use help COMMAND for details.";
+    private static final String SUMMARY_FOOTER = "Use help COMMAND for syntax, fields, and usage examples.";
+    private static final String SUMMARY = buildSummary();
+
+    /**
+     * Lays out {@link #SUMMARY_ROWS} as a two-column text table split into titled sections. The
+     * command column is padded to its widest entry so the "|" separators line up in a monospaced
+     * console.
+     */
+    private static String buildSummary() {
+        String commandHeader = "Command";
+        int width = commandHeader.length();
+        for (String[] row : SUMMARY_ROWS) {
+            if (row.length == 2) {
+                width = Math.max(width, row[0].length());
+            }
+        }
+        String format = "%-" + width + "s | %s\n";
+        StringBuilder table = new StringBuilder("LabLog commands:\n" + QUICK_START + "\n\n");
+        table.append(String.format(format, commandHeader, "Description"));
+        table.append("-".repeat(width + 1)).append('+').append("-".repeat(13)).append('\n');
+        for (String[] row : SUMMARY_ROWS) {
+            if (row.length == 1) {
+                table.append('\n').append("== ").append(row[0]).append(" ==\n");
+            } else {
+                // Only the first line shows the command; continuation lines leave that column blank.
+                String command = row[0];
+                for (String line : wrap(row[1], DESCRIPTION_WIDTH)) {
+                    table.append(String.format(format, command, line));
+                    command = "";
+                }
+            }
+        }
+        return table.append('\n').append(SUMMARY_FOOTER).toString();
+    }
+
+    /**
+     * Splits text into lines of at most {@code width} characters, breaking only at spaces.
+     * A single word longer than {@code width} is kept whole on its own line.
+     */
+    private static List<String> wrap(String text, int width) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : text.split(" ")) {
+            if (line.length() > 0 && line.length() + 1 + word.length() > width) {
+                lines.add(line.toString());
+                line.setLength(0);
+            }
+            line.append(line.length() > 0 ? " " : "").append(word);
+        }
+        lines.add(line.toString());
+        return lines;
+    }
 
     /**
      * Returns the common command list or guidance for exactly one command name.
@@ -42,6 +125,10 @@ public class HelpCommands {
      */
     public String execute(String input) {
         String guidance = describe(input);
+        if (guidance.equals(SUMMARY)) {
+            // The summary has its own section headings, so it needs no dotted border.
+            return "\n" + guidance + "\n";
+        }
         String separator = "............................................................";
         return "\n" + separator + "\n" + guidance + "\n" + separator + "\n";
     }
@@ -59,23 +146,70 @@ public class HelpCommands {
         }
         LOGGER.fine("Looking up detailed command help");
         switch (parts[1]) {
+        case "reverse-loan":
+            return "Correct a mistaken loan without deleting its original event.\n"
+                    + "Format: reverse-loan EVENT_ID reason/TEXT\n"
+                    + "Example: reverse-loan E-123 reason/Equipment was not handed over\n"
+                    + "Fields: One exact LOAN event ID from loan-audit and a non-empty, single-line reason.\n"
+                    + "Reverse any return first. Renewals, loss reports and later effective loans block reversal.\n"
+                    + "The loan remains in history as REVERSED and no longer occupies the equipment.\n"
+                    + "The correction retains the original event ID and reason across restart and export/import.\n"
+                    + "Legacy loans without a LOAN event cannot be reversed. Rejected input changes nothing.";
+        case "reverse-return":
+            return "Correct a mistaken return and restore the same outstanding loan.\n"
+                    + "Format: reverse-return EVENT_ID reason/TEXT\n"
+                    + "Example: reverse-return E-456 reason/Equipment has not been returned\n"
+                    + "Fields: One exact RETURN event ID from loan-audit and a non-empty, single-line reason.\n"
+                    + "Later effective loans, overlapping reservations and unresolved severe faults block reopening.\n"
+                    + "An overdue loan blocks all future periods until returned. Its deadline stays unchanged.\n"
+                    + "Current return details are cleared; their original evidence and correction reason remain.\n"
+                    + "Each original event can be reversed once. Rejected input changes nothing.";
+        case "loan-audit":
+            return "View immutable borrowing and return evidence, including related correction records.\n"
+                    + "Format: loan-audit [ASSET_ID]\n"
+                    + "Example: loan-audit\nExample: loan-audit OSC-001\n"
+                    + "Fields: Optional case-sensitive asset ID; omit it to show all recorded events.\n"
+                    + "Each numbered event uses separate lines for its details and complete event/loan IDs.\n"
+                    + "Empty Faults, Related event and Reason fields are omitted.\n"
+                    + "Events are ordered by date, then acceptance order within the same day.\n"
+                    + "Legacy loans may have no events; history still shows their saved records.\n"
+                    + "This query changes no records. Use reverse-loan or reverse-return for explicit corrections.";
         case "edit-borrower":
             return "Edit a registered borrower's contacts; the ID and loan references stay unchanged.\n"
                     + "Format: edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL]\n"
                     + "Example: edit-borrower A0123456X p/92345678\n"
                     + "Fields: Supply at least one field, once each. Omitted values remain unchanged.\n"
                     + "The same validation as add-borrower applies. Failed edits change nothing.";
+        case "lost":
+            return "Report one outstanding equipment loan lost.\n"
+                    + "Format: lost ASSET_ID\nExample: lost OSC-001\n"
+                    + "Fields: One case-sensitive asset ID with exactly one active, non-lost loan.\n"
+                    + "The local report date, borrower, loan and renewal history are retained.\n"
+                    + "Lost units remain outstanding and unavailable indefinitely; return and renew are rejected.\n"
+                    + "Use list status/lost, find, active-loans, loans or history to inspect the report.\n"
+                    + "Overdue-only listings include lost loans when their due date is before today.\n"
+                    + "No recovery command is provided. Invalid input changes no records.";
+        case "renew":
+            return "Extend an active loan, including an overdue loan, and retain its renewal record.\n"
+                    + "Format: renew ASSET_ID d/YYYY-MM-DD\n"
+                    + "Example: renew OSC-001 d/2099-11-05\n"
+                    + "Fields: One case-sensitive asset ID and exactly one d/ date.\n"
+                    + "The new date must be later than the current due date and no earlier than today.\n"
+                    + "Shared booking checks still apply; overlapping reservation endpoints conflict.\n"
+                    + "Lost loans cannot be renewed.\n"
+                    + "Rejected input changes nothing. Successful changes appear in history and survive restart.";
         case "export":
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 5 includes fault severity, repairs and current history notes.\n"
-                    + "Future domain records and audit data require a schema update; "
+                    + "Snapshot format 11 includes loan/return audit events, stable IDs, loss reports, "
+                    + "renewals, reservations, waiting requests, faults and history notes.\n"
+                    + "Future domain records require a schema update; "
                     + "unsupported fields are rejected for every supported version, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
-                    + "Fields: FILE is a format-2, 3, 4 or 5 snapshot; --replace explicitly requests replacement,\n"
+                    + "Fields: FILE is a format-2 through 11 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"
@@ -90,6 +224,55 @@ public class HelpCommands {
             return "Display a recent command for copying or editing; never execute it automatically.\n"
                     + "Format: recall INDEX\nExample: recall 1\nFields: INDEX comes from commands.\n"
                     + "Copy or edit the displayed command, then submit it explicitly to execute.";
+        case "wait-request":
+            return "Record unallocated demand when all suitable units in a category are booked.\n"
+                    + "Format: wait-request b/USER category/CATEGORY from/START to/END\n"
+                    + "Dates are inclusive ISO dates starting today or later; the borrower must be registered.\n"
+                    + "Example: wait-request b/A0123456X category/Electronics from/2099-01-01 to/2099-01-02\n"
+                    + "Rejects duplicate demand, unknown categories and available capacity. No automatic allocation.";
+        case "waiting-requests":
+            return "Format: waiting-requests\nExample: waiting-requests\nFields: None."
+                    + "\nList saved demand with IDs, users, categories, periods and WAITING status.\n"
+                    + "These are not confirmed reservations and remain waiting when capacity becomes available.";
+        case "reserve":
+            return "Create a structured booking for a registered unit and borrower.\n"
+                    + "Format: reserve ASSET_ID b/BORROWER_ID from/YYYY-MM-DD to/YYYY-MM-DD\n"
+                    + "Example: reserve OSC-001 b/A0123456X from/2099-01-01 to/2099-01-02\n"
+                    + "Fields: b/, from/ and to/ occur once in any order. "
+                    + "Dates are inclusive; start is today or later.\n"
+                    + "Reservations persist and appear in history. Legacy notes are not bookings.\n"
+                    + "Lost units, overlapping loans/bookings and severe faults are rejected. Endpoints are inclusive.";
+        case "edit-reservation":
+            return "Edit a saved booking, keeping its ID and equipment unchanged.\n"
+                    + "Format: edit-reservation RESERVATION_ID [b/BORROWER_ID] [from/START] [to/END]\n"
+                    + "Example: edit-reservation R-123 to/2099-01-05\n"
+                    + "Fields: Supply at least one field, once each; omitted values stay unchanged.\n"
+                    + "Conflicts exclude only this booking. Invalid input or failed saves preserve the original.";
+        case "cancel-reservation":
+            return "Cancel one booking and release its constraint without deleting history.\n"
+                    + "Format: cancel-reservation RESERVATION_ID reason/TEXT\n"
+                    + "Example: cancel-reservation R-123 reason/Experiment postponed\n"
+                    + "Fields: reason/ is required once. Unknown IDs and repeated cancellations are rejected.\n"
+                    + "The original period and borrower, cancellation date and reason survive restart and export.";
+        case "why-unavailable":
+            return "Explain all reasons a registered unit is unavailable for an inclusive date interval.\n"
+                    + "Format: why-unavailable ASSET_ID [from/START to/END]\n"
+                    + "Example: why-unavailable OSC-001\n"
+                    + "  Check today in the application's local time zone.\n"
+                    + "Example: why-unavailable OSC-001 from/2099-01-01 to/2099-01-02\n"
+                    + "Supply both dates or neither; start must be today or later and end must not precede start.\n"
+                    + "Shows losses, unresolved severe faults, overlapping reservations and loans.\n"
+                    + "Loan occupancy includes its return day; overdue unreturned loans block indefinitely.\n"
+                    + "Reads current records without changing or reserving equipment.";
+        case "available":
+            return "Find units free throughout an inclusive date interval without booking them.\n"
+                    + "Format: available from/START to/END [category/CATEGORY]\n"
+                    + "Example: available from/2099-01-01 to/2099-01-02 category/Electronics\n"
+                    + "Fields: from/ and to/ are required once; category/ is optional and matches ignoring case.\n"
+                    + "Start is today or later. Loans, bookings, lost units and severe faults block results.";
+        case "reservations":
+            return "List saved bookings with IDs, units, users and inclusive periods.\n"
+                    + "Format: reservations\nExample: reservations\nFields: None.";
         case "add":
             return "Register equipment explicitly.\nFormat: add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION\n"
                     + "Example: add OSC-001 n/Oscilloscope c/Electronics m/S1 l/Lab 1\n"
@@ -145,10 +328,22 @@ public class HelpCommands {
                     + " OSC-001 d/2026-10-14 desc/Inspection scheduled\n"
                     + "  Add a note for registered equipment; view it with history OSC-001.\n"
                     + "Notes do not change loan availability and are saved in the main application snapshot.";
+        case "overview":
+            return "Show today's operational overview from current shared records.\n"
+                    + "Format: overview\nExample: overview\nFields: None.\n"
+                    + "Includes non-cancelled reservations covering today, outstanding loans due before today,\n"
+                    + "and unresolved severe faults. Uses the application's local date.\n"
+                    + "Lost overdue loans are included; returned/reversed loans and resolved faults are excluded.\n"
+                    + "Maintenance scheduling is not supported. Viewing the overview does not save or change records.";
         case "active-loans":
-            return "List active loans across all borrowers.\nFormat: active-loans\nExample: active-loans\n"
-                    + "  Show asset ID, borrower ID, due date, and overdue status in due-date order.\n"
-                    + "Returned loans are excluded. Loans due today are not overdue.";
+            return "List active loans across all borrowers.\nFormat: active-loans [overdue]\n"
+                    + "Example: active-loans\n  Show every active loan with its overdue status.\n"
+                    + "Example: active-loans overdue\n  Show only active loans due before today's local date.\n"
+                    + "Rows show asset ID, borrower ID, due date, and status, ordered by due date then asset ID.\n"
+                    + "Returned loans are excluded. Loans due today are not overdue.\n"
+                    + "Lost loans stay listed as LOST; overdue-only mode still checks their due date.\n"
+                    + "Fields: overdue is an optional, case-sensitive keyword; no other arguments are accepted.\n"
+                    + "An empty overdue-only result reports No overdue loans. The listing does not change records.";
         case "help":
             return "Show common commands or detailed help for one command.\n"
                     + "Format: help [COMMAND]\n"
@@ -160,14 +355,20 @@ public class HelpCommands {
                     + "  Show return examples with and without reported faults.\n"
                     + "Fields: COMMAND is optional; omit it for the concise list.";
         case "loan":
-            return "Issue a loan for an available equipment item.\n"
-                    + "Format: loan ASSET_ID b/BORROWER_ID d/DUE_DATE\n"
-                    + "Example: loan OSC-001 b/A0123456X d/2026-09-18\n"
-                    + "  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2026.\n"
+            return "Issue loans for one or more available equipment units.\n"
+                    + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
+                    + "Example: loan OSC-001 b/A0123456X d/2099-09-18\n"
+                    + "  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2099.\n"
                     + "  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.\n"
-                    + "Fields: ASSET_ID identifies the equipment; b/ identifies the borrower; "
+                    + "Example: loan OSC-001 MIC-002 b/A0123456X d/2099-09-18\n"
+                    + "  Lend both selected units to the same borrower with the same dates.\n"
+                    + "Fields: Supply one or more distinct, case-sensitive asset IDs separated by spaces; "
+                    + "b/ identifies the borrower; "
                     + "d/ gives the due date in YYYY-MM-DD format.\n"
-                    + "Register the borrower with add-borrower before issuing a loan.";
+                    + "Register the borrower with add-borrower before issuing a loan.\n"
+                    + "The inclusive loan interval must not overlap a reservation, including your own.\n"
+                    + "Every unit must be registered, not on loan, and free of unresolved severe faults.\n"
+                    + "Validate every selection before adding loans; an invalid batch records no loans.";
         case "return":
             return "Return one or more equipment units on today's date (main console).\n"
                     + "Format: return ASSET_ID [faults/DESCRIPTION] (single unit)\n"
@@ -181,37 +382,52 @@ public class HelpCommands {
                     + "Choose an example for currently loaned equipment; "
                     + "the same loan cannot be returned twice.\n"
                     + "Fields: Each asset ID must appear once and have exactly one active loan.\n"
+                    + "Lost equipment cannot be returned with this command.\n"
                     + "If any selection or return date is invalid, no selected loan is changed.\n"
                     + "faults/ accepts a non-empty, single-line description for one unit only.\n"
                     + "Return units with reported faults individually.\n"
                     + "Omitting faults/ records no new faults; it does not clear existing faults.";
         case "list":
             return "List registered equipment and current availability (main console).\n"
-                    + "Format: list [category/VALUE] [location/VALUE] [status/available|on-loan] [sort/FIELD]\n"
+                    + "Format: list [category/VALUE] [location/VALUE] "
+                    + "[status/available|on-loan|unavailable|lost] [sort/FIELD]\n"
                     + "Example: list category/Electronics location/Lab A status/available\n"
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Active loans determine on-loan status; "
-                    + "unresolved severe faults exclude units from available results.\n"
+                    + "unresolved severe faults and lost units are unavailable.\n"
+                    + "Reservations are not reflected in these labels; use available for an interval check.\n"
                     + "Example: list sort/name\n  Sort all registered units by name.\n"
                     + "Example: list category/Electronics location/Lab A status/available sort/name\n"
                     + "  Filter first, then sort the matching units. Options may appear in any order, once each.\n"
                     + "Supported sort fields: asset-id, name, category, model, location, availability.\n"
                     + "Sorting is ascending and case-insensitive; ties use asset ID, then exact ID case.\n"
                     + "Sorting does not change inventory order; omitting sort/ preserves registration order.\n"
-                    + "Fields: category/ and location/ match exact values; status/ is available or on-loan; "
+                    + "Fields: category/ and location/ match exact values; status/ is available, on-loan, "
+                    + "unavailable or lost; "
                     + "sort/FIELD selects one supported field.";
         case "find":
             return "Show one registered equipment unit by its exact asset ID.\n"
                     + "Format: find ASSET_ID\n"
                     + "Example: find OSC-001\n"
                     + "  Display the unit's name, category, model, location, and current availability.\n"
+                    + "Use why-unavailable ASSET_ID for booking reasons, including reservations.\n"
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.\n"
+                    + "Reservations are not reflected in this label; use available for an interval check.\n"
                     + "Unknown IDs produce an error. This lookup does not change records.";
+        case "search":
+            return "Search equipment names and models using partial text (main console).\n"
+                    + "Format: search TEXT\n"
+                    + "Example: search scope\n"
+                    + "  Match text anywhere in an equipment name or model, ignoring case.\n"
+                    + "  Results keep inventory order and show current availability.\n"
+                    + "Fields: TEXT is a non-empty phrase; asset IDs, categories and locations are not searched.\n"
+                    + "No matches are reported clearly. Search does not change inventory or saved records.";
         case "history":
             return "Show an equipment item's records, oldest first (main console).\n"
                     + "Format: history ASSET_ID\n"
                     + "Example: history OSC-001\n"
                     + "  After registering OSC-001, show its records, including active and returned loans.\n"
+                    + "  Each renewal includes the date and previous/new deadlines; loss reports retain their date.\n"
                     + "  If no records have been supplied, report no history found.\n"
                     + "Fields: ASSET_ID is the case-sensitive identifier of registered equipment.";
         case "add-borrower":
@@ -234,7 +450,8 @@ public class HelpCommands {
                     + "  After registering Alex Lim, show Alex's active loans. "
                     + "If none exist, report no active loans.\n"
                     + "Fields: BORROWER_ID identifies a registered borrower.\n"
-                    + "Returned loans are excluded. A loan is overdue only after its due date.";
+                    + "Returned loans are excluded. A loan is overdue only after its due date.\n"
+                    + "Lost loans remain outstanding and appear with Status LOST alongside the Overdue column.";
         case "exit":
             return "Close the main console.\nFormat: exit\nExample: exit\n"
                     + "  Enter exit at the initial main prompt to end the session.\nFields: None.\n"

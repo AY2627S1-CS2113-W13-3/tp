@@ -9,14 +9,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
-/** Lists and sorts registered units with availability derived from current loans. */
+/** Lists and sorts registered units with operational status derived from live records. */
 public class EquipmentListCommands {
     private static final String SUPPORTED_SORT_FIELDS =
             "asset-id, name, category, model, location, availability";
     private static final Set<String> SORT_FIELDS = Set.of(
             "asset-id", "name", "category", "model", "location", "availability");
     private static final String USAGE = "Use: list [category/VALUE] [location/VALUE]"
-            + " [status/available|on-loan] [sort/FIELD]";
+            + " [status/available|on-loan|unavailable|lost] [sort/FIELD]";
     private static final Set<String> OPTION_FIELDS = Set.of("category", "location", "status", "sort");
 
     private final Inventory inventory;
@@ -62,14 +62,13 @@ public class EquipmentListCommands {
             units = new ArrayList<>(units);
             units.sort(comparatorFor(sortField));
         }
-        StringBuilder result = new StringBuilder("Asset ID | Name | Category | Model | Location | Availability");
+        List<List<String>> rows = new ArrayList<>();
         for (Equipment unit : units) {
-            result.append("\n").append(unit.getAssetId()).append(" | ").append(unit.getName())
-                    .append(" | ").append(unit.getCategory()).append(" | ").append(unit.getModel())
-                    .append(" | ").append(unit.getLocation()).append(" | ")
-                    .append(availabilityOf(unit));
+            rows.add(List.of(unit.getAssetId(), unit.getName(), unit.getCategory(), unit.getModel(),
+                    unit.getLocation(), availabilityOf(unit)));
         }
-        return result.toString();
+        return TableFormatter.format(
+                List.of("Asset ID", "Name", "Category", "Model", "Location", "Availability"), rows);
     }
 
     /** Parses filters and the sort option together, preserving spaces inside filter values. */
@@ -97,8 +96,9 @@ public class EquipmentListCommands {
             }
             if (field.equals("status")) {
                 value = value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "-");
-                if (!Set.of("available", "on-loan").contains(value)) {
-                    throw new IllegalArgumentException("Status must be available or on-loan. " + USAGE);
+                if (!Set.of("available", "on-loan", "unavailable", "lost").contains(value)) {
+                    throw new IllegalArgumentException(
+                            "Status must be available, on-loan, unavailable or lost. " + USAGE);
                 }
             }
             if (field.equals("sort") && !SORT_FIELDS.contains(value)) {
@@ -139,12 +139,14 @@ public class EquipmentListCommands {
 
     /** Returns the same availability label displayed in each equipment row. */
     private String availabilityOf(Equipment unit) {
-        return loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
+        return loans.hasLostLoan(unit.getAssetId()) ? "Lost"
+                : loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
                 : faults.blocksLending(unit.getAssetId()) ? "Unavailable: severe fault" : "Available";
     }
     /** Keeps filters consistent with lending restrictions and displayed availability. */
     private String statusOf(Equipment unit) {
-        return loans.hasActiveLoan(unit.getAssetId()) ? "on-loan"
+        return loans.hasLostLoan(unit.getAssetId()) ? "lost"
+                : loans.hasActiveLoan(unit.getAssetId()) ? "on-loan"
                 : faults.blocksLending(unit.getAssetId()) ? "unavailable" : "available";
     }
 }
