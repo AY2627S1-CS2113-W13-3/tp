@@ -23,6 +23,10 @@ public class Equipment {
         if (assetId == null || assetId.isBlank() || assetId.chars().anyMatch(Character::isWhitespace)) {
             throw new IllegalArgumentException("Asset ID must be a single non-empty word.");
         }
+        // These characters delimit prefixed fields and batch selections in equipment commands.
+        if (assetId.indexOf('/') >= 0 || assetId.indexOf(',') >= 0) {
+            throw new IllegalArgumentException("Asset ID must not contain '/' or ',' (reserved command separators).");
+        }
         validateDetail(name, "Name");
         validateDetail(category, "Category");
         validateDetail(model, "Model");

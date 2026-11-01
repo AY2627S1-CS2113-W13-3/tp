@@ -181,5 +181,44 @@ class CliSmokeTests(unittest.TestCase):
             self.assertIn("A0123456X - Updated", output)
 
 
+    def test_main_missing_snapshot_count_stops_before_accepting_commands(self):
+        with tempfile.TemporaryDirectory(prefix="corrupt-startup-", dir=ROOT / "build") as directory:
+            file = Path(directory) / "lablog.properties"
+            args = ["-jar", str(JAR), str(file)]
+            self.run_java(args,
+                "add OSC-001 n/Scope c/Electronics m/S1 l/Lab\n"
+                "add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\n"
+                "maintenance OSC-001 d/2026-01-01 desc/Calibrated\n"
+                "reserve OSC-001 b/A0123456X from/2099-01-01 to/2099-01-02\nexit\n")
+            saved = file.read_bytes()
+            damaged = re.sub(rb"(?m)^borrower\.count=[^\r\n]*\r?\n", b"", saved)
+            self.assertNotEqual(saved, damaged)
+            file.write_bytes(damaged)
+            result = subprocess.run(["java", *args],
+                input="add OSC-002 n/Probe c/Electronics m/S2 l/Lab\nexit\n",
+                capture_output=True, text=True, encoding="utf-8", cwd=ROOT, timeout=30)
+            self.assertIn("Error: Cannot load LabLog data.", result.stderr)
+            self.assertIn("borrower.count", result.stderr)
+            self.assertNotIn("lablog>", result.stdout)
+            self.assertEqual(damaged, file.read_bytes())
+
+    def test_main_reserved_equipment_ids_are_rejected_without_saving(self):
+        with tempfile.TemporaryDirectory(prefix="reserved-ids-", dir=ROOT / "build") as directory:
+            file = Path(directory) / "lablog.properties"
+            args = ["-jar", str(JAR), str(file)]
+            self.run_java(args, "add OSC-001 n/Scope c/Electronics m/S1 l/Lab\nexit\n")
+            saved = file.read_bytes()
+            output = self.run_java(args,
+                "add A/B n/Scope c/Electronics m/S1 l/Lab\n"
+                "add A,B\nScope\nElectronics\nS1\nLab\n"
+                "copy OSC-001 A/B\ncopy OSC-001 A,B\nexit\n")
+            self.assertEqual(4, output.count("Error: Asset ID must not contain"))
+            self.assertNotIn("[OK]", output)
+            self.assertEqual(saved, file.read_bytes())
+            restarted = self.run_java(args, "find OSC-001\nexit\n")
+            self.assertIn("Asset ID: OSC-001", restarted)
+            self.assertEqual(saved, file.read_bytes())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -162,7 +162,8 @@ public class LabLog {
         List<Reservation> bookings = List.of();
         List<WaitingRequest> waitingRequests = List.of();
         Properties records = Files.exists(absolute) ? ApplicationSnapshot.readProperties(absolute) : null;
-        if (records != null && ("2".equals(records.getProperty("format"))
+        // Only explicit format-1 data may use split-file migration. Missing snapshot fields are corruption.
+        if (records != null && (!"1".equals(records.getProperty("format"))
                 || records.containsKey("borrower.count"))) {
             ApplicationSnapshot snapshot = ApplicationSnapshot.decode(records);
             inventory = new Inventory();
