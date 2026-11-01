@@ -1,17 +1,18 @@
 # Current feature verification
 
-Verified locally on 29 October 2026 against upstream develop revision 5691cc0
-(v2.0 candidate), with the test-expectation and documentation updates on
-chore/update-lulu-ppp-and-ui-tests. Runtime: OpenJDK 25.0.4.1, PowerShell 7.6.
-Application code is unchanged by that branch.
+Verified locally on 1 November 2026 for the bugfix code at 64db242, now included
+in upstream develop merge 193276b. The documentation branch changes no Java
+sources. Runtime: OpenJDK 25.0.4.1 on Windows. The new Developer Guide examples
+were exercised against the packaged JAR with disposable files on the same date.
 
 ## Results
 
 | Check | Result |
 | --- | --- |
-| Gradle clean check shadowJar | Passed; 305 JUnit tests, no failures/errors/skips, Checkstyle main/test passed, executable JAR built |
-| python test/run-cli-smoke-tests.py | Passed; eight packaged CLI checks |
-| pwsh -File test/run-borrower-ui-tests.ps1 | Passed; two exact-output cases and restart persistence |
+| Gradle check and shadowJar | Passed; 310 JUnit tests, no failures/errors/skips, Checkstyle main/test passed, executable JAR built |
+| python test/run-cli-smoke-tests.py | Passed; ten packaged CLI checks |
+| Developer Guide manual workflows | Exercised all 12 groups, including restart queries and three invalid-file preservation cases |
+| pwsh -File test/run-borrower-ui-tests.ps1 | Previously passed on 29 October; not rerun for this documentation update |
 | git diff --check | Passed |
 
 ## Coverage
@@ -27,7 +28,9 @@ integrated workflow issues two loans, renews one, reports it lost, returns the
 other, creates a reservation and waiting request, and reports/resolves a severe
 fault. It exports to a path containing spaces, imports into a new data file,
 restarts, and compares loan audit, history, bookings, waiting demand and loss
-listings. Read-only queries must leave the saved bytes unchanged.
+listings. Read-only queries must leave the saved bytes unchanged. Additional packaged
+checks reject incomplete startup snapshots and reserved equipment-ID separators
+without overwriting the rejected file.
 
 The borrower transcript records the current standalone console output, including
 the `[OK]` prefix for successful changes; the runner's disposable data path is
@@ -37,10 +40,18 @@ explicit local checks.
 
 ## Documentation corrections
 
-The User Guide was aligned with v2.0: Quick Start uses the released JAR, example
+The Developer Guide now includes independent manual workflows, a disposable
+overdue-loan sample, explicit dynamic-ID instructions, and expected rejection
+and restart results. The User Guide documents reserved asset-ID separators and
+startup rejection of incomplete snapshots. Storage and return-audit descriptions
+match the implementation; dependency acknowledgements link to their sources.
+
+
+Earlier v2.0 documentation corrections: Quick Start uses the released JAR, example
 due dates are in the future, sample output includes `[OK]` and aligned tables,
 and save-failure behaviour is described once in the FAQ. The Developer Guide was
-regrouped after peer review, and its diagrams follow the course UML notation.
+regrouped after peer review. This update does not change the diagram sources or
+verify their browser rendering.
 
 ## Remaining limitations
 

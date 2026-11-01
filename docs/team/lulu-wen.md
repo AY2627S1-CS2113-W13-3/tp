@@ -4,77 +4,88 @@
 
 LabLog is a command-line application for laboratory technicians who lend
 electronics equipment to students. It tracks equipment, borrowers, loans,
-reservations and faults, and keeps every record in one validated local file.
+reservations and faults in one validated local file.
 
-### Summary of Contributions
+## Summary of Contributions
 
-**Code contributed:** [RepoSense link](https://nus-cs2113-ay2627-s1.github.io/tp-dashboard/?search=lulu-wen&sort=groupTitle&sortWithin=title&timeframe=commit&mergegroup=&groupSelect=groupByRepos&breakdown=true&checkedFileTypes=docs~functional-code~test-code~other)
+**Code contributed:** [tP Code Dashboard / RepoSense](https://nus-cs2113-ay2627-s1.github.io/tp-dashboard/?search=lulu-wen&sort=groupTitle&sortWithin=title&timeframe=commit&mergegroup=&groupSelect=groupByRepos&breakdown=true&checkedFileTypes=docs~functional-code~test-code~other)
 
 **Enhancements implemented:**
 
 * **Loan records and lending** ([#17](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/17),
   [#19](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/19),
-  [#25](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/25)): added `Loan`,
-  `LoanBook` and the `loan` command. Every check runs before a loan is stored, and
-  availability is derived from active loans instead of a status field.
-* **Batch lending and returns** ([#118](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/118),
-  [#106](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/106)): `loan` and `return`
-  accept several units. The whole selection is validated first, so one invalid
-  unit leaves every loan unchanged.
-* **Overdue listing** ([#111](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/111)):
-  `active-loans overdue` lists only loans due before today, sorted by due date.
-* **Renewals** ([#119](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/119)):
-  `renew` extends an active loan and keeps each deadline change as an immutable
-  `LoanRenewal`, checked against the shared booking policy.
-* **Lost equipment** ([#120](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/120)):
-  `lost` keeps the loan outstanding with status `LOST` instead of treating the
-  loss as a return, so the borrower stays responsible.
-* **Loan audit trail and corrections** ([#121](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/121),
-  [#122](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/122)): stable loan IDs,
-  immutable `LoanAuditEvent` records, `loan-audit`, and `reverse-loan` /
-  `reverse-return`, which add correction events instead of deleting evidence.
-* **Start-up banner** ([#140](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/140)):
-  the main console opens with an ASCII LabLog banner and the version. The banner is
-  plain ASCII, because Windows consoles garble other characters, and it reuses
-  `ConsoleWelcome`, so the version is defined in one place.
-* **Build and documentation tooling**: enabled Java assertions for `run` and `test`
-  ([#129](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/129)), and made Mermaid
-  diagrams render on the GitHub Pages site ([#133](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/133)).
+  [#25](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/25)): implemented `Loan`,
+  `LoanBook` and console integration. Availability is derived from active loans,
+  avoiding a separate status field that could become inconsistent.
+* **Batch operations and loan lifecycle**:
+  [batch lending](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/118) and
+  [returns](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/106) validate every
+  selection before mutation, preventing partial batches.
+  [Overdue listings](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/111),
+  [renewals](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/119) and
+  [loss reports](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/120) retain
+  deadlines, renewal history and borrower responsibility through state changes.
+* **Audit trail and corrections** ([#121](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/121),
+  [#122](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/122)): added stable loan
+  IDs and immutable events so mistakes can be corrected without erasing evidence.
+  Reopening a return checks later loans and shared booking constraints; snapshot
+  validation keeps current state consistent with the audit log.
+* **Persistence and ID validation fixes** ([#148](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/148)):
+  prevented incomplete modern snapshots from falling back to legacy loading and
+  losing records on the next save. Rejected reserved asset-ID separators across
+  registration, copy, load and import. Added five Java regression tests and two
+  packaged CLI checks for these cases.
+* **Console and tooling**: added the ASCII
+  [startup banner](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/140), enabled
+  [Java assertions](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/129), and
+  integrated [Mermaid rendering](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/133).
 
 **Contributions to the UG:**
 
-* Wrote the sections on `loan`, `active-loans`, `renew`, `return`, `lost`,
-  `loan-audit`, loan corrections and `history`.
-* Aligned the guide with v2.0 ([#139](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/139)):
-  rewrote Quick Start for the released JAR, added a table of contents and
-  command-format notes, moved stray sections into Features, replaced past example
-  dates and outdated sample output, and explained save failures once in the FAQ.
+* Documented [lending](../UserGuide.md#issuing-one-or-more-loans-loan),
+  [batch returns](../UserGuide.md#recording-a-return-return),
+  [renewals](../UserGuide.md#renewing-an-active-loan-renew),
+  [loss reports](../UserGuide.md#reporting-loaned-equipment-lost-lost), and
+  [audit corrections](../UserGuide.md#correcting-a-mistaken-loan-or-return).
+* Aligned Quick Start, examples, output and save-failure explanations with v2.0
+  ([#139](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/139)). Updated asset-ID
+  and startup-validation guidance in
+  [#149](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/149).
 
 **Contributions to the DG:**
 
-* Wrote the sections on issuing loans, active and overdue listings, renewals, the
-  audit trail, corrections and lost equipment, with their sequence diagrams.
-* Addressed peer-review feedback ([#137](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/137)):
-  regrouped the guide into Design and Implementation; added the command-execution,
-  Model and Storage sections and an object diagram; aligned the diagrams with the
-  course UML notation; added manual test cases.
+* Documented [loan implementation](../DeveloperGuide.md#loans), including
+  [renewal](../DeveloperGuide.md#renewing-active-loans),
+  [audit](../DeveloperGuide.md#borrowing-and-return-audit-trail) and
+  [correction](../DeveloperGuide.md#correcting-erroneous-loans-and-returns)
+  sequence diagrams.
+* Restructured Design/Implementation after peer review; added command-execution,
+  Model and Storage overviews, an audit object diagram and manual tests
+  ([#137](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/137)). Added 12
+  [manual workflows](../DeveloperGuide.md#manual-test-cases), an overdue sample
+  and clearer responsibility descriptions in #149.
 
 **Contributions to team-based tasks:**
 
-* Prepared and published the v1.0 release ([#26](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/26)).
-* Synced `master` into `develop` ([#56](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/56)).
-* Opened 11 issues for the loan features.
-* Drafted the first PPP for every member and linked them from About Us
-  ([#139](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/139)).
-* Triaged the DG peer review into fixes, and updated test expectations that had
-  fallen behind the `[OK]` output prefix.
+* Coordinated [v1.0](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/26) and
+  [v2.0 release integration](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/146),
+  and [branch synchronization](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/56).
+* Opened [11 planning issues](https://github.com/AY2627S1-CS2113-W13-3/tp/issues?q=is%3Aissue%20author%3Alulu-wen),
+  drafted members' PPPs and linked them from About Us (#139), and updated
+  [CLI test expectations and verification records](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/145).
 
 **Review/mentoring contributions:**
 
-* Reviewed PRs [#44](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/44) to
-  [#46](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/46),
-  [#48](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/48) to
-  [#55](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/55),
-  [#100](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/100) and
-  [#105](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/105)
-  (11 reviews, 15 inline comments, 4 other comments).
+* Submitted 11 teammate PR reviews. Examples discuss
+  [registration cancellation](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/45#pullrequestreview-5519414376),
+  [help output responsibilities](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/48#pullrequestreview-5519415770),
+  [input validation](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/53#pullrequestreview-5519419089)
+  and [save-failure handling](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/55#pullrequestreview-5519420496).
+
+**Contributions beyond the project team:**
+
+* Reviewed another team's
+  [Developer Guide](https://github.com/NUS-CS2113-AY2627-S1/tp/pull/5#pullrequestreview-5678163234),
+  commenting on [object creation lifelines](https://github.com/NUS-CS2113-AY2627-S1/tp/pull/5#discussion_r4397180709),
+  [incomplete activity flows](https://github.com/NUS-CS2113-AY2627-S1/tp/pull/5#discussion_r4397185207)
+  and [persistence-format documentation](https://github.com/NUS-CS2113-AY2627-S1/tp/pull/5#discussion_r4397230669).
