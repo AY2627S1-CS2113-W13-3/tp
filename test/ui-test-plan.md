@@ -10,6 +10,14 @@ every supported command and a combined batch-loan, renewal, loss, return-audit,
 reservation, waiting-request and fault-repair workflow through export/import
 and restart, including paths containing spaces. The runner uses temporary
 files under `build/` and does not rewrite the recorded borrower transcript.
+It also checks that missing required snapshot counts stop startup without
+rewriting the file, and that reserved equipment-ID separators are rejected
+during registration/copy and loading.
+
+For complete manual feature workflows, expected results and restart checks, see
+[Developer Guide: manual test cases](../docs/DeveloperGuide.md#manual-test-cases).
+The [overdue sample](../docs/testdata/overdue.properties) provides a historical
+loan without changing the system clock. Use a disposable copy of that file.
 
 The PowerShell 7 cases below remain available for exact-output borrower checks.
 

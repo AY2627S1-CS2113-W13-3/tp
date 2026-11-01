@@ -65,32 +65,23 @@
 
 ## Acknowledgements
 
-LabLog builds on the SE-EDU Java project template. Gradle manages compilation,
-JUnit 5 runs tests, Checkstyle checks coding conventions, and Shadow builds the
-executable JAR. See `build.gradle` for dependency versions.
+LabLog builds on the [SE-EDU Duke project template](https://github.com/se-edu/duke).
+The console banner uses the
+[FIGlet Standard font](https://github.com/xero/figlet-fonts/blob/main/Standard.flf).
 
 ## Design
 
-Diagrams use inline UML drawn with Mermaid. Class diagrams show selected members,
-relationships, and dependencies. Sequence diagrams show command flows between
-objects (`:ClassName` or `name:ClassName`), with activation bars; notes summarise
-steps that involve no message to another object.
+Diagrams use Mermaid and the
+[course UML conventions](https://se-education.org/se-book/uml/index.html).
+Class diagrams show selected members; solid arrows represent stored references
+and dashed arrows temporary use or creation. Labels name fields where shown;
+omitted multiplicities are unspecified. Architecture grouping boxes summarise
+dependencies rather than Java packages.
 
-Class diagrams follow the [course UML conventions](https://se-education.org/se-book/uml/index.html).
-Solid arrows show stored references; dashed arrows show temporary use or creation.
-Association labels name fields where a concrete field is shown. Target
-multiplicities use `1`, `0..1` or `0..*`; omitted multiplicities are unspecified.
-Collection membership is an ordinary association, not a claim of exclusive
-composition ownership. Each association appears as a line rather than also as
-an attribute. The architecture diagram groups handlers conceptually; its
-unlabelled links summarise dependencies across the group, not fields of one class.
-
-Selected attributes use `name: Type`. Operations render as
-`name(parameter: Type): ReturnType`, including `void`; Mermaid inserts the colon
-before the return type. `+` means public, `-` private, and static operations are
-underlined. Interfaces and enumerations use stereotypes. Members irrelevant to
-an overview are omitted. Mermaid 10.9.1 still draws their empty compartments;
-these do not mean the corresponding Java classes have no fields or methods.
+Sequence diagrams use `:ClassName` or `name:ClassName` lifelines with activation
+bars. Operations use `name(parameter: Type): ReturnType`; `+` means public,
+`-` private, and underlining static. Empty compartments may contain omitted
+members.
 
 ### Architecture
 
@@ -306,8 +297,12 @@ newer data. Each version added one kind of record:
 | 5 | Repairs and fault resolution | 10 | Loss reports |
 | 6 | Reservations | 11 | Stable loan IDs and the loan audit log |
 
-Older installations that kept equipment/loans and borrowers in two separate files
-are loaded through `LabLogStore` and migrated to one snapshot on the next save.
+Only an explicit `format=1` equipment/loan file uses legacy loading through
+`LabLogStore`, with contacts from the separate borrower file. The next successful
+change migrates those records to one snapshot. Formats 2 through 11 must pass
+complete snapshot validation. A missing `borrower.count` does not select legacy
+loading: missing counts and unknown formats stop startup before the prompt and
+leave the source file unchanged.
 
 **Validation before use.** Loading and importing reject, before any live record
 changes: files that are not regular files or exceed 10 MiB; repeated or unknown
@@ -335,60 +330,34 @@ below describe the export schema, import and import validation in detail.
 
 #### Versioned export schema
 
-ApplicationSnapshot captures the supported object graph and uses LabLogStore's
-equipment/loan serializer. UTF-8 properties format 11 retains borrower.count and
-note.count with indexed fields, structured renewal chains and each loan's loss report date.
-audit.count and typed indexed records retain borrowing/return evidence and correction
-references, joined to stable loan IDs. The codec validates references and dates
-before writing a temporary file and atomically replacing its destination.
-The export command requires a new file and protects the active data paths.
-
-Reservations, waiting requests and loan audit events already have structured
-serialization, validation and round-trip coverage. Future domain extensions
-must update that schema and its tests, and bump the format when necessary.
-Do not serialize HistoryEntry display text as a substitute for full domain data.
-Import and envelope validation use the same codec as export.
+`ApplicationSnapshot` uses `LabLogStore` to serialize equipment and loans,
+and adds the other domain records. Audit events link to stable loan IDs; renewal
+chains and loss dates remain structured data, not `HistoryEntry` display text.
+Export requires a new file and refuses active data paths. Schema extensions must
+update the codec and round-trip tests, with a format bump when necessary.
 
 #### Import and single-file persistence
 
-LabLog.load reads complete formats 2 through 11 into detached books, or loads the legacy two-file
-installation without writing during startup. Main-console mutations persist
-one ApplicationSnapshot. BorrowerBook's Saver writes proposed contacts with
-the other current records before publishing the edit.
+Startup reads records into detached books without writing. Import validates
+the complete snapshot, saves it atomically, then replaces the shared books'
+contents so existing handlers see the imported records. Injected external history
+sources cannot be replaced and are rejected.
 
-Import decodes all records and validates IDs, references, dates and active-loan
-constraints before writing the replacement atomically. Only after persistence
-succeeds does it replace the contents of shared books. Existing command handlers
-therefore observe the new records without being rebuilt. Injected external
-history sources cannot be replaced and are rejected explicitly.
-
-SnapshotImportTest checks valid replacement, visibility through existing
-handlers, restart, updated contacts, legacy migration and a failed destination
-replacement. An unsupported atomic move fails safely; no non-atomic fallback
-is attempted. Use one main-console process per data file.
+`SnapshotImportTest` covers replacement, handler visibility, restart, contact
+updates, legacy migration and failed saves. See the save strategies above for
+failure behaviour.
 
 #### Import envelope validation
 
-ApplicationSnapshot.readProperties rejects duplicate properties through a
-Properties subclass instead of accepting the parser's usual last-value-wins
-behavior. It checks regular-file status and the 10 MiB input limit. Decode
-derives the accepted key set from the export schema and the declared input version,
-excluding fields introduced by later versions. It rejects supplied keys
-outside it, including out-of-range indices. The error names the first unknown
-key in sorted order. Required-field validation separately rejects missing keys. Domain validation remains shared with
-the export codec.
+`ApplicationSnapshot.readProperties` rejects duplicate keys rather than accepting
+the last value. It enforces the regular-file and 10 MiB limits, then derives
+allowed keys from the declared version. Missing fields, later-version fields,
+unknown keys and out-of-range indices are rejected; unknown-key errors name the
+first key in sorted order. Domain validation uses the shared snapshot codec.
 
-SnapshotValidationTest supplies malformed versions, counts, contact fields,
-dates, references, duplicate IDs/keys, unknown fields, invalid audit data,
-invalid UTF-8 and oversized input. Dispatcher-level cases verify saved content
-and active-loan listings remain unchanged after each invalid import.
-
-Unknown-property rejection is covered by
-SnapshotValidationTest.decode_unknownProperties_rejectsBeforeReserialization.
-It supplies valid snapshot records plus unknown top-level, per-record and
-out-of-range indexed properties. Both direct decode and read-then-write must
-fail before the existing destination can be overwritten; the source, destination
-and input properties are checked for preservation.
+`SnapshotValidationTest` covers malformed versions, counts, contacts, dates,
+references, IDs, audit records, UTF-8 and oversized input. Tests also verify that
+invalid imports preserve live records, source files and existing destinations.
 
 ## Implementation
 
@@ -437,9 +406,12 @@ through the operations shown.*
 
 `Equipment` is immutable. Its constructor enforces the record's invariants for
 every caller, including loading a saved file: the asset ID must be a single
-non-empty word, and the name, category, model and location must each be non-empty
-and on one line. `Inventory` enforces what depends on the collection rather than
-one record: `addEquipment` rejects an asset ID that is already registered, and
+non-empty word containing neither `/` nor `,`, and the name, category, model and
+location must each be non-empty and on one line. Slash and comma are reserved by
+command parsing and batch selection. The same rule applies to registration,
+copying, loading and import; an older file containing such an ID is rejected
+without rewriting it. `Inventory` enforces what depends on the collection
+rather than one record: `addEquipment` rejects an asset ID that is already registered, and
 `updateEquipment` swaps a replacement into the position of the unit with the same
 ID, so registration order is kept.
 
@@ -551,25 +523,14 @@ status changes, invalid inputs, no matches, and severe-fault status filtering.
 
 #### Equipment search
 
-US15 helps a lab technician find a unit by a remembered part of its name or
-model. The command accepts a phrase rather than an asset ID, so it complements
-`find`, which deliberately performs an exact, case-sensitive ID lookup.
-For example, `search scope` can return both a unit named “Digital Oscilloscope”
-and a different unit whose model is “ScopeMate”. Search checks names and models
-only; it does not search asset IDs, categories or locations. It is read-only:
-searching does not edit an equipment record, change a loan, or write the
-snapshot file.
+`search TEXT` (US15) finds case-insensitive substrings in equipment names and
+models. Unlike `find`, it accepts a phrase rather than an exact asset ID.
 
 ##### Responsibilities and relationships
 
-`LabLog` owns the shared `Inventory`, `LoanBook`, and `FaultBook` used by the
-main console. It constructs one `EquipmentSearchCommands` with references to
-those same books and dispatches input beginning with `search` to that handler.
-The handler owns no records. It reads the current equipment snapshot, checks
-descriptive fields, and formats the matching rows. For each match, it derives
-availability from the live loan and fault books. This keeps the search output
-consistent with equipment listing, even after a loan, return, fault report, or
-repair in the same session.
+`LabLog` injects the shared `Inventory`, `LoanBook` and `FaultBook` into
+`EquipmentSearchCommands`. The handler filters an inventory snapshot and derives
+each match's current availability from the live books. It owns no records or cache.
 
 ```mermaid
 classDiagram
@@ -596,59 +557,25 @@ classDiagram
     }
 ```
 
-This class view leaves out command history and snapshot persistence on purpose:
-neither participates in a search. The command shares the record books, rather
-than copying or maintaining a second search-specific collection. Because the
-inventory returns a snapshot, the handler can filter without exposing a
-mutable internal list.
-
 ##### Parsing and matching
 
-The accepted form is `search TEXT`, where `TEXT` is non-empty and may contain
-spaces. The handler trims the command line, checks the command word boundary,
-and treats the remainder as one phrase. It collapses runs of whitespace in
-both the query and searchable fields, then converts them with
-`Locale.ROOT` before comparing. A candidate matches when its normalized name
-or model contains the normalized query. This gives case-insensitive substring
-matching that does not depend on the user's machine locale. Thus `search Ba`
-matches “Basys3”; `search b3` does not, because initials and acronym matching
-are outside the current US15 behavior.
+The handler requires a non-empty phrase, collapses whitespace and normalizes
+case with `Locale.ROOT`. It matches the normalized name or model and preserves
+inventory order; IDs, categories and locations are excluded. For example,
+`search scope` matches `Digital Oscilloscope` and `ScopeMate`.
 
-The handler scans equipment in the order returned by `Inventory` and does not
-sort the matches. This matches the default `list` order and makes results
-predictable without an extra ordering option. If the inventory is empty, the
-handler returns `No equipment registered.`; if it is non-empty but nothing
-matches, it returns a separate message containing the normalized query. A
-successful result uses the same columns as `list`: asset ID, name, category,
-model, location, and current availability.
-
-The scan is linear in the number of equipment units, with each comparison
-bounded by the lengths of the name, model, and query. A precomputed search
-index could reduce lookup time for a very large inventory, but would introduce
-another representation to update after registration, edits, imports, and
-future replacement workflows. For this small command-line inventory, scanning
-the authoritative snapshot is simpler and cannot become stale. Adding search
-options to `list` was also considered. A separate command keeps free-form
-phrases distinct from `list`'s structured exact-value filters and sort options.
+A linear scan avoids maintaining an index after edits or imports. A separate
+command keeps free-text matching distinct from `list` filters and sorting.
 
 ##### Availability, errors, and verification
 
-Availability is evaluated only for matching units and follows the shared
-priority rule: a lost unit is displayed as `Lost`; otherwise an active loan is
-`On loan`; otherwise an unresolved severe fault is `Unavailable: severe fault`;
-all remaining units are `Available`. Reservations do not affect this
-undated display. Since the handler does not cache status, an earlier search
-cannot leave stale values for a later one.
+Matching rows use the same columns and status precedence as `list`: lost,
+on loan, unresolved severe fault, then available. Reservations do not affect
+this undated status; use `available` for interval checks.
 
-Malformed syntax and an empty phrase raise `IllegalArgumentException` with
-usage guidance. `LabLog` catches that expected validation exception at the
-command boundary, prints an error, and continues the console loop. The code
-does not use Java assertions for input checks: assertions can be disabled at
-runtime, so user mistakes must continue to be rejected through ordinary
-validation. Nor does the handler catch unexpected runtime failures; allowing
-programming errors to surface is preferable to presenting them as normal
-no-match results. At present, invalid searches are reported to the console but
-do not produce a search-specific `FINE` log entry.
+Empty input raises a usage error; empty inventories and unmatched searches have
+distinct messages. `LabLog` handles validation errors and continues the session.
+Search never saves or changes records.
 
 ```mermaid
 sequenceDiagram
@@ -683,16 +610,9 @@ sequenceDiagram
     CLI-->>-User: display result
 ```
 
-The sequence omits exception details and formatting calls; both are local to
-the command boundary and do not change records. The diagram emphasizes the
-important data-flow property: only matching rows request availability, and no
-message is sent to a persistence component.
-
-`EquipmentSearchCommandsTest` covers partial matches in names and models,
-case-insensitive and multi-word queries, whitespace normalization, empty and
-unmatched results, malformed input, inventory order, live loan display,
-console recovery, and unchanged equipment and loan records. `HelpCommandsTest`
-checks that the syntax and behavior described by `help search` remain available.
+`EquipmentSearchCommandsTest` covers matching, normalization, ordering, live
+availability, empty results, invalid input and unchanged records.
+`HelpCommandsTest` checks `help search`.
 
 #### Exact equipment lookup
 
@@ -751,8 +671,10 @@ edit cannot produce a unit that registration would reject. Finally,
 
 **Design choice.** The asset ID cannot be edited. Loans, faults, reservations and
 history refer to units by asset ID, so changing it would either break those
-references or require every book to be rewritten. To renumber a unit, a
-technician can `copy` it to the new ID. Replacing an immutable record, rather than
+references or require every book to be rewritten. `copy` creates a different
+unit with a new ID and the same descriptive fields; it does not rename the
+source or transfer its loans, reservations, faults or history. Renaming an
+existing asset is unsupported. Replacing an immutable record, rather than
 adding setters to `Equipment`, means no other component can observe a
 half-edited unit, and the inventory snapshots handed out earlier keep their
 original values.
@@ -1038,32 +960,21 @@ not provide locking or prevent lost updates between concurrent processes.
 
 ##### Failure handling, tests, and integration boundary
 
-The standalone borrower CLI catches `IllegalArgumentException` for invalid
-commands and `IOException` for save failures, prints an error, and continues
-accepting input. The main console does the same for borrower commands: the
-proposed borrowers are saved before they are published, so it prints
-`Error: Cannot save borrower data.` and `No changes saved.` and continues. Startup load
-errors stop the console because proceeding with an empty book could conceal
-existing data. Success is printed only after `addBorrower` returns.
+Both consoles report invalid borrower commands and failed saves, then continue.
+The proposed borrower collection is saved before publication, so failed saves
+leave it unchanged. Invalid startup data stops the console; success is reported
+only after saving. See [Storage](#storage).
 
-`BorrowerBookTest` checks round-trip persistence, failed saves, corrupt existing
-records, and unmodifiable snapshots. `BorrowerCommandsTest` covers prefix order,
-invalid fields, duplicate IDs, name-length boundaries, unknown borrowers, empty
-results, filtering and ordering, local-date overdue behavior, and a return between
-two listings. It also checks that the console recovers from a rejected command.
-The [console test plan](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/ui-test-plan.md) covers separate-process checks.
+`BorrowerBookTest` covers persistence, failed saves and immutable snapshots.
+`BorrowerCommandsTest` covers validation, duplicates, loan filtering/ordering,
+overdue boundaries and console recovery. `LabLogTest` checks shared borrower
+dispatch and registered-borrower loan issuing.
 
-**Integrated workflow.** `LabLog` passes the same borrower and loan books to
-issuing, return, and borrower handlers. Its equipment-name lookup reads the shared
-inventory. `LoanCommands` validates registered borrowers when supplied with this
-book, as it is in the main console. Verify a register, issue, list, return, and
-list-again session through that prompt; the second listing must exclude the
-returned loan. `LabLogTest` checks borrower dispatch and registered-borrower loan issuing.
-
-`BorrowerCli.main` remains a separate entry point with an empty `LoanBook` and
-a name lookup that returns null. It cannot see loans from a different process.
-The [borrower implementation notes](BorrowerImplementation.md) describe the
-original standalone increment.
+`BorrowerCli` has its own contacts, an empty loan book and no equipment-name
+lookup. See the [borrower implementation notes](BorrowerImplementation.md) for
+the original standalone increment and the
+[console test plan](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/ui-test-plan.md)
+for separate-process checks.
 
 #### Borrower contact editing
 
@@ -1071,7 +982,8 @@ BorrowerCommands parses optional edit fields and constructs a validated immutabl
 Borrower. BorrowerBook.updateBorrower requires an existing ID and persists a
 proposed map before publishing the replacement. Loans refer to IDs, so edits do
 not require rewriting loan records. The package-level Saver boundary lets the
-main application later save proposed contacts with its complete snapshot.
+main application save proposed contacts with its complete snapshot before
+publishing a contact change.
 
 BorrowerEditTest covers partial/reordered edits, name-length boundaries,
 unchanged loan objects, restart persistence, invalid fields, and failed saves.
@@ -1083,9 +995,11 @@ change is checked against the [loan lifecycle](#loan-lifecycle).
 
 #### Loan lifecycle
 
-A `Loan` is never deleted. The commands in the following sections move it
-between the states below. Each transition is guarded by a method on `Loan`,
-which rejects the change with an `IllegalArgumentException` when its guard fails.
+A `Loan` is never deleted. Commands move it between the states below.
+`Loan` methods validate the individual record; `LoanBook` and
+`BookingAvailability` enforce cross-record constraints. For example,
+`LoanBook.reverse` checks later loans and booking conflicts before reopening a
+returned loan. Failed validation raises `IllegalArgumentException`.
 
 ```mermaid
 %%{init: {"state": {"nodeSpacing": 90, "rankSpacing": 70}}}%%
@@ -1387,49 +1301,22 @@ details.
 
 ##### Design considerations
 
-**Aspect: How returns are stored**
+| Decision | Reason and trade-off | Alternative |
+| --- | --- | --- |
+| Keep current return fields on `Loan` and immutable audit events | Listings read current state; RETURN and REVERSE_RETURN events retain evidence through corrections. Snapshot validation checks consistency. | Derive state entirely from events, requiring replay and handling for migrated loans without audit events. |
+| Inject a `Clock` | Makes local-date boundary tests repeatable. | Read the system date directly, which is simpler but harder to test. |
+| Validate the whole batch before mutation | Reuse `Loan#validateReturn` so any rejection leaves all selections unchanged. | Partial returns require per-unit outcomes and more care when retrying. |
 
-* **Current choice: Update the existing loan.** Borrowing and return details stay
-  together, and history and active-loan listings read the same records. This
-  represents one return per loan rather than a detailed sequence of return events.
-* **Alternative: Store separate return records.** This could support a richer
-  event history, but requires links and consistency checks between loans and
-  returns.
-
-**Aspect: How the return date is obtained**
-
-* **Current choice: Inject a `Clock`.** This makes date-dependent tests repeatable,
-  including tests around local-date boundaries, at the cost of an extra dependency.
-* **Alternative: Read the system date directly.** This needs less configuration,
-  but makes date-dependent tests harder to control.
-
-**Aspect: How batch failures are handled**
-
-* **Current choice: Validate all selections before applying any returns.** The
-  user can correct a rejected command without first checking which units were
-  already returned. Reusing `Loan#validateReturn` keeps the batch's checks aligned
-  with `markReturned`.
-* **Alternative: Return valid units and skip invalid selections.** This can make
-  partial progress, but needs per-unit outcomes and more care when retrying a
-  command. A single rejection would no longer mean that all records are unchanged.
-
-Reported faults are stored as text on the loan. They do not create a separate
-fault-history note or clear existing equipment faults. The production application
-persists loan and return details through `LabLogStore`.
+Return fault text stays on the loan; it does not create or resolve a structured
+fault report. `ApplicationSnapshot` saves loan state and audit events together,
+using `LabLogStore` for loan serialization.
 
 ##### Testing
 
-`ReturnCommandsTest` covers optional faults, local-date boundaries, malformed
-commands, repeated returns, multiple active loans, invalid return dates, historical
-loans, borrower-listing updates, and the return/history console flow. Batch tests
-use JUnit assertions to check successful returns, duplicate selections, rejection
-of batch fault descriptions, and unchanged records when a later selection has a
-future loan date or has already been returned. They verify return fields and
-retained records as well as exception messages where relevant.
-
-`LabLogStoreTest#run_batchReturn_persistsBothReturnsAfterReload` drives the return
-through the main console with a temporary data file. It reloads the saved store
-and verifies both return dates, retained loan fields, and equipment history.
+`ReturnCommandsTest` covers single/batch returns, fault descriptions, date
+boundaries, invalid or repeated selections, and unchanged records on rejection.
+`LabLogStoreTest#run_batchReturn_persistsBothReturnsAfterReload` checks restart
+persistence and retained history through the main console.
 
 #### Reporting loaned equipment lost
 
@@ -1704,51 +1591,17 @@ from being backdated before accepted audit events if the local clock changes.
 
 #### Implementation
 
-`HistoryCommands` reads the shared `Inventory` and `LoanBook`, then constructs fresh
-history entries on every request. Both active and returned loans are included.
-
-The command format is:
-
-```text
-history ASSET_ID
-```
-
-The main operations and records are:
-
-* `HistoryCommands#execute(input)` validates the command, locates the equipment,
-  and formats the result.
-* The private `HistoryCommands#getHistory(assetId)` collects, filters, and sorts
-  entries without modifying the source records or their ordering.
-* `HistoryEntry` holds an asset ID, date, type, and description for display.
-* `Supplier<List<HistoryEntry>>` supplies current entries from other features.
-
-Returned-loan descriptions include the return date and reported faults, or state
-that no faults were reported on return. Asset IDs are matched exactly and
-case-sensitively.
+`HistoryCommands#execute` validates `history ASSET_ID`, locates the equipment,
+and builds fresh `HistoryEntry` display snapshots from shared loans and an
+additional-history supplier. Active and returned loans are included; viewing
+history does not save or modify source ordering.
 
 #### Example usage scenario
 
-Assume `OSC-001` has a loan that has been returned with the fault description
-`Damaged cable`.
-
-1. The user enters `history OSC-001`.
-2. `LabLog` dispatches the command to `HistoryCommands#execute`. The handler
-   validates the syntax and locates the equipment in `Inventory`.
-3. The handler reads the shared loan book and creates an entry for each matching
-   loan. Each entry uses the loan date and reflects the loan's current state,
-   including the return date and fault description.
-4. The handler calls the additional-history supplier and includes entries with
-   the same asset ID. In `LabLog`, this supplier combines caller-supplied entries
-   with session notes from `HistoryRecordCommands`.
-5. The handler sorts the combined entries by date, oldest first. Ties are broken
-   by enum type order (`LOAN`, `RESERVATION`, `FAULT`, `MAINTENANCE`, `RENEWAL`,
-   `LOST`), then by description; renewals keep their acceptance order.
-6. The application displays the equipment ID and name, an aligned table with
-   `Date`, `Type` and `Details` columns, and the record count. No save is
-   triggered by viewing history.
-
-The following sequence diagram shows a history request for registered equipment.
-Individual field accessors are omitted for readability.
+For `history OSC-001`, the handler collects entries for that exact ID, sorts by
+date, then enum type (`LOAN`, `RESERVATION`, `FAULT`, `MAINTENANCE`, `RENEWAL`,
+`LOST`) and description; renewals retain acceptance order. It prints a table
+and record count. Loan entries reflect current return details, including faults.
 
 ```mermaid
 sequenceDiagram
@@ -1783,57 +1636,37 @@ sequenceDiagram
     CLI-->>-User: display result
 ```
 
-A malformed command is rejected with usage guidance. Unknown equipment produces
-an error before history is collected. Registered equipment with no matching
-records produces `No history found for ASSET_ID - NAME.` instead.
+Malformed input produces usage guidance; unknown equipment produces an error.
+A registered unit without records produces `No history found for ASSET_ID - NAME.`
 
 #### Integration with other features
 
-`HistoryRecordCommands` creates structured faults and reservation/maintenance notes. Other
-features can also supply snapshots through `Supplier<List<HistoryEntry>>`. The
-supplier must return a non-null list and must not duplicate loans already read
-from `LoanBook` or faults already read from `FaultBook`. It should read current records on every call, include relevant
-status and end dates in descriptions, and retain closed or cancelled records when
-appropriate. Entries may cover multiple assets; the handler filters them.
+`HistoryCommands` derives loan, renewal and loss entries from `LoanBook`.
+Its `Supplier<List<HistoryEntry>>` supplies the remaining types, including faults
+and repairs. In `LabLog`, this supplier combines external entries,
+`HistoryRecordCommands.getEntries()` (notes and fault/repair history), and
+reservation history. Suppliers must return a non-null list, retain relevant
+closed/cancelled records, and avoid duplicating entries from the loan book or
+other sources.
 
-Use the loan date, reservation start date, fault report date, or maintenance date
-as the entry date. Returning equipment changes the original loan entry's
-description; it does not add a separate entry dated on the return day.
-
-Shared records can be passed through
-`new LabLog(inventory, loanBook, () -> currentHistoryEntries)`, or directly to
-`HistoryCommands`. The application combines supplied entries with saved notes
-and derived fault/repair history. Notes do not affect equipment availability;
-structured unresolved severe faults block new loans.
+Entry dates use the loan, reservation start, fault report or maintenance date.
+A return updates its loan entry rather than creating a return-day entry.
+Notes do not change availability; unresolved severe faults block lending.
 
 #### Design considerations
 
-**Aspect: When history is constructed**
+Building entries on demand reflects source changes without invalidating a cache,
+at the cost of scanning and sorting on each request. Suppliers decouple the
+handler from feature models, but must follow the entry contract above.
 
-* **Current choice: Build entries on each request.** Returns and source updates
-  appear immediately without synchronising a separate cache. Each request scans
-  the source records and sorts matching entries.
-* **Alternative: Cache the combined history.** This could reduce repeated work,
-  but every relevant record change would need to update or invalidate the cache.
-
-**Aspect: How other features contribute history**
-
-* **Current choice: Accept supplied `HistoryEntry` snapshots.** The handler can
-  display other features' records without depending on their internal models.
-  Suppliers must follow the entry contract and avoid duplicate loan entries.
-* **Alternative: Read each feature's model directly.** This gives direct access
-  to its details, but adds dependencies whenever new record types are introduced.
-
-History summarises current records and adds immutable renewal events and dated loss reports. It is not
-the borrowing/return event log; `LoanAuditCommands` displays that separate ledger. Rebuilding ordinary
-entries makes updated details visible without preserving all previous versions;
-renewal entries explicitly retain each previous and new deadline.
+History summarizes current records, with renewal and loss details. It does not
+preserve every earlier state; `LoanAuditCommands` displays immutable borrowing,
+return and correction evidence.
 
 #### Testing
 
-`HistoryCommandsTest` covers all four entry types, asset filtering, returned
-loans, fresh source updates, date ordering and tie-breaking, malformed input,
-empty and unknown equipment, and console integration with shared records.
+`HistoryCommandsTest` covers filtering, returned loans, fresh source updates,
+ordering, invalid input, empty results and shared-record integration.
 
 ### Faults and repairs
 
@@ -2111,9 +1944,8 @@ after editing a recalled command.
 
 ### Console output
 
-All main-console results share one look: listings are aligned tables, successful
-changes start with `[OK]`, and rejected commands start with `Error:` and change
-nothing.
+Listings use aligned tables; saved changes start with `[OK]`, and rejected
+commands with `Error:`.
 
 ```mermaid
 classDiagram
@@ -2134,59 +1966,33 @@ classDiagram
     }
 ```
 
-*Three of the nine `TableFormatter` callers are shown; `AvailableEquipmentCommands`,
-`BorrowerCommands`, `HistoryCommands`, `OverviewCommands`, `ReservationCommands`
-and `WaitingRequestCommands` use it the same way. Both classes are
-package-private utilities with only static members.*
+*Three representative callers are shown. `TableFormatter` and `Messages` are
+package-private utilities with static members.*
 
-`TableFormatter.format(headers, rows)` computes each column's width from its
-widest cell, header included, and pads every column except the last. The last
-column is left unpadded so no line ends in trailing spaces, which keeps the
-output stable for the exact-text UI tests. A separator line of dashes joined by
-`-+-` follows the header. A row whose cell count differs from the header count
-throws `IllegalArgumentException`, because a misaligned table would silently
-mislabel data. With no rows, only the header and separator are printed, but
-handlers print their own empty-state message, such as
-`No equipment matches the supplied filters.`, instead.
+`TableFormatter.format(headers, rows)` pads columns to their widest cell, leaves
+the last column unpadded, and inserts a header separator. Mismatched cell counts
+raise `IllegalArgumentException`; handlers supply empty-state messages.
 
-`Messages.ok(result)` prepends `[OK] ` to the text a handler returns. Handlers
-return plain results and never add the prefix themselves. `LabLog` and
-`BorrowerCli` add it only to commands that changed records, and only once the
-change is saved: by `LabLog.saveChanges`, or, for borrowers, reservations and
-waiting requests, by the book's `Saver` before the handler returns. An `[OK]` line
-therefore means the change is both applied and saved, and read-only commands such
-as `list`, `find` and `history` are never prefixed.
+Handlers return plain results. The console adds `Messages.ok(result)` only after
+saving succeeds, and never for read-only commands. Help formats its own section
+rows and wrapped descriptions.
 
-The `help` summary uses the same visual layout but formats itself, because it
-needs things `TableFormatter` does not provide: section rows such as
-`== Equipment ==`, and descriptions wrapped at 45 characters onto continuation
-rows with an empty command column.
-
-**Design choice.** Formatting is centralised in two small classes rather than
-in each handler, so all listings line up the same way and the success and failure
-wording cannot drift between commands. A general table library was considered
-unnecessary for fixed-width console output and would add a dependency.
-
-`TableFormatterTest` covers padding, the separator, empty tables, rejected rows
-with the wrong cell count, and the absence of trailing spaces.
+Central utilities keep output consistent without a general table-library
+dependency. `TableFormatterTest` checks padding, separators, empty tables,
+invalid row widths and absence of trailing spaces.
 
 ### Current integration limits and packaged verification
 
-Equipment list/find labels use loan, loss and severe-fault records but do not
-yet consult reservations. BookingAvailability performs the complete interval
-check used by lending, renewal, reservations and the available command.
-The User Guide documents this distinction; do not treat the list label as a
-booking guarantee. Lost-equipment recovery is not implemented. Explicit loan
-and return corrections are supported by
-`reverse-loan` and `reverse-return`.
+List/find status reflects loans, losses and severe faults. Interval availability
+also checks reservations through `BookingAvailability`; undated status is not a
+booking guarantee. Lost-equipment recovery is unsupported; loan and return
+mistakes can be corrected with `reverse-loan` and `reverse-return`.
 
-The packaged CLI runner exercises all command-help entries and a combined
-batch-loan, renewal, loss, return-audit, reservation, waiting-request and
-fault-repair workflow. It exports to a path containing spaces, imports into a
-new file and compares the queried records across fresh Java processes. It also
-checks that read-only queries do not rewrite the source snapshot. Run it after
-the shadowJar task; Gradle check and CI currently run JUnit/Checkstyle only.
-See the [verification report](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/verification-report.md) for the checked revision and results.
+The packaged CLI runner checks help, integrated workflows, export/import,
+restart persistence and unchanged files after read-only queries. Run it after
+`shadowJar`; Gradle check and CI run JUnit/Checkstyle only. See
+[Automated and manual checks](#automated-and-manual-checks) and the
+[verification report](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/verification-report.md).
 
 ## Appendix A: Product scope
 ### Target user profile
@@ -2267,14 +2073,15 @@ corrections; it is not a general audit of every inventory-changing action.
 
 ## Appendix C: Non-functional requirements
 
-Build and run with Java 25. Keep help read-only and reject invalid borrower and
-return commands before changing records. Save borrower additions atomically
-before updating memory. These behaviors are covered by automated tests.
-
-Current limitations: the standalone borrower console has its own initially
-empty loan book; concurrent writers to the same data files are unsupported.
-Return fault descriptions are stored in loan history and do not create a
-separate fault note.
+| Requirement | Boundary |
+| --- | --- |
+| Runtime | Java 25; Gradle CI checks run on Windows, macOS and Ubuntu. |
+| Persistence | UTF-8 snapshots; atomic replacement with no non-atomic fallback. |
+| Input limits | Reject files over 10 MiB and record counts beyond codec limits. No performance guarantee is specified. |
+| Data integrity | Invalid startup files remain unchanged; failed imports preserve current records. See [Storage](#storage) for save-failure behaviour. |
+| Read-only queries | Do not rewrite snapshots; packaged tests compare saved bytes. |
+| Concurrency | One main-console process per file; no writer locking or merging. |
+| Dates | Use the computer's local date; injected clocks support boundary tests. |
 
 ## Appendix D: Glossary
 
@@ -2304,7 +2111,7 @@ borrower details. Enable assertions and console diagnostics from the repository
 root after building the JAR:
 
 ```powershell
-java -ea -Djava.util.logging.config.file=config/logging.properties -jar build/libs/lablog.jar
+java -ea '-Djava.util.logging.config.file=config/logging.properties' -jar build/libs/lablog.jar
 ```
 
 Enter `help`, `help unknown`, a blank line, and `exit` to see diagnostics on
@@ -2329,47 +2136,370 @@ output: `pwsh -File test/run-borrower-ui-tests.ps1`. See the
 
 ### Manual test cases
 
-These are starting points for testers. Put `lablog.jar` in an empty folder and run
-`java -jar lablog.jar` there. No data file is written until the first command that
-changes records creates `data/lablog.properties`. Successful changes start with
-`[OK]`; rejected commands start with `Error:` and change nothing.
+Use Java 25 and the packaged `lablog.jar` in a disposable folder. Each numbered
+scenario names a separate data file: start it with
+`java -jar lablog.jar FILE.properties`, replacing `FILE.properties` with that
+scenario's filename. The file must not already exist unless a restart is requested.
+Finish each scenario with `exit`. Keep real records outside this folder.
 
-**Equipment**
+Dates use `YYYY-MM-DD`. Replace `TODAY` with the computer's current local date;
+the future examples assume today is before 2099-01-01. Replace `FAULT_ID`,
+`RESERVATION_ID`, `LOAN_EVENT_ID` and `RETURN_EVENT_ID` with the actual IDs printed
+in that scenario. These names are placeholders, not literal commands. Successful
+changes start with `[OK]`; rejected commands start with `Error:`.
 
-1. `add OSC-001 n/Digital Oscilloscope c/Electronics m/DS1054Z l/Lab A`<br>
-   Expected: `[OK] Equipment added to inventory.` Repeating it gives
-   `Error: Equipment OSC-001 already exists.`
-2. `copy OSC-001 OSC-002`, then `list category/electronics sort/name`<br>
-   Expected: `[OK] Copied OSC-001 to OSC-002.`, then a table with both units `Available`.
-3. `find osc-001`<br>
-   Expected: `Error: Equipment osc-001 not found.`, because asset IDs are case-sensitive.
+* [1. Equipment registration, copy, edits and searches](#1-equipment-registration-copy-edits-and-searches)
+* [2. Borrower registration and contact editing](#2-borrower-registration-and-contact-editing)
+* [3. Single/batch lending, renewal and returns](#3-singlebatch-lending-renewal-and-returns)
+* [4. Overdue loans and a historical-file restart](#4-overdue-loans-and-a-historical-file-restart)
+* [5. Reporting lost equipment](#5-reporting-lost-equipment)
+* [6. Correcting a loan or return without deleting evidence](#6-correcting-a-loan-or-return-without-deleting-evidence)
+* [7. History notes, severe faults and repairs](#7-history-notes-severe-faults-and-repairs)
+* [8. Reservations, inclusive conflicts, edits and cancellation](#8-reservations-inclusive-conflicts-edits-and-cancellation)
+* [9. Waiting demand and availability after cancellation](#9-waiting-demand-and-availability-after-cancellation)
+* [10. Help, daily overview and command recall](#10-help-daily-overview-and-command-recall)
+* [11. Export, replacement import and rejected-file preservation](#11-export-replacement-import-and-rejected-file-preservation)
+* [12. Standalone borrower console](#12-standalone-borrower-console)
 
-**Borrowers and loans**
+#### 1. Equipment registration, copy, edits and searches
 
-1. `add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@gmail.com`<br>
-   Expected: an error asking for a `u.nus.edu` address. With
-   `e/jamietan@u.nus.edu` instead: `[OK] Added borrower A0123456X: Jamie Tan.`
-2. `loan OSC-001 OSC-002 b/A0123456X d/2030-12-31`<br>
-   Expected: both units loaned in one `[OK]` confirmation. Lending OSC-001 again
-   gives an error naming the current borrower and due date.
-3. `renew OSC-001 d/2031-01-15`, then `return OSC-001 faults/Damaged cable`<br>
-   Expected: the due date changes to 2031-01-15, then OSC-001 is returned with the
-   fault. A second `return OSC-001` gives `Error: Equipment OSC-001 is not currently on loan.`
-4. `loan-audit OSC-001` and `history OSC-001`<br>
-   Expected: numbered `LOAN` and `RETURN` events; history also shows a `RENEWAL` row.
-5. On the same day, `loan OSC-001 b/A0123456X d/2030-12-31`<br>
-   Expected: a conflict error. A returned loan still occupies its return date,
-   because booking ranges are inclusive. Lend a different unit to continue.
-6. Lend a new unit, then `lost ASSET_ID` and `list status/lost`<br>
-   Expected: the unit is listed as `Lost`, and `renew` on it is rejected.
+Use `equipment.properties`. Enter:
 
-**Saving and loading**
+```text
+add OSC-001 n/Digital Oscilloscope c/Electronics m/DS1054Z l/Lab A
+add MIC-002
+Microscope
+Optics
+M2
+Lab B
+copy OSC-001 OSC-002
+edit-equipment OSC-002 n/Bench scope
+move-equipment OSC-001,OSC-002 l/Lab 2
+list category/Electronics location/Lab 2 status/available sort/name
+find OSC-001
+search scope
+```
 
-1. Make a change, `exit`, and run `java -jar lablog.jar` again.<br>
-   Expected: all records are restored.
-2. `export backup.properties` twice.<br>
-   Expected: the first succeeds; the second refuses to overwrite the file and
-   prints `Current records were not changed.`
-3. Exit, change `format=11` to `format=99` in `data/lablog.properties`, and launch again.<br>
-   Expected: `Error: Cannot load LabLog data. Invalid snapshot: Unsupported snapshot
-   format; ...` The file is left unchanged.
+Expected: three equipment units exist. The filtered list and search show both
+oscilloscopes; `find` shows OSC-001 in Lab 2. MIC-002 keeps its own location.
+Then enter:
+
+```text
+add CANCEL-001
+cancel
+add A/B n/Scope c/Electronics m/S1 l/Lab
+copy OSC-001 A,B
+add OSC-001 n/Other c/Electronics m/S1 l/Lab
+move-equipment OSC-001,UNKNOWN l/Lab 9
+find osc-001
+find OSC-001
+list
+```
+
+Expected: cancellation adds nothing; reserved separators, the duplicate, the
+unknown batch member and the wrong-case lookup are rejected. OSC-001 remains in
+Lab 2 and `list` still has three units. To check incomplete prompted registration,
+start the same file again, enter `add INCOMPLETE-001`, and send EOF at the name
+prompt (Ctrl+Z then Enter on Windows, Ctrl+D on macOS/Linux). Restart and check
+that `find INCOMPLETE-001` reports an unknown unit.
+
+#### 2. Borrower registration and contact editing
+
+Use `borrowers-main.properties`:
+
+```text
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@gmail.com
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+edit-borrower A0123456X p/92345678 n/Jamie Lim
+loans A0123456X
+add-borrower A0123456X n/Other p/81234567 e/other@u.nus.edu
+edit-borrower A0123456X p/123
+loans A0123456X
+```
+
+Expected: the non-NUS email, duplicate ID and short phone number fail. The valid
+edit succeeds, and both loan queries identify Jamie Lim with no active loans.
+Exit, restart the same file and run `loans A0123456X` again; Jamie Lim remains.
+
+#### 3. Single/batch lending, renewal and returns
+
+Use `loans.properties`:
+
+```text
+add LEND-001 n/Oscilloscope c/Electronics m/S1 l/Lab
+copy LEND-001 LEND-002
+copy LEND-001 LEND-003
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+loan LEND-001 LEND-002 b/A0123456X d/2099-01-01
+loan LEND-003 b/A0123456X d/2099-01-01
+active-loans
+loans A0123456X
+renew LEND-001 d/2099-02-01
+return LEND-001 faults/Damaged cable
+return LEND-002 LEND-003
+active-loans
+loan-audit LEND-001
+history LEND-001
+```
+
+Expected: the first listings include all three loans. Renewal changes LEND-001's
+deadline. All three returns succeed; the last active-loan query says
+`No active loans.` The audit retains LOAN and RETURN evidence; history also
+includes the renewal and reported cable damage. A `faults/` return description
+does not create a separate structured fault report.
+
+Try `return LEND-001` again: it is rejected. Also try
+`loan LEND-001 b/A0123456X d/2099-01-01` on the return day: the inclusive booking
+rule rejects reuse of that day's occupied interval. Exit and restart; the audit
+and history must remain, and all loans must still be returned.
+
+#### 4. Overdue loans and a historical-file restart
+
+Download [the overdue sample](testdata/overdue.properties), save a **copy** as
+`overdue.properties` beside the JAR and start that file. It contains one fictional
+borrower and one outstanding loan due 2000-01-02, so it is overdue on any later
+date. It represents a migrated historical loan with no fabricated audit events.
+Do not replace a real data file with this sample.
+
+```text
+active-loans overdue
+loans A0123456X
+overview
+renew OVERDUE-001 d/2099-01-01
+active-loans overdue
+return OVERDUE-001
+```
+
+Expected: the first two queries show OVERDUE-001 as overdue, and the overview
+counts one overdue loan. After renewal, the overdue-only query says
+`No overdue loans.` Return succeeds. Restart the same file; `active-loans` is
+empty and `history OVERDUE-001` retains the renewal and return details.
+
+#### 5. Reporting lost equipment
+
+Use `lost.properties`:
+
+```text
+add LOST-001 n/Multimeter c/Electronics m/M1 l/Lab
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+loan LOST-001 b/A0123456X d/2099-01-01
+lost LOST-001
+list status/lost
+loans A0123456X
+history LOST-001
+return LOST-001
+renew LOST-001 d/2099-02-01
+```
+
+Expected: the loss remains an outstanding loan, displayed as LOST/Lost, with its
+dated history. Return and renewal are rejected. Restart and check
+`find LOST-001` and `active-loans`; the lost state persists.
+
+#### 6. Correcting a loan or return without deleting evidence
+
+Use `corrections.properties`:
+
+```text
+add COR-001 n/Oscilloscope c/Electronics m/S1 l/Lab
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+loan COR-001 b/A0123456X d/2099-01-01
+loan-audit COR-001
+```
+
+Copy the full Event ID of the LOAN event as `LOAN_EVENT_ID`, then enter:
+
+```text
+reverse-loan LOAN_EVENT_ID reason/Equipment was not handed over
+active-loans
+loan COR-001 b/A0123456X d/2099-01-01
+return COR-001
+loan-audit COR-001
+```
+
+Expected: the reversed first issue no longer occupies the unit, allowing the
+second loan. Copy the Event ID of the second loan's RETURN as `RETURN_EVENT_ID`:
+
+```text
+reverse-return RETURN_EVENT_ID reason/Return was entered by mistake
+active-loans
+reverse-return RETURN_EVENT_ID reason/Repeated correction
+return COR-001
+loan-audit COR-001
+```
+
+Expected: the first return reversal reopens the second loan; repeating that
+reversal fails. The last return succeeds. Original and correction events all
+remain in the audit after restart; no event is deleted.
+
+#### 7. History notes, severe faults and repairs
+
+Use `faults.properties` and replace `TODAY` before entering:
+
+```text
+add FAULT-001 n/Oscilloscope c/Electronics m/S1 l/Lab
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+reservation FAULT-001 d/2000-01-01 desc/Old planning note
+maintenance FAULT-001 d/2000-01-01 desc/Calibration completed
+fault FAULT-001 d/2000-01-01 s/severe desc/Cracked screen
+history FAULT-001
+why-unavailable FAULT-001
+overview
+loan FAULT-001 b/A0123456X d/2099-01-01
+```
+
+Expected: notes and the structured fault appear in history; the severe fault
+appears in unavailability and overview. Lending fails. Copy the report's fault
+ID as `FAULT_ID`, then enter:
+
+```text
+repair FAULT_ID d/TODAY desc/Replaced screen
+repair FAULT_ID d/TODAY desc/Repeated repair
+why-unavailable FAULT-001
+loan FAULT-001 b/A0123456X d/2099-01-01
+history FAULT-001
+```
+
+Expected: the first repair succeeds and the repeat is rejected. Before lending,
+the availability query has no blockers; lending then succeeds. History retains
+the original report and repair. Restart: the report stays resolved and the loan
+remains active. The legacy `reservation` note never creates a booking.
+
+#### 8. Reservations, inclusive conflicts, edits and cancellation
+
+Use `bookings.properties`:
+
+```text
+add BOOK-001 n/Microscope c/Optics m/M2 l/Lab
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+reserve BOOK-001 b/A0123456X from/2099-01-01 to/2099-01-02
+reservations
+reserve BOOK-001 b/A0123456X from/2099-01-02 to/2099-01-03
+```
+
+Expected: one confirmed booking; the touching endpoint is a conflict. Copy the
+first booking's ID as `RESERVATION_ID`:
+
+```text
+edit-reservation RESERVATION_ID to/2099-01-03
+available from/2099-01-01 to/2099-01-02 category/Optics
+why-unavailable BOOK-001 from/2099-01-01 to/2099-01-02
+cancel-reservation RESERVATION_ID reason/Experiment postponed
+available from/2099-01-01 to/2099-01-02 category/Optics
+reservations
+history BOOK-001
+```
+
+Expected: the edit succeeds. Before cancellation the unit is excluded from
+`available`, and `why-unavailable` identifies its booking. After cancellation it
+is available again. `reservations` retains the cancelled booking and history
+retains its cancellation reason after restart. Editing or cancelling it again
+is rejected.
+
+#### 9. Waiting demand and availability after cancellation
+
+Use `waiting.properties`:
+
+```text
+add WAIT-001 n/Microscope c/Optics m/M2 l/Lab
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+reserve WAIT-001 b/A0123456X from/2099-01-01 to/2099-01-02
+wait-request b/A0123456X category/Optics from/2099-01-01 to/2099-01-02
+waiting-requests
+wait-request b/A0123456X category/Optics from/2099-01-01 to/2099-01-02
+```
+
+Expected: one WAITING request because the only suitable unit is booked; duplicate
+demand fails. Copy the reservation ID from the reserve confirmation:
+
+```text
+cancel-reservation RESERVATION_ID reason/Session cancelled
+available from/2099-01-01 to/2099-01-02 category/Optics
+waiting-requests
+```
+
+Expected: capacity is free, but the existing request remains WAITING; there is
+no automatic allocation. Restart and check both views again.
+
+#### 10. Help, daily overview and command recall
+
+Use `recall.properties`. In a fresh session:
+
+```text
+help loan
+help unknown
+commands
+recall 1
+commands
+overview
+```
+
+Expected: the invalid help request is recoverable. The first `commands` lists
+`help loan` as item 1; recall displays it with `Recalled (not executed)` and does
+not show a second loan-help response or create records. The next history still
+contains the same two submitted help lines. The empty overview has zero counts.
+Restart: `commands` says `No recent commands.`
+
+For a populated daily overview, use a separate `today.properties` session:
+
+```text
+add DAILY-001 n/Microscope c/Optics m/M2 l/Lab
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+reserve DAILY-001 b/A0123456X from/TODAY to/TODAY
+fault DAILY-001 d/TODAY s/severe desc/Cracked lens
+overview
+```
+
+Expected: today's reservation count and severe-fault count are both one; overdue
+count is zero. Reporting the fault does not silently cancel the booking.
+
+#### 11. Export, replacement import and rejected-file preservation
+
+Reopen `loans.properties` from scenario 3. Enter
+`export "loan backup.properties"`, then repeat it: the first succeeds and the
+second refuses to overwrite the export. Exit. Start a new `imported.properties`
+session and enter:
+
+```text
+import "loan backup.properties"
+import "loan backup.properties" --replace
+loan-audit LEND-001
+history LEND-001
+loans A0123456X
+```
+
+Expected: omitting `--replace` fails; the valid import restores the complete
+collection, including returned loans, renewal and audit evidence. Restart and
+repeat the queries; results remain. Import replaces rather than merges records.
+
+Make a disposable copy of `loan backup.properties` as `invalid.properties`.
+Change `format=11` to `format=99`. `import invalid.properties --replace` must
+fail, leaving the current imported collection and saved file unchanged. Starting
+`java -jar lablog.jar invalid.properties` must stop with
+`Error: Cannot load LabLog data.` before showing `lablog>` and must not rewrite it.
+
+On a **new copy** of the valid export, remove only `borrower.count`. Both import
+and startup must reject the missing field and preserve their original files;
+the file must not be treated as an empty legacy collection. Keep the valid
+export for recovery. On another copy, change one equipment ID to `BAD/ID`:
+loading/importing must report the reserved separator without rewriting the file.
+
+#### 12. Standalone borrower console
+
+Run `java -cp lablog.jar lablog.BorrowerCli standalone-contacts.properties`
+with a new file:
+
+```text
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+edit-borrower A0123456X n/Jamie Lim
+loans A0123456X
+help edit-borrower
+commands
+recall 1
+exit
+```
+
+Expected: registration and editing succeed, recall displays input without
+repeating it, and the loan query identifies Jamie Lim with no active loans.
+Restart the same console and run `loans A0123456X`; contacts persist but command
+history is empty. This console does not see the main console's loans or data
+file. Always use the main console to edit contacts belonging to its snapshot.

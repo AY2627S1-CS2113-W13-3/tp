@@ -13,4 +13,6 @@ Useful links:
 
 * [User Guide](UserGuide.md)
 * [Developer Guide](DeveloperGuide.md)
+* [Manual testing instructions](DeveloperGuide.md#manual-test-cases)
+* [Downloads and releases](https://github.com/AY2627S1-CS2113-W13-3/tp/releases)
 * [About Us](AboutUs.md)

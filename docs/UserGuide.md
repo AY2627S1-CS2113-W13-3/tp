@@ -74,8 +74,12 @@ to use a different file.
 loan, reservation, waiting-request, fault and history record in
 `data/lablog.properties` after each successful change, and reloads them at
 startup. To use another file, run `java -jar lablog.jar PATH/TO/FILE.properties`.
-A missing file starts a new collection. An invalid file stops startup without
-being overwritten. Run only one main console against a given data file at a time.
+A missing file starts a new collection. An invalid or incomplete file stops
+startup before the command prompt without being overwritten. This includes
+unsupported formats, missing required counts, and equipment IDs containing `/`
+or `,`. Older files with such IDs must have their IDs and linked references
+corrected consistently before they can load; keep the original backup.
+Run only one main console against a given data file at a time.
 See the [FAQ](#faq) for what happens if saving fails.
 
 ## Features
@@ -88,7 +92,11 @@ See the [FAQ](#faq) for what happens if saving fails.
 * Items followed by `...` can be repeated, e.g. `loan ASSET_ID [ASSET_ID ...]`.
 * Prefixed fields such as `b/` and `d/` may usually appear in any order, at most
   once each. The few commands that need a fixed order say so.
-* Command names and asset IDs are case-sensitive. Dates use `YYYY-MM-DD`.
+* Command names and asset IDs are case-sensitive. An asset ID is one non-empty
+  word with no spaces, `/` or `,`; these separators are reserved for command
+  fields and batch selections. For example, `OSC-001` is valid; `A/B` and `A,B`
+  are rejected. The same rule applies to `add` and the new ID in `copy`.
+* Dates use `YYYY-MM-DD`.
 * Successful changes start with `[OK]`. Rejected commands start with `Error:` and
   change nothing. Listings are shown as aligned tables.
 * Commands that change records save automatically; read-only commands never save.
