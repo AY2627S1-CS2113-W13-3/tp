@@ -151,10 +151,10 @@ class LabLogStoreTest {
             store.getLoans().addLoan(
                     new Loan(assetId, "A0123456X", issued, issued.plusDays(7)));
         }
-        store.save();
-
-        BorrowerBook borrowers = new BorrowerBook(directory.resolve("borrowers.properties"));
-        borrowers.addBorrower(new Borrower("A0123456X", "Jamie", "91234567", "jamie@u.nus.edu"));
+        Borrower borrower = new Borrower("A0123456X", "Jamie", "91234567", "jamie@u.nus.edu");
+        new ApplicationSnapshot(store.getInventory().getEquipmentUnits(), List.of(borrower),
+                store.getLoans().getLoans(), List.of(), List.of(), List.of(), List.of(),
+                store.getLoans().getAuditEvents()).write(file);
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         LabLog.load(file).run(

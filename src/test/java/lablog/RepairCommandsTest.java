@@ -141,7 +141,8 @@ class RepairCommandsTest {
         LabLogStore store = new LabLogStore(file);
         store.getInventory().addEquipment(inventory().getEquipmentUnits().getFirst());
         Fault original = report(store.getFaults(), LocalDate.of(2024, 2, 29));
-        store.save();
+        new ApplicationSnapshot(store.getInventory().getEquipmentUnits(), List.of(), List.of(), List.of(),
+                store.getFaults().getFaults()).write(file);
         String output = run(LabLog.load(file), "repair " + original.getId()
                 + " d/2024-02-29 desc/Replaced screen Ω");
         assertTrue(output.contains("Resolved fault " + original.getId()));
@@ -202,7 +203,8 @@ class RepairCommandsTest {
         LabLogStore store = new LabLogStore(file);
         store.getInventory().addEquipment(inventory().getEquipmentUnits().getFirst());
         Fault original = report(store.getFaults(), LocalDate.of(2024, 1, 1));
-        store.save();
+        new ApplicationSnapshot(store.getInventory().getEquipmentUnits(), List.of(), List.of(), List.of(),
+                store.getFaults().getFaults()).write(file);
         LabLog application = LabLog.load(file);
         Files.move(file, directory.resolve("saved.properties"));
         Files.createDirectory(file);
