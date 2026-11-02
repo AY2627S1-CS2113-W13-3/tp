@@ -1,14 +1,11 @@
-# Historical borrower console test results
+# Borrower console test results
 
-This transcript predates the dependency-free console. Its native-access launch flags
-are historical; current launches do not need them. Focused replacement checks are recorded in [verification-report.md](verification-report.md);
-a refreshed physical-terminal transcript remains pending.
-
-The command path uses <run-id> for the disposable file selected by the runner.
+Verified on 2 November 2026 against master 2227f7f, Java 25.0.4, Windows.
+Both cases use redirected input; this is not a physical-terminal appearance check.
 Output comparisons preserve the final prompt space; code blocks omit it for Markdown formatting.
 ## Case 1: add, duplicate rejection, and list
 
-Command: java --enable-native-access=ALL-UNNAMED -cp build/libs/lablog.jar lablog.BorrowerCli build/ui-borrowers-<run-id>.properties
+Command: java -cp build/libs/lablog.jar lablog.BorrowerCli C:\Users\zepht\OneDrive\Documents\ChatGPT\CS2113 tP\tmp\final-version-verification\build\ui-borrowers-<run-id>.properties
 
 Input:
 ```text
@@ -20,6 +17,7 @@ loans A0123456X
 Actual output:
 ```text
 LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.
+LabLog works best in a terminal at least 100 columns wide and 30 rows high.
 lablog> [OK] Added borrower A0123456X: Jamie Tan.
 Phone: 91234567 | Email: jamie@u.nus.edu
 lablog> Error: Borrower ID A0123456X already exists. Choose a different borrower ID.
@@ -31,7 +29,7 @@ Exit code: 0. Stderr: (empty)
 PASS: exact match after normalizing line endings.
 ## Case 2: reload persisted borrower
 
-Command: java --enable-native-access=ALL-UNNAMED -cp build/libs/lablog.jar lablog.BorrowerCli build/ui-borrowers-<run-id>.properties
+Command: java -cp build/libs/lablog.jar lablog.BorrowerCli C:\Users\zepht\OneDrive\Documents\ChatGPT\CS2113 tP\tmp\final-version-verification\build\ui-borrowers-<run-id>.properties
 
 Input:
 ```text
@@ -41,6 +39,7 @@ loans A0123456X
 Actual output:
 ```text
 LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.
+LabLog works best in a terminal at least 100 columns wide and 30 rows high.
 lablog> No active loans for A0123456X - Jamie Tan.
 lablog>
 ```

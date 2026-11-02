@@ -107,6 +107,11 @@ Every field remains available. Unicode-containing tables use labelled records;
 wrapping retains complete grapheme clusters, but exact emoji alignment is not guaranteed.
 Plain redirected output retains the original table format.
 
+The final packaged version passed the automated CLI and borrower-console workflows
+on Windows with Java 25. The project author also reported that all manual terminal checks passed. See the
+[verification report](https://github.com/AY2627S1-CS2113-W13-3/tp/blob/master/test/verification-report.md)
+for the exact checks and limits.
+
 For the standalone borrower console, run
 `java -cp lablog.jar lablog.BorrowerCli`
 in the same folder. Exit either console with `exit`, or end input with Ctrl+Z then
@@ -563,14 +568,14 @@ For example, after a loan, a renewal and a return with reported damage:
 lablog> loan-audit OSC-001
 Loan audit for OSC-001:
 
-[1] LOAN — 2026-10-29
+[1] LOAN â€” 2026-10-29
     Asset: OSC-001
     Borrower: A0123456X
     Due: 2030-12-31
     Event ID: E-4de63ec6-db60-4ccb-94df-629bbd5a717d
     Loan ID: L-78e63761-fa3c-4700-90cd-e71567250071
 
-[2] RETURN — 2026-10-29
+[2] RETURN â€” 2026-10-29
     Asset: OSC-001
     Borrower: A0123456X
     Due: 2031-01-15
@@ -978,7 +983,7 @@ contact details, so avoid displaying it when sharing your screen.
 
 ## FAQ
 
-**Q**: How do I transfer my data to another computer? 
+**Q**: How do I transfer my data to another computer?
 
 **A**: Export a snapshot with `export FILE`, or close the main console and copy
 its configured `data/lablog.properties` file. That single file includes borrowers

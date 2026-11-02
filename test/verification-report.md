@@ -1,3 +1,37 @@
+# Final merged-version verification
+
+Verified on 2 November 2026 from upstream master `2227f7f` (including merged
+PR #167), in a clean worktree. Windows, Temurin Java 25.0.4+7, Gradle 9.6.1.
+The subsequent changes in this verification branch are documentation only.
+
+| Check | Result |
+| --- | --- |
+| `gradlew.bat clean check shadowJar --console=plain` | PASS: 356 JUnit tests, zero failures/errors/skips, main/test Checkstyle, executable JAR |
+| `python test/run-cli-smoke-tests.py` | PASS: all 10 packaged workflows, including export/import, restart, rejected data and command recovery |
+| `pwsh -File test/run-borrower-ui-tests.ps1` | PASS: both exact-output and persistence cases; refreshed transcript |
+| Injected interactive Java probe | PASS: next/back/quit, section page boundaries, fixed body height and EOF, both with and without NO_COLOR |
+| Manual terminal checks | PASS, reported by project author: paging, headings, page height, colour/NO_COLOR and command input |
+| JAR inspection | Version 2.1, Main-Class lablog.LabLog, zero JLine entries and no native-access manifest flag |
+
+JAR SHA-256: `2db22aad7c61ed4e750da07d1df9242874adc71f1ce028b3274aa89acc9a3a41`.
+Logs and the temporary interactive probe are under build/ and are not committed.
+The refreshed borrower transcript is from redirected input, not a physical terminal.
+
+## Manual terminal verification
+
+The project author reported all manual terminal checks passed on 2 November 2026,
+covering paging, section headings, fixed page height, colour/NO_COLOR and command
+input. This is user-reported evidence; physical terminal sessions and platform
+coverage were not independently observed by the agent. The agent's Windows
+pseudo-terminal selected the plain fallback, so it is not visual evidence.
+Full automated regression and packaged workflows are complete, not deferred.
+No Canvas submission or release asset replacement was performed.
+
+## Historical verification records
+
+Everything below is historical, with its original source and scope. Statements
+about deferred checks below apply to those earlier runs, not the final run above.
+
 # Historical release verification: 2 November 2026
 
 ## Dependency-free replacement

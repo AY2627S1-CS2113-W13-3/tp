@@ -899,7 +899,7 @@ spaces and letter case are preserved.
 | Prefix | Field | Rule |
 | --- | --- | --- |
 | (none) | Borrower ID | An uppercase letter, seven digits and an uppercase letter, e.g. `A0123456X`. This is a shape check, not a check-digit calculation. |
-| `n/` | Name | 1–100 characters with no control characters. |
+| `n/` | Name | 1â€“100 characters with no control characters. |
 | `p/` | Phone | Exactly eight ASCII digits. |
 | `e/` | Email | The `u.nus.edu` domain, matched case-insensitively, and the supported local-part pattern; the supplied spelling is preserved. |
 
@@ -982,7 +982,7 @@ sequenceDiagram
     participant Commands as :BorrowerCommands
     participant Borrowers as :BorrowerBook
     participant Loans as :LoanBook
-    participant Date as «class» LocalDate
+    participant Date as Â«classÂ» LocalDate
     participant Names as equipmentNames:Function
     User->>+CLI: loans A0123456X
     CLI->>+Commands: execute(input)
@@ -1208,7 +1208,7 @@ sequenceDiagram
     participant App as :LabLog
     participant Renew as :RenewCommands
     participant Book as :LoanBook
-    participant Date as «class» LocalDate
+    participant Date as Â«classÂ» LocalDate
     participant Policy as :BookingAvailability
     participant Loan as loan:Loan
     User->>+App: renew OSC-001 d/2026-11-05
@@ -1316,7 +1316,7 @@ sequenceDiagram
     participant Commands as :ReturnCommands
     participant Equipment as :Inventory
     participant Loans as :LoanBook
-    participant Date as «class» LocalDate
+    participant Date as Â«classÂ» LocalDate
     User->>+CLI: return OSC-001 faults/Damaged cable
     CLI->>+Commands: execute(input)
     Note right of Commands: validate syntax and optional faults field
@@ -1462,14 +1462,14 @@ a renewal and a return with a fault:
 lablog> loan-audit OSC-001
 Loan audit for OSC-001:
 
-[1] LOAN — 2026-10-29
+[1] LOAN â€” 2026-10-29
     Asset: OSC-001
     Borrower: A0123456X
     Due: 2030-12-31
     Event ID: E-4de63ec6-db60-4ccb-94df-629bbd5a717d
     Loan ID: L-78e63761-fa3c-4700-90cd-e71567250071
 
-[2] RETURN — 2026-10-29
+[2] RETURN â€” 2026-10-29
     Asset: OSC-001
     Borrower: A0123456X
     Due: 2031-01-15
@@ -1547,7 +1547,7 @@ sequenceDiagram
     participant App as :LabLog
     participant Return as :ReturnCommands
     participant Book as :LoanBook
-    participant Event as «class» LoanAuditEvent
+    participant Event as Â«classÂ» LoanAuditEvent
     participant Loan as loan:Loan
     User->>+App: return OSC-001 MIC-002
     App->>+Return: execute(input)
@@ -1638,7 +1638,7 @@ sequenceDiagram
     actor User
     participant App as :LabLog
     participant Command as :LoanCorrectionCommands
-    participant Date as «class» LocalDate
+    participant Date as Â«classÂ» LocalDate
     participant Book as :LoanBook
     participant Policy as :BookingAvailability
     User->>+App: reverse-return EVENT_ID reason/TEXT
@@ -2747,6 +2747,8 @@ Restart with different dimension variables to check wrapping and table fallback;
 resizing during a session does not recalculate layout. Unicode tables use labelled
 records. Repeat with `NO_COLOR` set, then pipe `help` and `exit` to the JAR and
 confirm plain output has no paging, acknowledgement or ANSI escapes. Use disposable
-data. Focused automated checks and captured-output probes are recorded in the
-[verification report](../test/verification-report.md); physical-terminal appearance
-and cross-platform checks remain pending.
+data. The final merged master passed all 356 JUnit tests, main/test Checkstyle,
+10 packaged CLI workflows and both borrower-console cases on Windows Java 25.
+Injected interactive probes passed with and without NO_COLOR. See the
+[verification report](../test/verification-report.md). The project author reported all manual terminal checks passed. This manual
+evidence is separate from the automated checks run by the agent.
