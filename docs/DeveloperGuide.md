@@ -71,6 +71,7 @@ Current application version: **LabLog v2.1** (Java 25).
 LabLog builds on the [SE-EDU Duke project template](https://github.com/se-edu/duke).
 The console banner uses the
 [FIGlet Standard font](https://github.com/xero/figlet-fonts/blob/main/Standard.flf).
+Console input and pagination use standard Java APIs without an external terminal library.
 
 ## Design
 
@@ -79,7 +80,8 @@ Diagrams use Mermaid and the
 Class diagrams show selected members; solid arrows represent stored references
 and dashed arrows temporary use or creation. Labels name fields where shown;
 omitted multiplicities are unspecified. Architecture grouping boxes summarise
-dependencies rather than Java packages.
+dependencies rather than Java packages. On the website, wide diagrams scroll
+horizontally to preserve readable labels; focus a diagram to scroll with the keyboard.
 
 Sequence diagrams use `:ClassName` or `name:ClassName` lifelines with activation
 bars. Operations use `name(parameter: Type): ReturnType`; `+` means public,
@@ -129,15 +131,15 @@ classDiagram
     ReservationBook --> "1" BookingAvailability : availability
 ```
 
-*`XyzCommands` stands for any of the 24 command handlers. Each handler depends only
+*`XyzCommands` stands for any of the 25 command handlers. Each handler depends only
 on the books its command needs; for example, `EquipmentSearchCommands` uses
 `Inventory`, `LoanBook` and `FaultBook`. `LabLog` also owns the books and passes the
 shared instances to every handler it creates.*
 
 | Layer | Classes | Responsibility |
 | --- | --- | --- |
-| Console | `LabLog`, `BorrowerCli`, `CommandHistory`, `ConsoleWelcome`, `Messages`, `TableFormatter` | Read command lines, recall recent commands, dispatch to a handler, save, and print results or errors. Successful changes are prefixed with `[OK]` and listings are printed as aligned tables. `BorrowerCli` is a separate borrower-only console. |
-| Commands | `EquipmentAdd/Copy/Edit/Move/List/Find/SearchCommands`, `BorrowerCommands`, `LoanCommands`, `ReturnCommands`, `RenewCommands`, `LostCommands`, `ActiveLoanCommands`, `LoanAuditCommands`, `LoanCorrectionCommands`, `HistoryCommands`, `HistoryRecordCommands`, `RepairCommands`, `ReservationCommands`, `WaitingRequestCommands`, `AvailableEquipmentCommands`, `UnavailableReasonCommands`, `OverviewCommands`, `HelpCommands` | Parse and validate one command, read or change the books, and return the text to display. |
+| Console | `LabLog`, `BorrowerCli`, `CommandHistory`, `ConsoleWelcome`, `ConsoleInput`, `TerminalInput`, `CommandOutput`, `ConsolePresentation`, `ResponsiveTableLayout`, `TerminalWordWrapper`, `PagerContext`, `Messages`, `TableFormatter` | Read command lines, recall recent commands, dispatch to a handler, save, and print results or errors. Plain output prefixes successful changes with `[OK]` and prints aligned tables; the interactive boundary adds labels, responsive layouts and paging. `BorrowerCli` is a separate borrower-only console. |
+| Commands | `EquipmentAdd/Copy/Edit/Move/List/Find/SearchCommands`, `RetireEquipmentCommands`, `BorrowerCommands`, `LoanCommands`, `ReturnCommands`, `RenewCommands`, `LostCommands`, `ActiveLoanCommands`, `LoanAuditCommands`, `LoanCorrectionCommands`, `HistoryCommands`, `HistoryRecordCommands`, `RepairCommands`, `ReservationCommands`, `WaitingRequestCommands`, `AvailableEquipmentCommands`, `UnavailableReasonCommands`, `OverviewCommands`, `HelpCommands` | Parse and validate one command, read or change the books, and return the text to display. |
 | Model | `Inventory`, `BorrowerBook`, `LoanBook`, `FaultBook`, `ReservationBook`, `WaitingRequestBook`, `BookingAvailability`, and records such as `Equipment`, `Borrower`, `Loan` and `Fault` | Hold the application state in memory and enforce record rules. `BookingAvailability` is the shared booking-conflict rule used by lending, renewal, reservations and availability queries. |
 | Storage | `ApplicationSnapshot`, `LabLogStore`, and the `*Codec` classes | Encode all records as one versioned UTF-8 properties file, validate it on load, and replace it atomically on save. |
 
@@ -570,13 +572,15 @@ inventory order or stored records. All options are validated before returning
 an empty result, including when the inventory is empty.
 
 Status is the equipment's current operational status, not its availability for
-a requested date range. The precedence is `lost`, `on-loan`, `unavailable`,
-then `available`: a lost loan yields `lost`; otherwise an active loan yields
+a requested date range. The precedence is `retired`, `lost`, `on-loan`,
+`unavailable`, then `available`: retirement yields `retired`; otherwise a lost
+loan yields `lost`; otherwise an active loan yields
 `on-loan`; otherwise an unresolved severe fault yields `unavailable`; all
-remaining units are `available`. The listing reads the live loan and fault
-books. Actual reservations block loans for overlapping date ranges but do not
-change this undated status; display-only history notes do not participate in
-booking checks.
+remaining units are `available`. Retired units appear only with an explicit
+`status/retired` filter. The listing reads the live loan and fault
+books. Actual reservations can block overlapping loans, except when a borrower
+collects within their own covering reservation. They do not change this undated
+status; display-only history notes do not participate in booking checks.
 
 For example, `list location/lab 5 sort/name` matches `Lab 5` without case
 sensitivity and prints the matching units as a table (see
@@ -641,7 +645,8 @@ command keeps free-text matching distinct from `list` filters and sorting.
 
 ##### Availability, errors, and verification
 
-Matching rows use the same columns and status precedence as `list`: lost,
+Search excludes retired units. Matching rows use the same columns and remaining
+status precedence as `list`: lost,
 on loan, unresolved severe fault, then available. Reservations do not affect
 this undated status; use `available` for interval checks.
 
@@ -896,7 +901,7 @@ spaces and letter case are preserved.
 | (none) | Borrower ID | An uppercase letter, seven digits and an uppercase letter, e.g. `A0123456X`. This is a shape check, not a check-digit calculation. |
 | `n/` | Name | 1–100 characters with no control characters. |
 | `p/` | Phone | Exactly eight ASCII digits. |
-| `e/` | Email | The lowercase `u.nus.edu` domain and the supported local-part pattern. |
+| `e/` | Email | The `u.nus.edu` domain, matched case-insensitively, and the supported local-part pattern; the supplied spelling is preserved. |
 
 The `Borrower` constructor enforces these rules even when a caller bypasses the
 command parser. `BorrowerBook` separately enforces uniqueness because that rule
@@ -1005,7 +1010,8 @@ sequenceDiagram
 
 **Lost loans remain outstanding** and appear with status `LOST`; other
 active rows show `On loan`. This keeps unresolved borrower responsibility visible. Ordinary return and
-renewal commands reject lost loans; no recovery command is implemented.
+renewal commands reject lost loans; `recover` closes an outstanding lost loan
+while preserving its loss evidence.
 A due date before today is overdue; a loan due today is not. Injecting `Clock`
 makes this rule testable at local-date boundaries without changing the machine's
 clock. The injected equipment-name function avoids coupling the handler to the
@@ -1085,14 +1091,16 @@ stateDiagram-v2
     OnLoan --> Returned : return
     Returned --> OnLoan : reverse-return [no booking conflict]
     OnLoan --> Lost : lost
+    Lost --> Returned : recover
     OnLoan --> Reversed : reverse-loan [no renewals]
 ```
 
 *Each transition is labelled with the command that triggers it and its guard.
 `Loan#isActive()` is true in On loan and Lost. A lost loan is still
-outstanding, so it stays in borrower and active-loan listings. No command
-leaves Lost or Reversed, so they have no outgoing transitions. To reverse the issue of a returned loan, reverse
-its return first.*
+outstanding, so it stays in borrower and active-loan listings. Recovery closes a
+lost loan but its return cannot be reversed. Reversed loans have no outgoing
+transitions. To reverse the issue of an ordinary returned loan, reverse its
+return first.*
 
 #### Issuing single and batch loans
 
@@ -1106,8 +1114,10 @@ validates the borrower and due date, and checks every selected unit's availabili
 Active-loan checks use `LoanBook.findActiveLoan`, retaining the warning naming
 the current borrower and due date. `FaultBook` rejects unresolved severe faults.
 The main console also supplies `BookingAvailability`, which applies the shared
-inclusive interval checks to reservations and historical loan occupancy. A
-reservation touching the due date is a conflict, including for the same borrower.
+interval checks to reservations and loan occupancy. For a new loan it excludes
+one confirmed reservation for the same borrower and asset only when the entire
+loan period fits inside it. Other overlapping reservations still conflict; a
+completed loan does not block a new period starting on its return date.
 
 `LabLog` supplies its shared `BorrowerBook` to `LoanCommands`, which rejects
 unregistered borrowers before recording a loan. The three-argument handler
@@ -1399,11 +1409,13 @@ issue date or latest renewal, then sets the loss report date. Borrower, issue da
 deadlines and renewal events remain unchanged.
 
 **State choice:** A lost loan stays active in the sense of outstanding, with a
-separate `isLost` flag derived from its report date. Treating loss as a return
+`isLost` derived from its report date and outstanding state. Treating loss as a return
 would falsely release the equipment and remove it from borrower listings.
 `Loan.validateReturn` and `Loan.renew` reject lost records, so batch-return
-validation also fails before changing any selected loan. No recovery transition
-is implemented in this increment.
+validation also fails before changing any selected loan. `LostCommands` also
+handles `recover ASSET_ID`: `LoanBook.recover` validates the date and loan,
+closes it and appends a RETURN audit event. The loss date and loan history are
+retained, and `reverse-return` cannot reopen a recovered loan.
 
 `LoanBook.hasLostLoan` supplies the shared loss check. `BookingAvailability`
 rejects lost equipment before interval/exclusion checks, even when a caller
@@ -1421,9 +1433,10 @@ rows now have a separate Status column alongside Overdue. History retains the
 original loan/renewals and derives a `LOST` row dated on the report day.
 
 Snapshot format 10 adds the required `loan.N.lost` field: an empty string means
-no loss, otherwise it is the report date. Decode restores renewals and returns
-before applying the loss transition, rejecting contradictory dates or a loss
-on a returned loan. Formats 2-9 remain readable without fabricated loss reports.
+no loss, otherwise it is the report date. Decode restores renewals, applies the
+loss transition and then recovers the loan when both loss and return dates are
+present. Invalid chronology is rejected. Formats 2-9 remain readable without
+fabricated loss reports.
 The closed schema rejects loss fields in older formats and rejects display notes
 masquerading as loss events. Complete and legacy loan stores preserve the field;
 restart, export and replacement import use the same validated representation.
@@ -1514,6 +1527,11 @@ require a reason; duplicate reversals, forward references and inconsistent event
 ordering are rejected. Original events remain present. The model can display and
 round-trip correction evidence. `LoanCorrectionCommands` applies reversals and
 validates operational dependencies; the audit query remains read-only.
+
+Current returned loans with original `LOAN` evidence must have a matching effective
+`RETURN` event. Decode and save reject a missing return event before publishing or
+replacing data. Legacy loans without original issue evidence may retain historical
+returns without fabricated events.
 
 Formats 2-10 load with an empty event log and fresh loan IDs. The first successful
 save persists those IDs. Restoring uses `replaceAll(loans, events)` rather than
@@ -1863,10 +1881,11 @@ adds the shared conflict policy without changing the interval contract.
 #### Shared conflict policy
 
 BookingAvailability.conflict/requireAvailable is the shared public boundary for
-reservations, loans, RenewCommands and interval queries. All intervals
-are inclusive. A renewal caller passes its original Loan as ignoredLoan and the
-proposed full loan period; an edit passes only its own reservation ID. Other
-records are still checked. Main-console LoanCommands is wired to this policy.
+reservations, loans, RenewCommands and interval queries. Reservation intervals
+are inclusive. Completed loans do not block windows starting on or after their
+return date. A new loan may exclude the intended borrower's covering reservation;
+a renewal excludes its original Loan and an edit excludes its own reservation
+ID. Other records are still checked. Main-console LoanCommands is wired to this policy.
 The existing standalone constructors retain their no-reservation behavior.
 
 Restore validates reservation references, IDs and pairwise booking overlaps.
@@ -1922,8 +1941,9 @@ status field or new persistence schema is introduced.
 
 The main console supplies the same BookingAvailability instance used by lending.
 Imports replace book contents without replacing their identities, so explanations
-reflect replacement records immediately. Queries do not invoke the saver. Loan
-return dates remain inclusive; overdue outstanding loans block indefinitely;
+reflect replacement records immediately. Queries do not invoke the saver.
+Completed loans do not block windows starting on or after their return date;
+overdue outstanding loans block indefinitely;
 losses and unresolved severe faults block every interval. The compact list/find
 labels remain unchanged and are not a substitute for an interval explanation.
 
@@ -2016,6 +2036,18 @@ after editing a recalled command.
 
 ### Console output
 
+`ConsoleWelcome.TERMINAL_RECOMMENDATION` supplies the shared startup advice:
+100 columns by 30 rows. The main console prints it directly below its ASCII
+banner; the standalone borrower console prints it below its welcome line.
+This is guidance, not a launch restriction. The 75-character ASCII sentence
+also fits in an 80-column window.
+
+The previous JLine layout probe motivated the 100x30 recommendation; its measured
+page sizes and editable-box dimensions are historical. The replacement reads
+`COLUMNS` (minimum 20) and `LINES` (minimum 10) once at startup, defaulting to
+100x30 for absent, malformed, smaller or above-1000 values. It does not detect resizing.
+Wide and Unicode tables retain the labelled-record fallback.
+
 Equipment construction rejects control characters in asset IDs, including when
 a snapshot is loaded. Both consoles reject control characters in command lines
 while allowing tabs. Diagnostic messages escape control characters before display,
@@ -2059,12 +2091,43 @@ Central utilities keep output consistent without a general table-library
 dependency. `TableFormatterTest` checks padding, separators, empty tables,
 invalid row widths and absence of trailing spaces.
 
+#### Interactive terminal boundary
+
+`ConsoleInput` separates command execution from terminal I/O. `TerminalInput`
+uses standard Java line input for interactive consoles. An absent `System.console()`
+or `TERM=dumb` selects the scanner-based plain reader. `CommandOutput` buffers
+interactive results and calls `ConsoleInput.presentOutput` before the next prompt.
+Handlers and persistence rules are shared across both modes.
+
+`ResponsiveTableLayout` converts overflowing or Unicode tables to labelled records.
+`TerminalWordWrapper` wraps plain text before `ConsolePresentation` sanitizes and
+styles it. Grapheme clusters remain intact; non-ASCII width estimates are conservative
+rather than an exact terminal-cell model. `NO_COLOR` suppresses styling.
+Plain output preserves handler text and bypasses pagination.
+
+The pager reserves eight rows, leaving `max(1, rows - 8)` body rows.
+`PagerContext.isSectionStart` recognises help categories, detailed-help labels and
+overview sections using the same result-aware rules as breadcrumbs; record values
+do not introduce section breaks. `TerminalInput` precomputes page starts at either
+the body capacity or a recognised section heading. Back navigation uses these same
+boundaries. Every paged body is padded with blank lines to its full capacity,
+including the final page; short unpaged output stays compact.
+
+Enter advances
+a page (or closes the final page), `b` then Enter goes back, and `q` then Enter closes. Invalid input repeats
+the navigation prompt; EOF closes paging and ends subsequent command input.
+Navigation never enters command history. Each appended page repeats the canonical
+result/section breadcrumb from `PagerContext` and the visible line range. Pages
+remain in scrollback. There is no raw mode, cursor redraw or automatic resize.
+Focused coverage belongs to `ConsolePresentationTest`, `ResponsiveTableLayoutTest`,
+`TerminalWordWrapperTest`, `PagerContextTest` and `TerminalInputTest`.
+
 ### Current integration limits and packaged verification
 
-List/find status reflects loans, losses and severe faults. Interval availability
-also checks reservations through `BookingAvailability`; undated status is not a
-booking guarantee. Lost-equipment recovery is unsupported; loan and return
-mistakes can be corrected with `reverse-loan` and `reverse-return`.
+List/find status reflects retirement, loans, losses and severe faults. Interval
+availability also checks reservations through `BookingAvailability`; undated status is not a
+booking guarantee. Lost loans can be closed using `recover`; ordinary loan and
+return mistakes can be corrected with `reverse-loan` and `reverse-return`.
 
 The packaged CLI runner checks help, integrated workflows, export/import,
 restart persistence and unchanged files after read-only queries. Run it after
@@ -2096,7 +2159,7 @@ returns, and lookups, so a technician can:
 ## Appendix B: User stories
 
 The following v1.0 rows summarize the original baseline. The v2.0 table lists
-all 33 stories in the approved allocation; US identifiers refer to the team's
+33 stories in the team's recorded allocation; US identifiers refer to the team's
 planning sheet, not GitHub issue numbers. US08, US12 and US13 build on existing
 location and registration validation support rather than introducing it anew.
 
@@ -2149,11 +2212,16 @@ US58 excludes due-maintenance scheduling: maintenance notes are historical
 records, not a schedule. US60 covers borrowing and returning, including related
 corrections; it is not a general audit of every inventory-changing action.
 
+Retirement is an additional v2.1 capability: as a laboratory technician, I want
+to retire an unusable unit while retaining its records so that it cannot be lent
+or reserved again. No planning-sheet story identifier is asserted for it.
+
 ## Appendix C: Non-functional requirements
 
 | Requirement | Boundary |
 | --- | --- |
-| Runtime | Java 25; Gradle CI checks run on Windows, macOS and Ubuntu. |
+| Runtime | Java 25; the Gradle CI matrix is configured for Windows, macOS and Ubuntu. This configuration is not evidence that a particular release passed on all three. |
+| Console accessibility | Keyboard input; status text remains readable without colour. Plain redirected input avoids native paging. |
 | Persistence | UTF-8 snapshots; atomic replacement with no non-atomic fallback. |
 | Input limits | Reject files over 10 MiB and record counts beyond codec limits. No performance guarantee is specified. |
 | Data integrity | Invalid startup files remain unchanged; failed imports preserve current records. See [Storage](#storage) for save-failure behaviour. |
@@ -2166,6 +2234,8 @@ corrections; it is not a general audit of every inventory-changing action.
 * **Asset ID:** case-sensitive identifier of one physical equipment unit.
 * **Active loan:** a loan that has been neither returned nor reversed. A lost loan
   is still active because the borrower remains responsible for it.
+* **Retired equipment:** a retained unit marked out of service with a local date
+  and reason; excluded from lending, booking and ordinary list/search results.
 * **Overdue loan:** an active loan with a due date before today's local date.
 * **Severe fault:** an unresolved fault with severity `SEVERE`; it blocks lending.
 * **Snapshot format:** the schema version stored in the data file's `format` key;
@@ -2223,8 +2293,11 @@ Finish each scenario with `exit`. Keep real records outside this folder.
 Dates use `YYYY-MM-DD`. Replace `TODAY` with the computer's current local date;
 the future examples assume today is before 2099-01-01. Replace `FAULT_ID`,
 `RESERVATION_ID`, `LOAN_EVENT_ID` and `RETURN_EVENT_ID` with the actual IDs printed
-in that scenario. These names are placeholders, not literal commands. Successful
-changes start with `[OK]`; rejected commands start with `Error:`.
+in that scenario. These names are placeholders, not literal commands. In plain
+output, successful changes start with `[OK]`; rejected commands start with `Error:`. Interactive
+colour output uses filled OK and ERROR labels. For long results, use the pager
+keys in the [User Guide Quick Start](UserGuide.md#quick-start), then press `q`
+before entering the next command.
 
 * [1. Equipment registration, copy, edits and searches](#1-equipment-registration-copy-edits-and-searches)
 * [2. Borrower registration and contact editing](#2-borrower-registration-and-contact-editing)
@@ -2238,6 +2311,8 @@ changes start with `[OK]`; rejected commands start with `Error:`.
 * [10. Help, daily overview and command recall](#10-help-daily-overview-and-command-recall)
 * [11. Export, replacement import and rejected-file preservation](#11-export-replacement-import-and-rejected-file-preservation)
 * [12. Standalone borrower console](#12-standalone-borrower-console)
+* [13. Retirement and retained evidence](#13-retirement-and-retained-evidence)
+* [14. Interactive presentation and pager](#14-interactive-presentation-and-pager)
 
 #### 1. Equipment registration, copy, edits and searches
 
@@ -2326,10 +2401,10 @@ deadline. All three returns succeed; the last active-loan query says
 includes the renewal and reported cable damage. A `faults/` return description
 does not create a separate structured fault report.
 
-Try `return LEND-001` again: it is rejected. Also try
-`loan LEND-001 b/A0123456X d/2099-01-01` on the return day: the inclusive booking
-rule rejects reuse of that day's occupied interval. Exit and restart; the audit
-and history must remain, and all loans must still be returned.
+Try `return LEND-001` again: it is rejected. Then run
+`loan LEND-001 b/A0123456X d/2099-01-01` on the return day: the new loan
+succeeds. Return it, exit and restart; both loans and their audit evidence remain
+in history, and all loans are returned.
 
 #### 4. Overdue loans and a historical-file restart
 
@@ -2371,7 +2446,10 @@ renew LOST-001 d/2099-02-01
 
 Expected: the loss remains an outstanding loan, displayed as LOST/Lost, with its
 dated history. Return and renewal are rejected. Restart and check
-`find LOST-001` and `active-loans`; the lost state persists.
+`find LOST-001` and `active-loans`; the lost state persists. Run
+`recover LOST-001`, then check `active-loans`, `history LOST-001` and
+`loan-audit LOST-001`: the loan is closed while its loss and return evidence
+remain. A second recovery is rejected; restart and verify the history again.
 
 #### 6. Correcting a loan or return without deleting evidence
 
@@ -2472,6 +2550,32 @@ Expected: the edit succeeds. Before cancellation the unit is excluded from
 is available again. `reservations` retains the cancelled booking and history
 retains its cancellation reason after restart. Editing or cancelling it again
 is rejected.
+
+##### Collecting a reserved unit
+
+Use a fresh `collection.properties` session. Replace `TODAY` with the current
+local date, as described at the start of this appendix:
+
+```text
+add COLLECT-001 n/Microscope c/Optics m/M2 l/Lab
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+add-borrower A0123457X n/Alex Lim p/92345678 e/alex@u.nus.edu
+reserve COLLECT-001 b/A0123456X from/TODAY to/TODAY
+loan COLLECT-001 b/A0123457X d/TODAY
+loan COLLECT-001 b/A0123456X d/2099-01-01
+active-loans
+loan COLLECT-001 b/A0123456X d/TODAY
+reservations
+active-loans
+```
+
+Expected: the other borrower's loan is rejected. The intended borrower's loan
+ending outside the reservation is also rejected, leaving no active loans.
+Collection with today's due date succeeds because its whole interval fits inside
+the reservation. Exactly one active loan belongs to Jamie; the reservation stays
+confirmed. Exit and restart the same file, then run `active-loans` and
+`reservations` again: both records persist. `return COLLECT-001` closes the loan
+without cancelling the reservation.
 
 #### 9. Waiting demand and availability after cancellation
 
@@ -2581,3 +2685,68 @@ repeating it, and the loan query identifies Jamie Lim with no active loans.
 Restart the same console and run `loans A0123456X`; contacts persist but command
 history is empty. This console does not see the main console's loans or data
 file. Always use the main console to edit contacts belonging to its snapshot.
+
+#### 13. Retirement and retained evidence
+
+Use `retirement.properties`:
+
+```text
+add RET-001 n/Retirement scope c/Electronics m/S1 l/Lab
+copy RET-001 RET-002
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+loan RET-001 b/A0123456X d/2099-01-01
+retire RET-001 reason/End of service
+return RET-001
+reserve RET-001 b/A0123456X from/2099-02-01 to/2099-02-02
+retire RET-001 reason/End of service
+reservations
+```
+
+Expected: retirement fails first for the outstanding loan and then for the future
+reservation. Replace `RESERVATION_ID` with the printed booking ID and enter:
+
+```text
+cancel-reservation RESERVATION_ID reason/Unit leaving service
+retire RET-001 reason/End of service
+retire RET-001 reason/Repeated retirement
+list
+list status/retired
+search Retirement
+find RET-001
+history RET-001
+loan RET-001 b/A0123456X d/2099-03-01
+reserve RET-001 b/A0123456X from/2099-03-01 to/2099-03-02
+available from/2099-03-01 to/2099-03-02
+why-unavailable RET-001 from/2099-03-01 to/2099-03-02
+```
+
+Expected: retirement succeeds once. Ordinary list and search show only RET-002;
+the retired filter shows RET-001. Exact lookup retains its date/reason, and
+history retains loan/return details and cancelled-booking evidence. Retirement
+metadata is shown by `find`, not as a separate history event. Lending
+and booking RET-001 fail, availability excludes it and the explanation names
+retirement. Restart and repeat the retired filter, lookup and history: all remain.
+An unknown asset or `retire RET-002 reason/` must fail without retiring RET-002.
+Export to a new `retirement-backup.properties`; import it with `--replace` into a
+new `retirement-import.properties` session. The same retired state and evidence
+must remain after another restart.
+
+#### 14. Interactive presentation and pager
+
+Use a native terminal and a new `presentation.properties`; redirected input
+cannot exercise interactive paging. Start with `COLUMNS=80` and `LINES=24`, then
+run `help`. Press Enter to advance, enter `b` to return, and enter `q` to close.
+Check that help categories, detailed-help labels and overview sections start on new
+pages. Short section pages and the final page should retain the same body height
+with blank padding. Go back to confirm the same page boundaries are restored.
+Check repeated result/section headings and line ranges, invalid navigation input,
+and EOF. Confirm paging input does not appear in `commands`. After closing, run
+`help loan` to confirm command input resumes normally.
+
+Restart with different dimension variables to check wrapping and table fallback;
+resizing during a session does not recalculate layout. Unicode tables use labelled
+records. Repeat with `NO_COLOR` set, then pipe `help` and `exit` to the JAR and
+confirm plain output has no paging, acknowledgement or ANSI escapes. Use disposable
+data. Focused automated checks and captured-output probes are recorded in the
+[verification report](../test/verification-report.md); physical-terminal appearance
+and cross-platform checks remain pending.

@@ -2,6 +2,7 @@
 
 from datetime import date, timedelta
 from pathlib import Path
+import os
 import re
 import subprocess
 import tempfile
@@ -9,8 +10,9 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parent.parent
-JAR = ROOT / "build/libs/lablog.jar"
-GREETING = "LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.\n"
+JAR = Path(os.environ.get("LABLOG_TEST_JAR", ROOT / "build/libs/lablog.jar"))
+GREETING = ("LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.\n"
+            "LabLog works best in a terminal at least 100 columns wide and 30 rows high.\n")
 
 
 class CliSmokeTests(unittest.TestCase):
@@ -40,7 +42,9 @@ class CliSmokeTests(unittest.TestCase):
         return result.stdout
 
     def borrower(self, file, user_input):
-        return self.run_java(["-cp", str(JAR), "lablog.BorrowerCli", str(file)], user_input)
+        return self.run_java(
+            ["-cp", str(JAR), "lablog.BorrowerCli", str(file)], user_input
+        )
 
     def test_main_help_examples_and_recovery(self):
         commands = ("help", "add", "retire", "copy", "edit-equipment", "move-equipment", "list", "find",
@@ -53,7 +57,8 @@ class CliSmokeTests(unittest.TestCase):
         user_input += "".join("help " + command + "\n" for command in commands) + "exit\n"
         output = self.run_java(["-jar", str(JAR)], user_input)
         for command in commands:
-            self.assertIn("Example: " + command, output)
+            self.assertRegex(output, rf"(?m)^    Example\n(?:[ ]{{8,}}.*\n|\n)*?"
+                             rf"[ ]{{8}}{re.escape(command)}(?:[ \n]|$)")
         self.assertIn("LabLog commands:", output)
         self.assertIn("Error: Unknown command: unknown.", output)
         self.assertIn("Error: Use: help [COMMAND]", output)
@@ -85,7 +90,7 @@ class CliSmokeTests(unittest.TestCase):
                 "add-borrower A0123456X n/Jamie p/91234567 e/jamie@u.nus.edu\n"
                 "add OSC-001\nScope\nElectronics\nS1\nLab\n"
                 "loan OSC-001 b/A0123456X d/2099-01-01\nexit\n")
-            self.assertIn("Loaned OSC-001", output)
+            self.assertIn("Loan recorded.\n  Asset     OSC-001\n  Borrower  A0123456X", output)
             output = self.run_java(args, "history OSC-001\nreturn OSC-001 faults/cracked screen\nexit\n")
             self.assertIn("A0123456X", output)
             self.assertIn("cracked screen", output)
@@ -130,7 +135,7 @@ class CliSmokeTests(unittest.TestCase):
             before = live.read_bytes()
             expected = self.run_java(args, queries)
             self.assertEqual(before, live.read_bytes(), "Queries must not rewrite the snapshot")
-            for detail in ("BORROW", "RETURN", str(renewed), "LOST", "Replaced screen", "WAITING", str(start)):
+            for detail in ("LOAN", "RETURN", str(renewed), "LOST", "Replaced screen", "WAITING", str(start)):
                 self.assertIn(detail, expected)
             imported_args = ["-jar", str(JAR), str(imported)]
             result = self.run_java(imported_args, f'import "{backup}" --replace\nexit\n')
@@ -161,8 +166,8 @@ class CliSmokeTests(unittest.TestCase):
             output = self.borrower(file,
                 "help\nhelp return\nhelp add-borrower\nhelp unknown\nhelp loan extra\n"
                 "add-borrower A0123457X n/Alex p/123 e/alex@u.nus.edu\nloans A0123456X\n")
-            self.assertIn("Example: return OSC-001\n", output)
-            self.assertIn("Example: add-borrower A0123457X e/alexlim@u.nus.edu", output)
+            self.assertIn("\n        return OSC-001\n", output)
+            self.assertIn("\n        add-borrower A0123457X e/alexlim@u.nus.edu", output)
             self.assertIn("Error: Phone must contain exactly 8 digits.", output)
             self.assertIn("No active loans for A0123456X - Jamie Tan.", output)
             self.assertEqual(saved, file.read_bytes())

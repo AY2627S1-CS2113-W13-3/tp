@@ -136,19 +136,19 @@ class RenewCommandsTest {
     @Test
     void run_renewHelpAndHistory_showCurrentDeadlineAndOrderedChanges() {
         LabLog app = new LabLog(inventory, loans, List::of, CLOCK, borrowers);
-        String example = new HelpCommands().execute("help renew").lines()
+        String example = HelpText.examples(new HelpCommands().execute("help renew")).stream()
                 .filter(line -> line.startsWith("Example: ")).findFirst().orElseThrow().substring(9)
                 .replace("OSC-001", "OSC");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         app.run(new Scanner("renew OSC d/2026-10-25\n" + example
                 + "\nhistory OSC\nactive-loans\nloans A0123456X\nhelp renew\nexit\n"), new PrintStream(output));
-        String text = output.toString();
+        String text = TableText.compact(output.toString());
         assertFalse(text.contains("Error:"), text);
         assertTrue(text.contains("due 2099-11-05; active"));
         assertTrue(text.contains("2026-10-23 | RENEWAL | Borrower A0123456X; due changed from"));
         assertTrue(text.indexOf("due changed from 2026-10-24 to 2026-10-25")
                 < text.indexOf("due changed from 2026-10-25 to 2099-11-05"));
-        assertTrue(text.contains("Format: renew ASSET_ID d/YYYY-MM-DD"));
+        assertTrue(text.contains("Usage\n        renew ASSET_ID d/YYYY-MM-DD"));
         assertTrue(new HelpCommands().execute("help").contains("renew ASSET_ID d/DUE_DATE"));
         assertEquals(2, loan.getRenewals().size());
     }

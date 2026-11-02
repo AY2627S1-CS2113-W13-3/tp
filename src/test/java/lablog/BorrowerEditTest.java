@@ -29,10 +29,10 @@ class BorrowerEditTest {
         commands.execute("edit-borrower A0123456X p/92345678");
         assertEquals("Jamie", book.getBorrower("A0123456X").getName());
         assertEquals("jamie@u.nus.edu", book.getBorrower("A0123456X").getEmail());
-        commands.execute("edit-borrower A0123456X e/new@u.nus.edu n/New Name p/93456789");
+        commands.execute("edit-borrower A0123456X e/new@U.NUS.EDU n/New Name p/93456789");
         assertEquals("New Name", new BorrowerBook(file).getBorrower("A0123456X").getName());
         assertEquals("93456789", new BorrowerBook(file).getBorrower("A0123456X").getPhone());
-        assertEquals("new@u.nus.edu", new BorrowerBook(file).getBorrower("A0123456X").getEmail());
+        assertEquals("new@U.NUS.EDU", new BorrowerBook(file).getBorrower("A0123456X").getEmail());
         assertSame(loan, loans.getLoans().get(0));
         assertTrue(commands.execute("loans A0123456X").contains("1 active loan."));
         for (String name : List.of("X", "X".repeat(100))) {

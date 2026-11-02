@@ -27,14 +27,15 @@ class LabLogStoreTest {
         LabLogStore store = new LabLogStore(file);
         store.getInventory().addEquipment(new Equipment("OSC-001", "Scope Ω", "Electronics", "S1", "Lab A"));
         Loan returned = new Loan("OSC-001", "A0123456X", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 5));
-        returned.markReturned(LocalDate.of(2026, 1, 4), "Cracked screen = inspect");
         store.getLoans().addLoan(returned);
+        store.getLoans().returnLoans(List.of(returned), LocalDate.of(2026, 1, 4), "Cracked screen = inspect");
         store.getLoans().addLoan(new Loan("OSC-001", "A0123457X",
                 LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 5)));
         store.save();
         LabLogStore loaded = new LabLogStore(file);
         assertEquals("Scope Ω", loaded.getInventory().getEquipmentUnits().get(0).getName());
         assertEquals(2, loaded.getLoans().getLoans().size());
+        assertEquals(store.getLoans().getAuditEvents(), loaded.getLoans().getAuditEvents());
         assertEquals(LocalDate.of(2026, 1, 4), loaded.getLoans().getLoans().get(0).getReturnDate());
         assertEquals("Cracked screen = inspect", loaded.getLoans().getLoans().get(0).getReturnFaults());
         assertEquals("A0123457X", loaded.getLoans().findActiveLoan("OSC-001").orElseThrow().getBorrowerId());
@@ -58,7 +59,9 @@ class LabLogStoreTest {
                 + "loan OSC-001 MIC-002 b/A0123456X d/" + dueDate + "\nexit\n"), new PrintStream(output));
 
         assertFalse(compact(output.toString()).contains("Error:"));
-        assertTrue(compact(output.toString()).contains("Loaned OSC-001, MIC-002 to A0123456X on "));
+        assertTrue(output.toString().contains("Loan recorded."));
+        assertTrue(output.toString().contains("  Asset     OSC-001\n  Borrower  A0123456X"));
+        assertTrue(output.toString().contains("  Asset     MIC-002\n  Borrower  A0123456X"));
         ApplicationSnapshot saved = ApplicationSnapshot.read(file);
         assertEquals(2, saved.getEquipment().size());
         assertEquals(1, saved.getBorrowers().size());
@@ -224,7 +227,7 @@ class LabLogStoreTest {
         application.run(new Scanner("add OSC-001\nScope\nElectronics\nS1\nLab\nhelp\n"), new PrintStream(output));
         assertTrue(compact(output.toString()).contains("Changes could not be saved"));
         assertFalse(compact(output.toString()).contains("Equipment added to inventory."));
-        assertEquals(1, output.toString().split("LabLog commands:", -1).length - 1);
+        assertEquals(1, output.toString().split("Start here", -1).length - 1);
         assertEquals("keep", Files.readString(file.resolve("keep.txt")));
         try (var files = Files.list(directory)) {
             assertEquals(1, files.count());

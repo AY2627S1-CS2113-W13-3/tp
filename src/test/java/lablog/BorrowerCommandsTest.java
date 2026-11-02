@@ -39,6 +39,12 @@ class BorrowerCommandsTest {
     }
 
     @Test
+    void execute_mixedCaseEmailDomain_preservesSpelling() throws IOException {
+        commands.execute(ADD.replace("jamie@u.nus.edu", "Jamie.Tan+lab@U.NuS.EDU"));
+        assertEquals("Jamie.Tan+lab@U.NuS.EDU", borrowers.getBorrower(ID).getEmail());
+    }
+
+    @Test
     void execute_invalidInput_leavesBookEmpty() {
         String[] invalid = {
             "", "ADD-borrower " + ID, "add-borrower", "add-borrower " + ID,
@@ -49,6 +55,7 @@ class BorrowerCommandsTest {
             ADD.replace(ID, "a0123456x"), ADD.replace(ID, "A012345X"), ADD.replace(ID, "123456789"),
             ADD.replace("91234567", "9123456"), ADD.replace("91234567", "912345678"),
             ADD.replace("91234567", "9123abcd"), ADD.replace("u.nus.edu", "nus.edu"),
+            ADD.replace("u.nus.edu", "U.NUS.EDU.evil"), ADD.replace("u.nus.edu", "U-NUS-EDU"),
             ADD.replace("jamie@", "@"), ADD.replace("jamie@", "a..b@"),
             ADD.replace("Jamie Tan", "x".repeat(101)), ADD.replace("Jamie Tan", "Jamie\tTan")
         };
@@ -122,6 +129,7 @@ class BorrowerCommandsTest {
         BorrowerCli.run(new Scanner("unknown\n" + ADD + "\nloans " + ID + "\n"),
                 new PrintStream(output), commands);
         assertEquals("LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.\n"
+                + ConsoleWelcome.TERMINAL_RECOMMENDATION + "\n"
                 + "lablog> Error: Unknown borrower command. Use add-borrower or loans.\nNo changes saved.\n"
                 + "lablog> [OK] Added borrower " + ID + ": Jamie Tan.\nPhone: 91234567 | Email: jamie@u.nus.edu\n"
                 + "lablog> No active loans for " + ID + " - Jamie Tan.\nlablog> ",

@@ -1,9 +1,14 @@
-# Borrower console test results
-The command path below uses <run-id> for the disposable file selected by the runner.
+# Historical borrower console test results
+
+This transcript predates the dependency-free console. Its native-access launch flags
+are historical; current launches do not need them. Focused replacement checks are recorded in [verification-report.md](verification-report.md);
+a refreshed physical-terminal transcript remains pending.
+
+The command path uses <run-id> for the disposable file selected by the runner.
 Output comparisons preserve the final prompt space; code blocks omit it for Markdown formatting.
 ## Case 1: add, duplicate rejection, and list
 
-Command: java -cp build/classes/java/main lablog.BorrowerCli build/ui-borrowers-<run-id>.properties
+Command: java --enable-native-access=ALL-UNNAMED -cp build/libs/lablog.jar lablog.BorrowerCli build/ui-borrowers-<run-id>.properties
 
 Input:
 ```text
@@ -26,7 +31,7 @@ Exit code: 0. Stderr: (empty)
 PASS: exact match after normalizing line endings.
 ## Case 2: reload persisted borrower
 
-Command: java -cp build/classes/java/main lablog.BorrowerCli build/ui-borrowers-<run-id>.properties
+Command: java --enable-native-access=ALL-UNNAMED -cp build/libs/lablog.jar lablog.BorrowerCli build/ui-borrowers-<run-id>.properties
 
 Input:
 ```text

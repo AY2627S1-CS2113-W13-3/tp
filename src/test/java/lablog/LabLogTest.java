@@ -41,7 +41,7 @@ class LabLogTest {
                         + "loan OSC-001 b/A0123456X d/2099-01-01\nexit\n"),
                 new PrintStream(output));
 
-        assertTrue(output.toString().contains("Loaned OSC-001"));
+        assertTrue(output.toString().contains("Loan recorded.\n  Asset     OSC-001\n  Borrower  A0123456X"));
         assertFalse(output.toString().contains("Enter name:"));
         assertTrue(loans.hasActiveLoan("OSC-001"));
     }

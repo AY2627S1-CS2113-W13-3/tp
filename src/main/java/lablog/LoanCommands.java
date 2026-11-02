@@ -92,7 +92,7 @@ public class LoanCommands {
         for (String assetId : assetIds) {
             rejectUnavailable(assetId);
             if (availability != null) {
-                availability.requireAvailable(assetId, new DateWindow(today, dueDate), null, null);
+                availability.requireAvailableForLoan(assetId, borrowerId, new DateWindow(today, dueDate));
             }
         }
 

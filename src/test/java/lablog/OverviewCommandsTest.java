@@ -43,7 +43,7 @@ class OverviewCommandsTest {
     @Test
     void execute_emptyAndInvalidInput_showsAllSectionsWithoutInventingMaintenance() {
         String output = commands.execute(" overview ");
-        assertTrue(output.contains("Operational overview for 2026-10-23"));
+        assertTrue(output.contains("OVERVIEW / 2026-10-23"));
         assertTrue(output.contains("No reservations for today."));
         assertTrue(output.contains("No overdue loans."));
         assertTrue(output.contains("No unresolved severe faults."));
@@ -69,7 +69,7 @@ class OverviewCommandsTest {
         List<Reservation> before = List.of(ending, starting, past, future, cancelled, sameDay);
         reservations.replaceAll(before);
         String output = commands.execute("overview");
-        assertTrue(output.contains("Today's reservations (3)"));
+        assertTrue(output.contains("TODAY'S RESERVATIONS (3)"));
         assertTrue(output.indexOf("R-start") < output.indexOf("R-end"));
         assertTrue(output.contains("R-same"));
         for (String id : List.of("R-past", "R-future", "R-cancelled")) {
@@ -94,7 +94,7 @@ class OverviewCommandsTest {
         loans.reverse(issue.id(), LoanAuditEvent.Type.LOAN, TODAY, "Mistake", reservations.getAvailability());
         List<Loan> before = loans.getLoans();
         String output = commands.execute("overview");
-        assertTrue(output.contains("Overdue loans (2)"));
+        assertTrue(output.contains("OVERDUE LOANS (2)"));
         assertTrue(output.contains("LOST (overdue)"));
         assertTrue(output.indexOf(lost.getId()) < output.indexOf(recent.getId()));
         for (Loan excluded : List.of(dueToday, returned, reversed)) {
@@ -113,7 +113,7 @@ class OverviewCommandsTest {
         faults.report("D", TODAY, "Moderate defect", Fault.Severity.MODERATE);
         faults.report("E", TODAY, "Unassessed");
         String output = commands.execute("overview");
-        assertTrue(output.contains("Unresolved severe faults (2)"));
+        assertTrue(output.contains("SEVERE FAULTS (2)"));
         assertTrue(output.indexOf(earlier.getId()) < output.indexOf(later.getId()));
         for (String excluded : List.of(repaired.getId(), "Minor scratch", "Moderate defect", "Unassessed")) {
             assertFalse(output.contains(excluded));
@@ -134,9 +134,9 @@ class OverviewCommandsTest {
         loan.renew(TODAY.plusDays(1), TODAY);
         faults.resolve(fault.getId(), TODAY, "Repaired");
         String after = commands.execute("overview");
-        assertTrue(after.contains("Today's reservations (0)"));
-        assertTrue(after.contains("Overdue loans (0)"));
-        assertTrue(after.contains("Unresolved severe faults (0)"));
+        assertTrue(after.contains("TODAY'S RESERVATIONS (0)"));
+        assertTrue(after.contains("OVERDUE LOANS (0)"));
+        assertTrue(after.contains("SEVERE FAULTS (0)"));
         Loan another = new Loan("D", USER, TODAY.minusDays(4), TODAY.minusDays(1));
         loans.addLoan(another);
         loans.returnLoans(List.of(another), TODAY, "");
@@ -151,7 +151,7 @@ class OverviewCommandsTest {
         loans.addLoan(loan);
         Clock boundary = Clock.fixed(Instant.parse("2026-10-23T16:00:00Z"), ZoneOffset.ofHours(8));
         String local = new OverviewCommands(reservations, loans, faults, boundary).execute("overview");
-        assertTrue(local.contains("Operational overview for 2026-10-24"));
+        assertTrue(local.contains("OVERVIEW / 2026-10-24"));
         assertTrue(local.contains("R-next"));
         assertTrue(local.contains(loan.getId()));
         String utc = commands.execute("overview");
@@ -186,7 +186,7 @@ class OverviewCommandsTest {
         assertTrue(empty.contains("No unresolved severe faults."));
         assertEquals(imported, Files.readString(file));
         assertTrue(run(app, "overview extra\nhelp overview").contains("Error: Use: overview"));
-        assertTrue(run(app, "help overview").contains("Format: overview"));
+        assertTrue(run(app, "help overview").contains("Usage\n        overview"));
     }
 
     private String run(LabLog application, String input) {

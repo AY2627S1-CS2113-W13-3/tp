@@ -1,83 +1,112 @@
-# Current feature verification
+# Historical release verification: 2 November 2026
 
-Verified locally on 2 November 2026 for the v2.1 preparation branch based on
-upstream develop at 6f20236. Runtime: Temurin OpenJDK 25.0.4 on Windows.
+## Dependency-free replacement
 
-## Results
+Verified locally on 2 November 2026 on Java 25.0.4: compilation, main/test
+Checkstyle, and 38 focused tests passed. After final tab/style fixes, the six
+pager tests and Checkstyle passed again; the executable JAR rebuilt successfully.
+A short packaged help/list/exit run passed. A captured-output Java probe exercised
+next/back/quit and EOF through the injected interactive implementation, with and
+without NO_COLOR; the colour-disabled transcript contained no ANSI escapes.
+The JAR contains no JLine classes. Physical-terminal appearance was not manually
+verified. Probe artifacts are under build/ and are untracked.
+
+The results below describe
+the previous implementation and must not be used as evidence for this replacement.
+Full regression, broad packaged workflows and cross-platform terminal checks are
+deferred until publication preparation. Current launches require no native-access
+flag and the replacement does not bundle JLine.
+
+### Pagination follow-ups
+
+Section-aware pagination passed 12 focused pager/context tests. Fixed-height
+pagination subsequently passed all eight pager tests, main/test Checkstyle and
+the JAR build. Regression coverage checks help, detailed-help and overview section
+boundaries, backwards navigation, and equal page height for short/final pages.
+Windows locked the previous binary test-results directories; focused checks used
+fresh output directories under build/ without changing project configuration.
+These automated results do not establish physical-terminal appearance.
+
+## Historical scope and baseline
+
+Fetched upstream before creating isolated branch `chore/release-verification`.
+Verified source: `daff5f9acd73693303d5fc22e827fcacc4053ccc` (develop,
+PR156 UI refresh, PR157 verification fixes and PR159 pager navigation).
+Upstream master remains `5c6c12d`. These are baseline results, not evidence
+for a future merged release. No release, tag or Canvas submission was changed.
+
+## Executed checks
+
+Windows, Temurin OpenJDK 25.0.4+7, Gradle wrapper 9.6.1:
 
 | Check | Result |
 | --- | --- |
-| Gradle clean check shadowJar | Passed; 320 JUnit tests, Checkstyle main/test passed, executable JAR built |
-| python test/run-cli-smoke-tests.py | Passed; ten packaged CLI checks, including retirement command help |
-| Packaged v2.1 probe | Passed; startup banner and JAR manifest identify 2.1; retirement, restart, find, active and retired lists verified |
-| Local documentation link targets | Passed for README and all Markdown files under docs; external URLs and anchors not checked |
-| git diff --check | Passed |
+| `gradlew.bat clean check shadowJar --console=plain` | PASS: 350 JUnit tests, zero failures/errors/skips; main/test Checkstyle |
+| `python test/run-cli-smoke-tests.py` | PASS: ten packaged checks including restart, export/import, invalid data and command recovery |
+| `pwsh -File test/run-borrower-ui-tests.ps1` | PASS: both packaged borrower cases |
+| `python release/prepare-demo.py JAR NEW_SNAPSHOT` | PASS in local Windows Temp: 20 units and five fictional borrowers |
+| Manifest inspection | Main-Class lablog.LabLog; Implementation-Version 2.1; Enable-Native-Access ALL-UNNAMED |
+| Single bundled executable | build/libs/lablog.jar: 1,095,093 bytes, below 100 MB |
+| Canvas filename copy | `[CS2113-W13-3][LabLog].jar`; byte-identical SHA-256 below |
 
-The existing JUnit suite includes retirement conflicts, persistence, format-11
-migration, terminal safety and invalid snapshot preservation. The packaged smoke
-suite covers cross-feature workflows, export/import and restart. The separate
-borrower UI transcript and every manual Developer Guide scenario were not rerun
-for this version update; their older evidence is historical.
+Baseline JAR SHA-256:
+`ff400516dc2825ee5cec384baa6faf07a804c2ddd0ac5bafd5cee5fee65fe935`.
+Generated JARs, demo snapshots and reports under build/ are intentionally untracked.
+Rebuilding after any source or packaging change invalidates this hash.
 
-## Coverage
+The JAR runs using `java -jar` on Java 25 without a separate classpath,
+installer or server. Runtime dependencies are bundled. Source stores records in
+local UTF-8 properties text (format 12), not a DBMS. The smoke suite verifies
+persistence and reload. Native libraries used by JLine are included in the JAR;
+this does not establish native terminal compatibility on every OS.
 
-JUnit covers equipment copy/edit/move and validation; borrower registration and
-contact edits; single/batch loans and returns; overdue boundaries, renewal, loss
-and audit records; booking conflicts, reservation edits/cancellation, interval
-availability and waiting demand; faults and repairs; snapshot migration and
-failed-import preservation; command recall, help and console recovery.
+The demo setup initially exposed borrower validation mistakes, which were fixed
+before the successful run. Some repeated saves in the OneDrive worktree failed
+with atomic replacement/file-access errors; the same seed passed outside
+OneDrive. Use an unsynchronised writable local folder and rehearse there.
+Do not claim concurrent or shared-file use is supported.
 
-The packaged checks query help for every supported command name. An
-integrated workflow issues two loans, renews one, reports it lost, returns the
-other, creates a reservation and waiting request, and reports/resolves a severe
-fault. It exports to a path containing spaces, imports into a new data file,
-restarts, and compares loan audit, history, bookings, waiting demand and loss
-listings. Read-only queries must leave the saved bytes unchanged. Additional packaged
-checks reject incomplete startup snapshots and reserved equipment-ID separators
-without overwriting the rejected file.
+## Dependency and external evidence
 
-The borrower transcript records the current standalone console output, including
-the `[OK]` prefix for successful changes; the runner's disposable data path is
-shown as `<run-id>`. These local checks do not replace GitHub Actions. CI runs
-Gradle check on Windows, macOS and Ubuntu; the Python and PowerShell runners are
-explicit local checks.
+Resolved runtime dependencies: JLine reader, terminal, terminal-jni and transitive
+native, all 4.4.6. Cached parent POM declares BSD licence and links BSD-3-Clause.
+The baseline fat JAR and all four cached dependency JARs contain no files named
+LICENSE/NOTICE/COPYING. Before distribution, obtain the exact upstream copyright
+and licence text (including any native-component notices) and bundle it; the
+licence declaration alone does not settle redistribution obligations.
+The attempted exact-version upstream tag/licence lookup did not yield evidence.
+No teaching-team class approval for JLine was found in repository documentation.
+A permissive licence is not evidence of course approval: obtain a forum approval
+link or written teaching-team confirmation before marking this item complete.
 
-## Documentation corrections
+Authenticated GitHub read-only audit on 2 November:
+latest published release is v2.0 targeting master, asset lablog.jar 167,604 bytes.
+Live Pages home, UserGuide.html and DeveloperGuide.html return HTTP 200 and
+contain v2.1. The guide pages also mention v2.0 historically; this substring alone
+is not a stale-version defect. Live documentation and the latest published binary
+are not yet an aligned final v2.1 deliverable. No release binary was replaced.
 
-The Developer Guide now includes independent manual workflows, a disposable
-overdue-loan sample, explicit dynamic-ID instructions, and expected rejection
-and restart results. The User Guide documents reserved asset-ID separators and
-startup rejection of incomplete snapshots. Storage and return-audit descriptions
-match the implementation; dependency acknowledgements link to their sources.
+CI configuration runs Gradle check with Java 25 on Ubuntu/macOS/Windows, but
+currently does not build shadowJar or execute the separate smoke scripts.
+These local results do not claim remote CI success or manual macOS/Linux terminal
+verification. Check PR CI before merge, then rerun release packaging on final HEAD.
+Canvas is not connected here; assignment settings, uploads and receipts remain
+unverified. See [the final checklist](../release/readiness-checklist.md) and
+[the demo plan](../release/demo-plan.md).
 
+## Reproduce
 
-Earlier v2.0 documentation corrections: Quick Start uses the released JAR, example
-due dates are in the future, sample output includes `[OK]` and aligned tables,
-and save-failure behaviour is described once in the FAQ. The Developer Guide was
-regrouped after peer review. This update does not change the diagram sources or
-verify their browser rendering.
+Use Java 25, Python 3 and PowerShell 7 from repository root:
 
-## Remaining limitations
-
-- Equipment list/find labels omit reservations; use the available interval
-  query to check bookings. Loans, losses and severe faults do affect labels.
-- Lost-equipment recovery and automatic waiting-request allocation are absent.
-- Renewals and loss reports cannot be reversed; `reverse-loan` and
-  `reverse-return` correct only loans and returns.
-- The standalone borrower console has its own borrower file and empty loan
-  book; it does not edit contacts in the current main snapshot.
-- One main-console process per data file is supported.
-
-## Repeat the checks
-
-Use Java 25 and Python 3 from the repository root:
-
-~~~powershell
+```powershell
+java -version
 .\gradlew.bat clean check shadowJar --console=plain
 python test/run-cli-smoke-tests.py
 pwsh -File test/run-borrower-ui-tests.ps1
-~~~
+python release/prepare-demo.py build/libs/lablog.jar "$env:TEMP/lablog-new-demo.properties"
+Copy-Item -LiteralPath build/libs/lablog.jar -Destination 'build/libs/[CS2113-W13-3][LabLog].jar'
+Get-FileHash -LiteralPath 'build/libs/[CS2113-W13-3][LabLog].jar' -Algorithm SHA256
+```
 
-On macOS/Linux use ./gradlew instead of .\gradlew.bat. The PowerShell runner
-requires PowerShell 7. Test data under build/ is disposable; use another
-location for real records. See ui-test-plan.md for console inputs.
+Choose a fresh demo path each time. On macOS/Linux use ./gradlew and a writable
+local snapshot path; the borrower runner still requires PowerShell 7.

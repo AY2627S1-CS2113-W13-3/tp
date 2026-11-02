@@ -177,7 +177,7 @@ class LostCommandsTest {
         Loan overdue = new Loan("MIC", USER, TODAY.minusDays(5), TODAY.minusDays(1));
         loans.addLoan(overdue);
         loan.renew(TODAY.plusDays(2), TODAY);
-        String example = new HelpCommands().execute("help lost").lines()
+        String example = HelpText.examples(new HelpCommands().execute("help lost")).stream()
                 .filter(line -> line.startsWith("Example: ")).findFirst().orElseThrow().substring(9)
                 .replace("OSC-001", "OSC");
         LabLog app = new LabLog(inventory, loans, List::of, CLOCK, borrowers);
@@ -200,7 +200,7 @@ class LostCommandsTest {
         assertTrue(compact(listing.execute("list sort/availability")).indexOf("FREE |")
                 < compact(listing.execute("list sort/availability")).indexOf("OSC |"));
         assertTrue(new HelpCommands().execute("help").contains("lost ASSET_ID"));
-        assertTrue(new HelpCommands().execute("help lost").contains("No recovery command"));
+        assertTrue(new HelpCommands().execute("help lost").contains("recover ASSET_ID"));
     }
 
     private String run(LabLog app, String input) {

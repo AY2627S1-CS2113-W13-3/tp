@@ -7,7 +7,7 @@ import java.time.Clock;
 import java.util.Scanner;
 
 /**
- * Runs borrower commands independently while the team's shared command dispatcher is being developed.
+ * Runs the standalone borrower console with shared terminal input and result presentation.
  */
 public class BorrowerCli {
     /**
@@ -21,10 +21,13 @@ public class BorrowerCli {
             return;
         }
         Path file = Path.of(args.length == 1 ? args[0] : "data/borrowers.properties");
-        try (Scanner scanner = new Scanner(System.in)) {
+        try {
             BorrowerCommands commands = new BorrowerCommands(new BorrowerBook(file), new LoanBook(),
                     assetId -> null, Clock.systemDefaultZone());
-            run(scanner, System.out, commands);
+            try (ConsoleInput console = TerminalInput.open()) {
+                PrintStream output = ConsolePresentation.decorate(System.out, console.isInteractive());
+                run(console, output, commands);
+            }
         } catch (IOException exception) {
             System.err.println("Error: Cannot load borrower data. "
                     + TerminalText.escapeControls(exception.getMessage()));
@@ -39,38 +42,66 @@ public class BorrowerCli {
      * @param commands Handlers backed by the caller's shared data.
      */
     public static void run(Scanner scanner, PrintStream output, BorrowerCommands commands) {
+        run(ConsoleInput.plain(scanner, output), output, commands);
+    }
+
+    /**
+     * Shares borrower dispatch between native terminal sessions and caller-owned plain input.
+     * Interactive results are captured for framing and paging; exit and EOF produce no result frame.
+     *
+     * @param console command reader owned by the caller
+     * @param output destination for startup text and presented results
+     * @param commands borrower handlers backed by the caller's data
+     */
+    static void run(ConsoleInput console, PrintStream output, BorrowerCommands commands) {
         output.println("LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.");
+        output.println(ConsoleWelcome.TERMINAL_RECOMMENDATION);
         CommandHistory history = new CommandHistory();
+        PrintStream destination = output;
         while (true) {
-            output.print("lablog> ");
-            if (!scanner.hasNextLine()) {
+            String input = console.readLine("TYPE COMMAND", "lablog> ");
+            if (input == null) {
                 break;
             }
-            String input = scanner.nextLine();
-            if (TerminalText.hasUnsafeControls(input)) {
-                output.println("Error: Input must not contain control characters.");
-                continue;
-            }
-            if (input.strip().equals("exit")) {
+            if (!TerminalText.hasUnsafeControls(input) && input.strip().equals("exit")) {
                 break;
+            }
+            CommandOutput resultOutput = console.isInteractive() ? new CommandOutput(console, destination) : null;
+            if (resultOutput != null) {
+                output = resultOutput;
             }
             try {
-                String recalled = history.accept(input);
-                if (recalled != null) {
-                    output.println(recalled);
+                if (TerminalText.hasUnsafeControls(input)) {
+                    output.println("Error: Input must not contain control characters.");
                     continue;
                 }
-                String result = commands.execute(input);
-                boolean changesRecords = input.strip().startsWith("add-borrower")
-                        || input.strip().startsWith("edit-borrower");
-                output.println(changesRecords ? Messages.ok(result) : result);
-            } catch (IllegalArgumentException exception) {
-                output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                output.println("No changes saved.");
-            } catch (IOException exception) {
-                output.println("Error: Cannot save borrower data. "
+                try {
+                    String recalled = history.accept(input);
+                    if (recalled != null) {
+                        output.println(recalled);
+                        continue;
+                    }
+                    String result = commands.execute(input);
+                    boolean changesRecords = input.strip().startsWith("add-borrower")
+                            || input.strip().startsWith("edit-borrower");
+                    output.println(changesRecords ? Messages.ok(result) : result);
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
+                    output.println("No changes saved.");
+                } catch (IOException exception) {
+                    output.println("Error: Cannot save borrower data. "
                             + TerminalText.escapeControls(exception.getMessage()));
-                output.println("No changes saved.");
+                    output.println("No changes saved.");
+                }
+            } finally {
+                if (resultOutput != null) {
+                    try {
+                        resultOutput.showPending();
+                    } finally {
+                        resultOutput.close();
+                        output = destination;
+                    }
+                }
             }
         }
     }

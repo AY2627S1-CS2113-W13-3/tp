@@ -5,9 +5,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
-/** Marks one outstanding equipment loan lost while retaining its borrower and complete history. */
+/** Reports or recovers one lost equipment loan while retaining its borrower and complete history. */
 public class LostCommands {
-    private static final String USAGE = "Use: lost ASSET_ID";
+    private static final String USAGE = "Use: lost ASSET_ID or recover ASSET_ID";
     private final Inventory inventory;
     private final LoanBook loans;
     private final Clock clock;
@@ -22,13 +22,13 @@ public class LostCommands {
     /**
      * Validates one exact asset and its unique active loan before recording the loss date.
      *
-     * @param input complete lost command
-     * @return confirmation with the report date and borrower
+     * @param input complete lost or recover command
+     * @return confirmation of the dated loss or recovery
      * @throws IllegalArgumentException if syntax, equipment, loan state or report date is invalid
      */
     public String execute(String input) {
         String[] parts = input == null ? new String[0] : input.strip().split("\\s+");
-        if (parts.length != 2 || !parts[0].equals("lost")) {
+        if (parts.length != 2 || !List.of("lost", "recover").contains(parts[0])) {
             throw new IllegalArgumentException(USAGE);
         }
         String assetId = parts[1];
@@ -43,6 +43,10 @@ public class LostCommands {
         LocalDate today = LocalDate.now(clock);
         Loan loan = active.getFirst();
         loans.validateActionDate(loan, today);
+        if (parts[0].equals("recover")) {
+            loans.recover(loan, today);
+            return "Recovered " + assetId + " on " + today + "; loan closed; loss history retained.";
+        }
         loan.markLost(today);
         return "Marked " + assetId + " as lost on " + today + ". Borrower: " + loan.getBorrowerId()
                 + ". Original loan and renewal history retained.";

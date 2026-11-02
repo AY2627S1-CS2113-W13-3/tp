@@ -19,9 +19,35 @@ For complete manual feature workflows, expected results and restart checks, see
 The [overdue sample](../docs/testdata/overdue.properties) provides a historical
 loan without changing the system clock. Use a disposable copy of that file.
 
+## Interactive refresh checks
+
+Focused replacement tests and captured-output probes passed; physical-terminal
+verification remains pending. In an interactive terminal, launch the JAR
+with disposable data and confirm the startup acknowledgement and labelled prompt.
+
+- Run `help`; Enter advances a page, `b` then Enter returns, and `q` then Enter closes.
+  Check repeated result/section headings and line ranges, including first/last pages.
+  Help categories, detailed-help labels and overview sections must start on new pages.
+  Check blank padding on short section pages and the final page: all paged bodies
+  must keep the same height. Back navigation must restore the same boundaries.
+  Enter on the final page closes the pager; short unpaged output stays compact.
+- Invalid navigation input repeats the prompt. EOF closes paging and ends command input.
+  Pager responses must not enter command history.
+- Start with different `COLUMNS` and `LINES` values to check wrapping and responsive
+  tables. Minimum values are 20 and 10; missing/invalid/smaller values use 100x30.
+  Dimensions are fixed at startup; window resizing does not redraw results.
+- Confirm joined emoji, modifiers and combining marks stay intact when wrapping.
+  Exact Unicode terminal-cell alignment is not guaranteed.
+- Repeat with `NO_COLOR`: readable labels and escaped controls remain.
+- Redirected output must contain no paging, startup acknowledgement or ANSI escapes.
+- Repeat paging in the standalone borrower console. No native-access flag is needed.
+
+Focused tests cover line-based navigation and layout. Cross-platform terminal
+appearance and the full packaged smoke suite are deferred until publication.
+
 The PowerShell 7 cases below remain available for exact-output borrower checks.
 
-Use Java 25. Build with `.\gradlew.bat classes` before testing. Each case runs in
+Use Java 25. Build with `.\gradlew.bat shadowJar` before testing. Each case runs in
 a fresh process from the repository root. Cases 1 and 2 deliberately share the
 same data file. Choose a new, nonexistent file under `build/` for each test run.
 
@@ -33,7 +59,7 @@ Markdown code blocks below and in the transcript.
 
 ## Case 1: add, recover from a duplicate, and list
 
-Command: `java -cp build/classes/java/main lablog.BorrowerCli build/ui-borrowers.properties`
+Command: `java -cp build/libs/lablog.jar lablog.BorrowerCli build/ui-borrowers.properties`
 
 Input (then EOF):
 

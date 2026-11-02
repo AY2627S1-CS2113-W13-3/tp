@@ -15,15 +15,15 @@ class TableFormatterTest {
                 List.of(List.of("A", "Oscilloscope", "On loan"), List.of("LONG-ID-1", "Fan", "Available")));
 
         // Column widths are 9, 12 and 9: the widest cell in each column.
-        assertEquals("Asset ID  | Name         | Status\n"
-                + "-".repeat(10) + "+" + "-".repeat(14) + "+" + "-".repeat(10) + "\n"
-                + "A         | Oscilloscope | On loan\n"
-                + "LONG-ID-1 | Fan          | Available", table);
+        assertEquals("Asset ID   Name          Status\n"
+                + "-".repeat(9) + "  " + "-".repeat(12) + "  " + "-".repeat(9) + "\n"
+                + "A          Oscilloscope  On loan\n"
+                + "LONG-ID-1  Fan           Available", table);
     }
 
     @Test
     void format_noRows_showsHeaderAndSeparatorOnly() {
-        assertEquals("Name | Status\n-----+-------", TableFormatter.format(List.of("Name", "Status"), List.of()));
+        assertEquals("Name  Status\n----  ------", TableFormatter.format(List.of("Name", "Status"), List.of()));
     }
 
     @Test

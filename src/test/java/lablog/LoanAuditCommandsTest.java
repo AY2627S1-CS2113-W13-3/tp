@@ -195,14 +195,14 @@ class LoanAuditCommandsTest {
         inventory.addEquipment(new Equipment("OSC-001", "Scope", "Electronics", "S1", "Lab"));
         String detail = new HelpCommands().execute("help loan-audit");
         int examples = 0;
-        for (String line : detail.lines().toList()) {
+        for (String line : HelpText.examples(detail)) {
             if (line.startsWith("Example: ")) {
                 assertTrue(audit.execute(line.substring(9)).startsWith("No loan audit events"));
                 examples++;
             }
         }
         assertEquals(2, examples);
-        assertTrue(detail.contains("Format: loan-audit [ASSET_ID]"));
+        assertTrue(detail.contains("Usage\n        loan-audit [ASSET_ID]"));
         assertTrue(new HelpCommands().execute("help").contains("loan-audit [ASSET_ID]"));
         assertTrue(loans.getAuditEvents().isEmpty());
     }

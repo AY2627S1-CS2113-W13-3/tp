@@ -68,10 +68,11 @@ public class EquipmentListCommands {
         List<List<String>> rows = new ArrayList<>();
         for (Equipment unit : units) {
             rows.add(List.of(unit.getAssetId(), unit.getName(), unit.getCategory(), unit.getModel(),
-                    unit.getLocation(), availabilityOf(unit)));
+                    unit.getLocation(), availabilityOf(unit).toUpperCase(Locale.ROOT)));
         }
-        return TableFormatter.format(
-                List.of("Asset ID", "Name", "Category", "Model", "Location", "Availability"), rows);
+        return "EQUIPMENT / " + units.size() + " units\n\n" + TableFormatter.format(
+                List.of("Asset ID", "Name", "Category", "Model", "Location", "Availability"), rows)
+                + "\n\nTip: find ASSET_ID shows equipment details.";
     }
 
     /** Parses filters and the sort option together, preserving spaces inside filter values. */

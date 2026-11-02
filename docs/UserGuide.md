@@ -24,6 +24,7 @@ Current application version: **LabLog v2.1** (Java 25).
   * [Renewing an active loan: `renew`](#renewing-an-active-loan-renew)
   * [Recording a return: `return`](#recording-a-return-return)
   * [Reporting loaned equipment lost: `lost`](#reporting-loaned-equipment-lost-lost)
+  * [Recovering lost equipment: `recover`](#recovering-lost-equipment-recover)
   * [Viewing borrowing and return evidence: `loan-audit`](#viewing-borrowing-and-return-evidence-loan-audit)
   * [Correcting a mistaken loan or return](#correcting-a-mistaken-loan-or-return)
   * [Viewing equipment history: `history`](#viewing-equipment-history-history)
@@ -48,10 +49,23 @@ Current application version: **LabLog v2.1** (Java 25).
 
 ## Introduction
 
-LabLog helps laboratory technicians manage loanable electronics equipment and
-borrowers. The main console shares equipment, borrowers, loans, reservations,
-waiting requests, faults, repairs and audit records across its commands. A standalone borrower console remains available.
-Both provide command help and examples.
+LabLog is a local command-line application for an individual laboratory technician
+who manages loanable electronics equipment for NUS student borrowers, can type
+fast, and prefers typed commands. One-line registration, batch loans and returns,
+and searchable equipment and loan records help the technician record lending
+and find outstanding items without repeatedly filling in forms.
+
+Each technician maintains their own local records. LabLog is a single-user
+application: staff must not take turns using the same installation or access
+another technician's data file during regular work, even at different times.
+Borrowers are records managed by the technician, not users who log in to LabLog.
+Export/import supports backups and the same technician moving their own records
+to another computer; it does not provide staff handovers, shared inventories,
+synchronisation, or merging of different technicians' records.
+
+The main console keeps equipment, borrowers, loans, reservations, waiting
+requests, faults, repairs and audit records together. A standalone borrower
+console remains available. Both provide command help and examples.
 
 ## Quick Start
 
@@ -64,10 +78,37 @@ Both provide command help and examples.
    java -jar lablog.jar
    ```
 
-4. The LabLog v2.1 banner and the command list appear once at startup;
-   after that, the short `lablog>` prompt waits for your input. Try `help`, then `help loan`, then `exit`.
+4. Use a terminal at least **100 columns wide and 30 rows high** for comfortable
+   help, tables and command entry. This is a recommendation; smaller windows still
+   work with dimensions configured before launch as described below.
+5. The LabLog v2.1 banner and terminal-size recommendation appear after data loads. In an interactive terminal,
+   press Enter at the ready message to show the welcome and labelled `lablog>`
+   prompt. Try `help`, then `help loan`, then `exit`.
 
-For the standalone borrower console, run `java -cp lablog.jar lablog.BorrowerCli`
+Both consoles frame command results with separators. Long results open at their
+beginning in a paged view. Press Enter to advance one page, type `b` then Enter
+to go back, or `q` then Enter to close. Invalid responses repeat the navigation
+prompt; EOF ends input. Navigation is separate from command history. Each page
+repeats its result/section heading and visible line range. Recognised help categories,
+detailed-help labels and overview sections start on new pages, even if the previous
+page has space. Unused body rows are filled with blank lines, including on the final
+page, to keep headings and navigation aligned. Enter on the final page closes it.
+Short results without section breaks remain compact. Pages append to normal
+terminal scrollback; arrow keys and live resizing are not managed by LabLog.
+Colour-capable terminals show filled heading and status labels. Set `NO_COLOR`
+to disable colour. Redirected input and unsupported terminals use plain prompts
+without paging. Standard terminal editing replaces application-managed editing.
+
+Layout reads `COLUMNS` and `LINES` once at startup. Values below 20 columns or
+10 rows, values above 1000, absent values and invalid values use defaults of 100 columns and 30 rows.
+Set these variables to match your window before starting; restart to change layout.
+Wide tables become numbered, labelled records when columns would overflow.
+Every field remains available. Unicode-containing tables use labelled records;
+wrapping retains complete grapheme clusters, but exact emoji alignment is not guaranteed.
+Plain redirected output retains the original table format.
+
+For the standalone borrower console, run
+`java -cp lablog.jar lablog.BorrowerCli`
 in the same folder. Exit either console with `exit`, or end input with Ctrl+Z then
 Enter on Windows, or Ctrl+D on macOS/Linux. The borrower console's default data
 file is `data/borrowers.properties`; add another path after `lablog.BorrowerCli`
@@ -100,8 +141,9 @@ See the [FAQ](#faq) for what happens if saving fails.
   fields and batch selections. For example, `OSC-001` is valid; `A/B` and `A,B`
   are rejected. The same rule applies to `add` and the new ID in `copy`.
 * Dates use `YYYY-MM-DD`.
-* Successful changes start with `[OK]`. Rejected commands start with `Error:` and
-  change nothing. Listings are shown as aligned tables.
+* In plain output, successful changes start with `[OK]` and rejected commands
+  start with `Error:`. Colour output uses filled OK and ERROR labels instead.
+  Rejected commands change nothing. Listings are shown as aligned tables.
 * Commands that change records save automatically; read-only commands never save.
 
 ### Viewing common commands and examples: `help`
@@ -290,7 +332,12 @@ add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu
 
 The ID must be an uppercase letter, seven digits, and an uppercase letter.
 Names contain 1-100 characters and no control characters; phone numbers contain
-eight digits; email addresses use `u.nus.edu`. All three prefixes are required
+exactly eight ASCII digits (enter the local number without `+65`, spaces or
+hyphens); email addresses use `u.nus.edu`, ignoring domain case (for example,
+`jamie@U.NUS.EDU`). These contact formats support the intended NUS student
+borrower population; international phone formats and other email domains are
+not supported in this version. Email spelling is preserved as entered.
+All three prefixes are required
 exactly once and may appear in any order. Duplicate IDs and invalid fields are
 rejected. Registration saves the borrower before reporting success; a failed
 save leaves the borrower book unchanged.
@@ -344,10 +391,12 @@ a message naming the current borrower and due date, so the same unit cannot be
 lent twice. Unresolved severe faults also prevent new loans, including after a
 return. Minor, moderate and unspecified faults do not block lending.
 
-The inclusive period from the loan date through its due date must also pass
-the shared booking checks. A reservation overlapping even the due date blocks
-the loan, including reservations made for the same borrower. A returned unit is
-still occupied on its return date, so it can be lent again from the next day.
+The loan period from today through the due date must pass the shared booking
+checks. The intended borrower can collect a reserved unit when both dates fall
+within that reservation. Other overlapping reservations still block the loan.
+The reservation remains recorded and protects its period after an early return.
+A returned unit can be lent again on its return date if no other restriction
+blocks it.
 
 LabLog validates the entire selection before adding any loan. If any unit,
 borrower, date, or field is invalid, no loans from that command are recorded.
@@ -478,8 +527,20 @@ Existing reservations remain recorded and must be handled explicitly; reporting
 a loss does not cancel them. A category with only lost or severely faulty units
 has no operationally suitable capacity for a waiting request.
 
-Loss reports survive restart, export and import. There is no recovery command
-in this version.
+Loss reports survive restart, export and import.
+
+### Recovering lost equipment: `recover`
+
+Use `recover OSC-001` when the lost equipment is found or the loss was reported
+by mistake. The registered unit must have exactly one outstanding lost loan.
+Recovery closes that loan on today's local date, which cannot precede the loss
+report. It keeps the borrower, loss date and renewal history and records a
+`RETURN` audit event. Ordinary `return` still rejects lost units.
+
+Recovery cannot be repeated, and its return event cannot be reopened with
+`reverse-return`. Existing reservations and faults still apply before the unit
+can be lent again. Recovery survives restart, export and import. See also the
+[lending workflows](LendingWorkflows.md).
 
 ### Viewing borrowing and return evidence: `loan-audit`
 
@@ -690,19 +751,22 @@ period and intended borrower. Invalid input or a failed save changes no bookings
 These are structured records introduced in snapshot format 6, preserved by restart, export
 and replacement import. Older formats load with no bookings. The existing
 `reservation ... d/DATE desc/TEXT` command remains a history note and cannot
-reserve a unit. Overlapping reservations and loans are rejected.
+reserve a unit. Overlapping reservations and loans are normally rejected; collecting a unit
+within the intended borrower's reservation is an exception described below.
 
 ### Booking conflicts
 
-Reservations and loans occupy inclusive start/end dates. A booking ending on
-Friday conflicts with another starting Friday; starting Saturday is valid.
-Returned loans occupy their actual loan-to-return dates. An active loan occupies
-its loan-to-due dates; once overdue, it blocks future periods until returned.
-Lost equipment also blocks every period without an assumed recovery date.
-Unresolved severe faults block reservations and lending for every period because
-there is no known repair completion date. Errors identify the conflicting booking
-or loan. The same rule applies even for the same borrower: cancel a reservation
-before issuing its loan. Legacy notes are not booking constraints.
+Reservation periods include both endpoints: a booking ending on Friday conflicts
+with another starting Friday. An active loan occupies its loan-to-due dates; once
+overdue, it blocks future periods until returned. A completed loan does not
+block a period starting on or after its return date. Lost equipment blocks every
+period until recovered, and unresolved severe faults block reservations and
+lending for every period. Errors identify the conflicting booking or loan.
+
+When issuing a loan, LabLog ignores the intended borrower's reservation if the
+whole loan period fits inside it; other conflicts still apply. Availability
+queries and renewals continue to check reservations. Legacy notes are not
+booking constraints.
 
 ### Editing a reservation: `edit-reservation`
 
@@ -758,12 +822,13 @@ Multiple reasons can apply simultaneously. Resolved faults, cancelled bookings
 and records for other equipment are excluded. No blockers produces an explicit
 available-throughout-the-interval message.
 
-These are the same inclusive interval rules used by `available` and lending:
-the return day remains occupied, an overdue unreturned loan blocks future dates
-indefinitely, and losses or blocking faults apply regardless of the query dates.
-Consequently `list`/`find` may show a returned unit as available while this query
-explains its occupied return day or a reservation. Use this command for a full
-booking explanation. Queries do not reserve equipment or rewrite saved data.
+These are the same interval checks used by `available`: a completed loan does
+not block a period starting on or after its return date, an overdue unreturned
+loan blocks future dates indefinitely, and losses or blocking faults apply
+regardless of the query dates. Unlike `loan`, this query does not exclude an
+intended borrower's covering reservation. `list`/`find` can therefore show a
+unit as available while this query identifies a reservation. Queries do not
+reserve equipment or rewrite saved data.
 Repairs, cancellations, returns and imports are reflected on the next query.
 
 ### Recording waiting demand: `wait-request`
@@ -826,7 +891,8 @@ are not treated as due-maintenance tasks, and no maintenance schedule is invente
 Use export FILE in the main console, for example export backups/lablog.properties.
 FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
-they include borrower contact details.
+they include borrower contact details. Export is for your own backup or personal
+transfer to another computer, not for exchanging records between staff.
 
 Format 12 contains retirement details and equipment, borrowers, complete loans and returns, structured
 renewal events, loss reports, stable loan IDs, borrowing/return audit events,
@@ -843,7 +909,8 @@ a v2.1 export also uses format 12.
 
 ### Importing data: `import`
 
-Use import FILE --replace in the main console. This replaces all current records,
+Use import FILE --replace in the main console to restore your own backup or
+move your own records to another computer. This replaces all current records,
 rather than merging them. Export a backup first if the current records are needed.
 For example: import backups/lablog.properties --replace. Paths may contain spaces
 and may be enclosed in double quotes. A successful import takes effect immediately
@@ -868,6 +935,8 @@ valid UTF-8 regular files no larger than 10 MiB. Counts are bounded at 100,000
 records per section. Borrowing/return audit events and stable IDs are supported.
 Duplicate IDs, invalid event ownership and broken correction references are rejected. Invalid renewal chains or dates, and loss reports on returned
 loans or before the latest renewal, are rejected.
+If a loan has a recorded `LOAN` event and is marked returned, its matching
+effective `RETURN` event is required. Legacy loans without issue evidence remain supported.
 
 Any validation or save failure reports an error and preserves current live and
 saved records. Fix the reported problem and submit the import again. Unknown
@@ -905,7 +974,7 @@ contact details, so avoid displaying it when sharing your screen.
   `reverse-loan` or `reverse-return` with an event ID and reason to correct a
   mistaken issue or return; dependency and availability checks may reject a
   correction.
-- There is no lost-equipment recovery or automatic waiting-request allocation.
+- Waiting requests are not allocated automatically.
 
 ## FAQ
 
@@ -946,6 +1015,7 @@ LabLog again; it reloads the last saved records.
 | `reverse-loan EVENT_ID reason/TEXT` | Main | Correct a mistaken loan and retain its original evidence |
 | `reverse-return EVENT_ID reason/TEXT` | Main | Correct a mistaken return after dependency and availability checks |
 | `lost ASSET_ID` | Main | Record a loss while retaining the outstanding loan |
+| `recover ASSET_ID` | Main | Close a lost loan while retaining its history |
 | `history ASSET_ID` | Main | View equipment records, renewal events and loss reports |
 | `why-unavailable ASSET_ID [from/START to/END]` | Main | Explain all applicable booking blockers |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |

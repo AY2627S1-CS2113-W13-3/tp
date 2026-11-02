@@ -328,8 +328,8 @@ class LoanCorrectionCommandsTest {
                 + "reverse-loan " + issue.id() + " reason/Not handed over\nloan-audit OSC\nhistory OSC\nexit\n"),
                 new PrintStream(output));
         String text = output.toString();
-        assertTrue(text.contains("Format: reverse-loan EVENT_ID reason/TEXT"));
-        assertTrue(text.contains("Format: reverse-return EVENT_ID reason/TEXT"));
+        assertTrue(text.contains("Usage\n        reverse-loan EVENT_ID reason/TEXT"));
+        assertTrue(text.contains("Usage\n        reverse-return EVENT_ID reason/TEXT"));
         assertTrue(text.contains("Error: Audit event E-unknown was not found."));
         assertTrue(text.contains("Reversed LOAN event " + issue.id()));
         assertTrue(text.contains("Reason: Not handed over"));
