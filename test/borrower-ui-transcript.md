@@ -1,4 +1,8 @@
-# Borrower console test results
+# Historical borrower console test results
+
+This transcript predates the dependency-free console. Its native-access launch flags
+are historical; current launches do not need them. Replacement verification is pending.
+
 The command path uses <run-id> for the disposable file selected by the runner.
 Output comparisons preserve the final prompt space; code blocks omit it for Markdown formatting.
 ## Case 1: add, duplicate rejection, and list

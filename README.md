@@ -107,9 +107,11 @@ java -jar build/libs/lablog.jar
 
 Run the packaged JAR in a terminal to use interactive paging; Gradle `run` may
 provide plain input instead. Long results, including `help`, start at the top.
-Press Space/Page Down for the next page, `b`/Page Up for the previous page,
-Enter/Down for the next line, Up for the previous line, and `q` to close.
+Press Enter for the next page, type `b` then Enter for the previous page,
+and type `q` then Enter to close. Each page repeats its result/section heading.
 Redirected input and unsupported terminals print the complete result without paging.
+Layout uses startup `COLUMNS` (at least 20) and `LINES` (at least 10), defaulting
+to 100 columns and 30 rows. Restart after changing these values; resizing is not detected.
 
 The main console supports registration, help, loans, history, active-loan lists,
 returns, and borrower commands, so a fresh session can complete a loan/return
@@ -127,12 +129,11 @@ From the repository root in PowerShell:
 ```powershell
 java -version
 .\gradlew.bat shadowJar
-java --enable-native-access=ALL-UNNAMED -cp build/libs/lablog.jar lablog.BorrowerCli build/borrowers-demo.properties
+java -cp build/libs/lablog.jar lablog.BorrowerCli build/borrowers-demo.properties
 ```
 
 On macOS or Linux, use `./gradlew shadowJar` for the build step; the Java command is the same. Ensure `java -version` reports Java 25.
-The packaged JAR includes the terminal dependencies. The native-access flag enables
-the terminal provider when launching a class with `-cp`.
+No terminal library or native-access flag is required.
 
 Example input:
 

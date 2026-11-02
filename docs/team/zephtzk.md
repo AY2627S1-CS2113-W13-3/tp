@@ -12,9 +12,9 @@ LabLog is a command-line application for laboratory technicians who lend electro
 
 Redesigned the CLI to make commands easier to enter and results easier to read in both the main and borrower consoles ([PR #156](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/156)).
 
-* **Input and navigation:** added a boxed command prompt and used JLine for command editing. Added a paged results view with arrow-key scrolling and Enter to close, so long results can be read without losing their place. Kwan Tze later extended pager navigation in [PR #159](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/159).
+* **Input and navigation (historical):** originally added a boxed command prompt and used JLine for command editing. The dependency-free replacement uses labelled line prompts and Enter-based pagination. Added a paged results view with arrow-key scrolling and Enter to close, so long results can be read without losing their place. Kwan Tze later extended pager navigation in [PR #159](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/159).
 * **Clearer output:** reorganised help into sections and used colour labels to distinguish headings, statuses and feedback. Kept the result title and current section visible while scrolling.
-* **Terminal layout:** added word wrapping and made wide tables switch to numbered, labelled records when they cannot fit. All columns and values remain available, and the layout adjusts when the terminal is resized.
+* **Terminal layout:** added word wrapping and made wide tables switch to numbered, labelled records when they cannot fit. All columns and values remain available. The original implementation adjusted on resize; the dependency-free replacement uses dimensions configured at startup.
 * **Shared behaviour:** applied the presentation to both consoles, supported `NO_COLOR`, and kept plain input/output for redirected or unsupported sessions. Existing command syntax and saved data remain compatible.
 
 ### Other enhancements implemented
@@ -50,7 +50,7 @@ Redesigned the CLI to make commands easier to enter and results easier to read i
 
 * **Issue tracking:** created the [v1.0](https://github.com/AY2627S1-CS2113-W13-3/tp/milestone/1), [v2.0](https://github.com/AY2627S1-CS2113-W13-3/tp/milestone/2) and [v2.1](https://github.com/AY2627S1-CS2113-W13-3/tp/milestone/3) milestones, and opened [44 issues](https://github.com/AY2627S1-CS2113-W13-3/tp/issues?q=is%3Aissue%20author%3Azephtzk) to track features, user stories and UI work.
 * **Integration:** merged teammates' changes for overdue loans, reservations, availability, waiting requests, search and status filtering into `develop` ([PRs #111-117](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/111), [#127](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/127), [#128](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/128)). Also merged the console integration fix, terminal safety and retirement changes, and resolved the retirement conflict while keeping both validation rules ([#59](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/59), [#151](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/151), [#153](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/153)).
-* **Library and build setup:** integrated JLine and its native terminal support into Gradle. Configured native access for application runs and the packaged JAR, and shared the terminal input and output handling across both consoles ([PR #156](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/156)).
+* **Library and build setup (historical):** integrated JLine and its native terminal support into Gradle. Configured native access for application runs and the packaged JAR, and shared the terminal input and output handling across both consoles ([PR #156](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/156)).
 * **Release management:** prepared the v2.1 release changes, aligned the startup banner, build version and JAR manifest, and recorded the packaged application checks ([PR #154](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/154)).
 
 ### Review contributions

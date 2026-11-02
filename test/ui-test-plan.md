@@ -21,32 +21,24 @@ loan without changing the system clock. Use a disposable copy of that file.
 
 ## Interactive refresh checks
 
-In a supported native terminal, launch the fat JAR with disposable data. Confirm
-that Enter acknowledges the startup banner, then shows the compact welcome and
-boxed prompt. Redirected input must begin executing commands immediately.
+Replacement verification is pending. In an interactive terminal, launch the JAR
+with disposable data and confirm the startup acknowledgement and labelled prompt.
 
-- Run help: it starts at the first line in the pager. Down/Up moves one displayed
-  line, and the sticky heading follows the nearest preceding help category.
-- Resize width and height while the pager is idle: wrapping and footer ranges
-  update without dropping table columns or cell values. Wide/Unicode tables
-  become complete numbered records; fitting ASCII tables remain aligned.
-- Display a long name containing joined emoji, a skin-tone modifier or a flag:
-  wrapping keeps each complete visible character together, including at very narrow widths.
-- Shrink an open pager below 7 rows or 2 columns, then restore the previous size:
-  the pager stays open at its previous position and redraws the content. Navigation
-  while too small leaves that position unchanged; q, Ctrl-C, Ctrl-D and EOF
-  must still close it and restore terminal settings.
-- Space/Page Down advances a page; b/Page Up goes back a page. Enter advances
-  one line. Navigation stops at the first/last page, including after resizing.
-- q closes the pager. Ctrl-C, Ctrl-D and EOF restore terminal settings.
-- Repeat with NO_COLOR set: labels lose colour but user-supplied controls remain
-  escaped. Redirected output uses no pager or interactive acknowledgement.
-- Repeat help/paging in the standalone borrower console using the fat JAR and
-  --enable-native-access=ALL-UNNAMED.
+- Run `help`; Enter advances a page, `b` then Enter returns, and `q` then Enter closes.
+  Check repeated result/section headings and line ranges, including first/last pages.
+- Invalid navigation input repeats the prompt. EOF closes paging and ends command input.
+  Pager responses must not enter command history.
+- Start with different `COLUMNS` and `LINES` values to check wrapping and responsive
+  tables. Minimum values are 20 and 10; missing/invalid/smaller values use 100x30.
+  Dimensions are fixed at startup; window resizing does not redraw results.
+- Confirm joined emoji, modifiers and combining marks stay intact when wrapping.
+  Exact Unicode terminal-cell alignment is not guaranteed.
+- Repeat with `NO_COLOR`: readable labels and escaped controls remain.
+- Redirected output must contain no paging, startup acknowledgement or ANSI escapes.
+- Repeat paging in the standalone borrower console. No native-access flag is needed.
 
-Automated TerminalInputTest covers JLine stream-terminal navigation, live resize
-and terminal-mode cleanup; it does not establish native appearance on all OSes.
-ConsolePresentationTest covers control escaping and unchanged visible widths.
+Focused tests cover line-based navigation and layout. Cross-platform terminal
+appearance and the full packaged smoke suite are deferred until publication.
 
 The PowerShell 7 cases below remain available for exact-output borrower checks.
 
@@ -62,7 +54,7 @@ Markdown code blocks below and in the transcript.
 
 ## Case 1: add, recover from a duplicate, and list
 
-Command: `java --enable-native-access=ALL-UNNAMED -cp build/libs/lablog.jar lablog.BorrowerCli build/ui-borrowers.properties`
+Command: `java -cp build/libs/lablog.jar lablog.BorrowerCli build/ui-borrowers.properties`
 
 Input (then EOF):
 
