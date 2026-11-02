@@ -30,6 +30,8 @@ boxed prompt. Redirected input must begin executing commands immediately.
 - Resize width and height while the pager is idle: wrapping and footer ranges
   update without dropping table columns or cell values. Wide/Unicode tables
   become complete numbered records; fitting ASCII tables remain aligned.
+- Display a long name containing joined emoji, a skin-tone modifier or a flag:
+  wrapping keeps each complete visible character together, including at very narrow widths.
 - Shrink an open pager below 7 rows or 2 columns, then restore the previous size:
   the pager stays open at its previous position and redraws the content. Navigation
   while too small leaves that position unchanged; Enter, Ctrl-C, Ctrl-D and EOF

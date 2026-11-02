@@ -2,6 +2,8 @@ package lablog;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedString;
@@ -9,13 +11,16 @@ import org.jline.utils.AttributedStringBuilder;
 
 /** Wraps styled terminal output at word boundaries while retaining its indentation and attributes. */
 final class TerminalWordWrapper {
+    /** Keeps joined emoji, modifiers and combining marks within one visible character. */
+    private static final Pattern GRAPHEME = Pattern.compile("\\X");
+
     private TerminalWordWrapper() {
     }
 
     /**
      * Splits logical lines and wraps their content using JLine display-column measurements.
      * Tabs must already be expanded by the caller. One final newline does not create an extra row.
-     * Widths below one are treated as one. A single character wider than the available columns is
+     * Widths below one are treated as one. A grapheme cluster wider than the available columns is
      * retained whole on its own row, since splitting or dropping it would corrupt the content.
      *
      * @param terminal terminal whose Unicode width rules apply
@@ -84,15 +89,16 @@ final class TerminalWordWrapper {
     }
 
     /**
-     * Finds a complete-code-point slice that fits, keeping following zero-width marks with it.
+     * Finds a slice ending at a grapheme boundary, never separating joined emoji or their modifiers.
      * Measuring attributed slices delegates Unicode and hidden-character widths to JLine.
      */
     private static int fittingEnd(Terminal terminal, AttributedString line, int start, int width) {
         int end = start;
         int columns = 0;
-        while (end < line.length()) {
-            int next = end + Character.charCount(Character.codePointAt(line, end));
-            int characterWidth = line.subSequence(end, next).columnLength(terminal);
+        Matcher graphemes = GRAPHEME.matcher(line).region(start, line.length());
+        while (graphemes.find()) {
+            int next = graphemes.end();
+            int characterWidth = line.subSequence(graphemes.start(), next).columnLength(terminal);
             if (columns + characterWidth > width && end > start) {
                 break;
             }
