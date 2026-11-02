@@ -2,8 +2,21 @@
 
 Current application version: **LabLog v2.1** (Java 25).
 
-LabLog is a command-line application for laboratory technicians who manage
-loanable electronics equipment. It supports equipment and borrower registration,
+LabLog is a local command-line application for an individual laboratory technician
+who manages loanable electronics equipment for NUS student borrowers, can type
+fast, and prefers typed commands. One-line registration, batch loans and returns,
+and searchable equipment and loan records help the technician record lending
+and find outstanding items without repeatedly filling in forms.
+
+Each technician maintains their own local records. LabLog is a single-user
+application: staff must not take turns using the same installation or access
+another technician's data file during regular work, even at different times.
+Borrowers are records managed by the technician, not users who log in to LabLog.
+Export/import supports backups and the same technician moving their own records
+to another computer; it does not provide staff handovers, shared inventories,
+synchronisation, or merging of different technicians' records.
+
+It supports equipment and borrower registration,
 equipment copying, editing, relocation and retirement; single-unit and batch lending/returns;
 renewals, loss reports, overdue listings and loan audit queries; reservations,
 waiting requests, fault reports and repairs; validated import/export; and command recall.
@@ -29,7 +42,7 @@ The borrower console provides:
 * `commands` and `recall INDEX` display recent session input for explicit resubmission.
 * `loans BORROWER_ID` lists a registered borrower's active loans, ordered by due date and then asset ID. Returned loans are excluded, and a loan is overdue only after its due date.
 
-Borrower IDs follow the form `A0123456X`: an uppercase letter, seven digits, and an uppercase letter. Names contain 1-100 characters, phone numbers contain exactly eight digits, and email addresses use `u.nus.edu`. All three prefixes are required, may appear in any order, and must occur only once.
+Borrower IDs follow the form `A0123456X`: an uppercase letter, seven digits, and an uppercase letter. Names contain 1-100 characters, phone numbers contain exactly eight digits, and email addresses use `u.nus.edu` (domain matching ignores case; spelling is preserved). All three prefixes are required, may appear in any order, and must occur only once.
 
 The standalone borrower console remains available for borrower registration and
 lookup, and starts with its own empty loan book. In the main console, borrower

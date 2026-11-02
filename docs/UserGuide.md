@@ -48,10 +48,23 @@ Current application version: **LabLog v2.1** (Java 25).
 
 ## Introduction
 
-LabLog helps laboratory technicians manage loanable electronics equipment and
-borrowers. The main console shares equipment, borrowers, loans, reservations,
-waiting requests, faults, repairs and audit records across its commands. A standalone borrower console remains available.
-Both provide command help and examples.
+LabLog is a local command-line application for an individual laboratory technician
+who manages loanable electronics equipment for NUS student borrowers, can type
+fast, and prefers typed commands. One-line registration, batch loans and returns,
+and searchable equipment and loan records help the technician record lending
+and find outstanding items without repeatedly filling in forms.
+
+Each technician maintains their own local records. LabLog is a single-user
+application: staff must not take turns using the same installation or access
+another technician's data file during regular work, even at different times.
+Borrowers are records managed by the technician, not users who log in to LabLog.
+Export/import supports backups and the same technician moving their own records
+to another computer; it does not provide staff handovers, shared inventories,
+synchronisation, or merging of different technicians' records.
+
+The main console keeps equipment, borrowers, loans, reservations, waiting
+requests, faults, repairs and audit records together. A standalone borrower
+console remains available. Both provide command help and examples.
 
 ## Quick Start
 
@@ -308,7 +321,12 @@ add-borrower A0123456X n/Jamie Tan p/91234567 e/jamietan@u.nus.edu
 
 The ID must be an uppercase letter, seven digits, and an uppercase letter.
 Names contain 1-100 characters and no control characters; phone numbers contain
-eight digits; email addresses use `u.nus.edu`. All three prefixes are required
+exactly eight ASCII digits (enter the local number without `+65`, spaces or
+hyphens); email addresses use `u.nus.edu`, ignoring domain case (for example,
+`jamie@U.NUS.EDU`). These contact formats support the intended NUS student
+borrower population; international phone formats and other email domains are
+not supported in this version. Email spelling is preserved as entered.
+All three prefixes are required
 exactly once and may appear in any order. Duplicate IDs and invalid fields are
 rejected. Registration saves the borrower before reporting success; a failed
 save leaves the borrower book unchanged.
@@ -844,7 +862,8 @@ are not treated as due-maintenance tasks, and no maintenance schedule is invente
 Use export FILE in the main console, for example export backups/lablog.properties.
 FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
-they include borrower contact details.
+they include borrower contact details. Export is for your own backup or personal
+transfer to another computer, not for exchanging records between staff.
 
 Format 12 contains retirement details and equipment, borrowers, complete loans and returns, structured
 renewal events, loss reports, stable loan IDs, borrowing/return audit events,
@@ -861,7 +880,8 @@ a v2.1 export also uses format 12.
 
 ### Importing data: `import`
 
-Use import FILE --replace in the main console. This replaces all current records,
+Use import FILE --replace in the main console to restore your own backup or
+move your own records to another computer. This replaces all current records,
 rather than merging them. Export a backup first if the current records are needed.
 For example: import backups/lablog.properties --replace. Paths may contain spaces
 and may be enclosed in double quotes. A successful import takes effect immediately
