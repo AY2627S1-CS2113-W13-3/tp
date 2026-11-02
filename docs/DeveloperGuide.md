@@ -1,5 +1,7 @@
 # Developer Guide
 
+Current application version: **LabLog v2.1** (Java 25).
+
 ## Table of contents
 
 * [Acknowledgements](#acknowledgements)
@@ -2548,7 +2550,7 @@ collection, including returned loans, renewal and audit evidence. Restart and
 repeat the queries; results remain. Import replaces rather than merges records.
 
 Make a disposable copy of `loan backup.properties` as `invalid.properties`.
-Change `format=11` to `format=99`. `import invalid.properties --replace` must
+Change `format=12` to `format=99`. `import invalid.properties --replace` must
 fail, leaving the current imported collection and saved file unchanged. Starting
 `java -jar lablog.jar invalid.properties` must stop with
 `Error: Cannot load LabLog data.` before showing `lablog>` and must not rewrite it.

@@ -43,7 +43,7 @@ class CliSmokeTests(unittest.TestCase):
         return self.run_java(["-cp", str(JAR), "lablog.BorrowerCli", str(file)], user_input)
 
     def test_main_help_examples_and_recovery(self):
-        commands = ("help", "add", "copy", "edit-equipment", "move-equipment", "list", "find",
+        commands = ("help", "add", "retire", "copy", "edit-equipment", "move-equipment", "list", "find",
                     "active-loans", "overview", "why-unavailable", "loan", "renew", "lost", "return", "loan-audit",
                     "reverse-loan", "reverse-return", "history",
                     "reserve", "reservations", "edit-reservation", "cancel-reservation", "available",
@@ -94,7 +94,7 @@ class CliSmokeTests(unittest.TestCase):
             self.assertIn("not currently on loan", output)
 
     def test_integrated_features_survive_export_import_and_restart(self):
-        """Exercise documented workflows through the packaged application, including schema 11."""
+        """Exercise documented workflows through the packaged application, including schema 12."""
         with tempfile.TemporaryDirectory(prefix="integrated-smoke-", dir=ROOT / "build") as directory:
             live = Path(directory) / "live.properties"
             backup = Path(directory) / "export with spaces.properties"

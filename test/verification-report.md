@@ -1,19 +1,23 @@
 # Current feature verification
 
-Verified locally on 1 November 2026 for the bugfix code at 64db242, now included
-in upstream develop merge 193276b. The documentation branch changes no Java
-sources. Runtime: OpenJDK 25.0.4.1 on Windows. The new Developer Guide examples
-were exercised against the packaged JAR with disposable files on the same date.
+Verified locally on 2 November 2026 for the v2.1 preparation branch based on
+upstream develop at 6f20236. Runtime: Temurin OpenJDK 25.0.4 on Windows.
 
 ## Results
 
 | Check | Result |
 | --- | --- |
-| Gradle check and shadowJar | Passed; 310 JUnit tests, no failures/errors/skips, Checkstyle main/test passed, executable JAR built |
-| python test/run-cli-smoke-tests.py | Passed; ten packaged CLI checks |
-| Developer Guide manual workflows | Exercised all 12 groups, including restart queries and three invalid-file preservation cases |
-| pwsh -File test/run-borrower-ui-tests.ps1 | Previously passed on 29 October; not rerun for this documentation update |
+| Gradle clean check shadowJar | Passed; 320 JUnit tests, Checkstyle main/test passed, executable JAR built |
+| python test/run-cli-smoke-tests.py | Passed; ten packaged CLI checks, including retirement command help |
+| Packaged v2.1 probe | Passed; startup banner and JAR manifest identify 2.1; retirement, restart, find, active and retired lists verified |
+| Local documentation link targets | Passed for README and all Markdown files under docs; external URLs and anchors not checked |
 | git diff --check | Passed |
+
+The existing JUnit suite includes retirement conflicts, persistence, format-11
+migration, terminal safety and invalid snapshot preservation. The packaged smoke
+suite covers cross-feature workflows, export/import and restart. The separate
+borrower UI transcript and every manual Developer Guide scenario were not rerun
+for this version update; their older evidence is historical.
 
 ## Coverage
 
