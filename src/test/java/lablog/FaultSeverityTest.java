@@ -90,7 +90,7 @@ class FaultSeverityTest {
         commands.execute("loan OSC-002 b/A0123456X d/2026-10-22");
         assertEquals(1, loans.getLoans().size());
         assertTrue(new EquipmentListCommands(inventory, loans, faults).execute("list")
-                .contains("Unavailable: severe fault"));
+                .contains("UNAVAILABLE: SEVERE FAULT"));
         assertTrue(new EquipmentFindCommands(inventory, loans, faults).execute("find OSC-001")
                 .contains("Unavailable: severe fault"));
     }

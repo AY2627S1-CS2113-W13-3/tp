@@ -162,10 +162,10 @@ final class ConsolePresentation {
     /** Styles fixed record labels and generated availability summaries, leaving their values intact. */
     private static String styleRecordLine(String line, String trimmed) {
         for (String label : new String[] {"Asset ID:", "Name:", "Category:", "Model:", "Location:",
-                "Availability:", "Retired:", "Reason:", "Asset:", "Borrower:", "Due:", "Faults:",
-                "Event ID:", "Loan ID:", "Related event:", "Phone:", "Email:", "Equipment:", "Issued:",
-                "Due date:", "Overdue:", "Status:", "Date:", "Type:", "Details:", "Reservation ID:",
-                "Borrower ID:", "From:", "Through:", "Request ID:", "Description:", "Fault ID:", "Report date:"}) {
+            "Availability:", "Retired:", "Reason:", "Asset:", "Borrower:", "Due:", "Faults:",
+            "Event ID:", "Loan ID:", "Related event:", "Phone:", "Email:", "Equipment:", "Issued:",
+            "Due date:", "Overdue:", "Status:", "Date:", "Type:", "Details:", "Reservation ID:",
+            "Borrower ID:", "From:", "Through:", "Request ID:", "Description:", "Fault ID:", "Report date:"}) {
             if (!trimmed.startsWith(label + " ")) {
                 continue;
             }

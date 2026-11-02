@@ -29,7 +29,8 @@ class TerminalWordWrapperTest {
 
     @Test
     void wrap_retainsStylesAcrossWordBoundaries() throws IOException {
-        AttributedString text = AttributedString.fromAnsi("\u001B[32mImportant coloured message for the borrower\u001B[0m");
+        AttributedString text = AttributedString.fromAnsi(
+                "\u001B[32mImportant coloured message for the borrower\u001B[0m");
         List<AttributedString> rows = wrap(text, 18);
 
         assertEquals(text.toString(), String.join(" ", rows.stream().map(AttributedString::toString).toList()));

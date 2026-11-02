@@ -125,7 +125,7 @@ class RepairCommandsTest {
         assertThrows(IllegalArgumentException.class,
                 () -> lending.execute("loan OSC-001 b/A0123456X d/2026-10-22"));
         faults.resolve(second.getId(), TODAY, "Second repair");
-        assertTrue(new EquipmentListCommands(inventory, loans, faults).execute("list").contains("Available"));
+        assertTrue(new EquipmentListCommands(inventory, loans, faults).execute("list").contains("AVAILABLE"));
         lending.execute("loan OSC-001 b/A0123456X d/2026-10-22");
         Fault third = report(faults, TODAY);
         faults.resolve(third.getId(), TODAY, "Repair while on loan");

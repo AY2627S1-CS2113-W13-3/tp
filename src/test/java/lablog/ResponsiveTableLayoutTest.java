@@ -52,6 +52,25 @@ class ResponsiveTableLayoutTest {
     }
 
     @Test
+    void reflow_repeatedWidthChangesRetainEveryCellAndUnseparatedFooter() {
+        List<String> headers = List.of("Date", "Type", "Details");
+        String table = TableFormatter.format(headers,
+                List.of(List.of("2026-11-02", "FAULT", "Inspect  both sockets")));
+        String source = table + "\n1 records.\n";
+        for (int width : new int[]{1, 10, 40, 200, 15, 200}) {
+            String result = ResponsiveTableLayout.reflow(source, width);
+            assertTrue(result.endsWith("\n1 records.\n"));
+            if (width >= table.lines().mapToInt(String::length).max().orElseThrow()) {
+                assertEquals(source, result);
+            } else {
+                assertTrue(result.contains("Date: 2026-11-02"));
+                assertTrue(result.contains("Type: FAULT"));
+                assertTrue(result.contains("Details: Inspect  both sockets"));
+            }
+        }
+    }
+
+    @Test
     void reflow_leavesUnknownDashedProseAlone() {
         String prose = "Not a known table\n----  -----\nAAAA  BBBBB\n";
         assertEquals(prose, ResponsiveTableLayout.reflow(prose, 5));
@@ -71,7 +90,8 @@ class ResponsiveTableLayoutTest {
                 List.of("Loan ID", "Asset ID", "Borrower ID", "Due date", "Status"),
                 List.of("Fault ID", "Asset ID", "Report date", "Description"));
         for (List<String> headers : layouts) {
-            List<String> cells = java.util.stream.IntStream.range(0, headers.size()).mapToObj(i -> "value-" + i).toList();
+            List<String> cells = java.util.stream.IntStream.range(0,
+                headers.size()).mapToObj(i -> "value-" + i).toList();
             String result = ResponsiveTableLayout.reflow(TableFormatter.format(headers, List.of(cells)), 10);
             for (int column = 0; column < headers.size(); column++) {
                 assertTrue(result.contains(headers.get(column) + ": " + cells.get(column)));

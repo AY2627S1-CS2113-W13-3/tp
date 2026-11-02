@@ -177,7 +177,7 @@ class LostCommandsTest {
         Loan overdue = new Loan("MIC", USER, TODAY.minusDays(5), TODAY.minusDays(1));
         loans.addLoan(overdue);
         loan.renew(TODAY.plusDays(2), TODAY);
-        String example = new HelpCommands().execute("help lost").lines()
+        String example = HelpText.examples(new HelpCommands().execute("help lost")).stream()
                 .filter(line -> line.startsWith("Example: ")).findFirst().orElseThrow().substring(9)
                 .replace("OSC-001", "OSC");
         LabLog app = new LabLog(inventory, loans, List::of, CLOCK, borrowers);

@@ -48,7 +48,8 @@ class PagerContextTest {
 
     @Test
     void at_recognisesBareTablesAndHandlesOutOfRangeOffsets() {
-        assertEquals("EQUIPMENT", PagerContext.at(lines("Asset ID  Name  Category  Model  Location  Availability"), 99));
+        assertEquals("EQUIPMENT",
+                PagerContext.at(lines("Asset ID  Name  Category  Model  Location  Availability"), 99));
         assertEquals("EQUIPMENT", PagerContext.at(lines("Asset ID: A1", "Name: Scope"), 1));
         assertEquals("RESULT", PagerContext.at(List.of(), 0));
         assertEquals("RESULT", PagerContext.at(lines("Unknown output"), -1));

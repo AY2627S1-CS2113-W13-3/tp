@@ -50,7 +50,8 @@ final class ResponsiveTableLayout {
                 continue;
             }
             boolean uncertainDisplayWidth = rows.stream().flatMap(List::stream)
-                    .anyMatch(cell -> cell.codePoints().anyMatch(character -> character > 0x7F || Character.isISOControl(character)));
+                    .anyMatch(cell -> cell.codePoints()
+                            .anyMatch(character -> character > 0x7F || Character.isISOControl(character)));
             if (layout.width() <= Math.max(1, width) && !uncertainDisplayWidth) {
                 while (index < end) {
                     output.append(lines.get(index++).original());

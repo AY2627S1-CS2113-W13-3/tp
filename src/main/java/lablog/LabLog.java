@@ -392,7 +392,8 @@ public class LabLog {
                 }
                 if (List.of("reservation", "fault", "maintenance", "repair").contains(command)) {
                     try {
-                        String result = command.equals("repair") ? repairs.execute(input) : historyRecords.execute(input);
+                        String result = command.equals("repair") ? repairs.execute(input)
+                                : historyRecords.execute(input);
                         if (!saveChanges(output)) {
                             return;
                         }
@@ -412,7 +413,8 @@ public class LabLog {
                 }
                 if (command.equals("active-loans") || command.equals("overview")) {
                     try {
-                        output.println(command.equals("overview") ? overview.execute(input) : activeLoans.execute(input));
+                        output.println(command.equals("overview") ? overview.execute(input)
+                                : activeLoans.execute(input));
                     } catch (IllegalArgumentException exception) {
                         printError(output, exception.getMessage());
                     }

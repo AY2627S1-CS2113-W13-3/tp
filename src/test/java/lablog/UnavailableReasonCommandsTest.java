@@ -140,7 +140,7 @@ class UnavailableReasonCommandsTest {
         String imported = Files.readString(file);
         assertTrue(run(restarted, query).contains("is available"));
         assertEquals(imported, Files.readString(file));
-        assertTrue(run(restarted, "help why-unavailable").contains("Format: why-unavailable"));
+        assertTrue(run(restarted, "help why-unavailable").contains("Usage\n        why-unavailable"));
     }
 
     private String run(LabLog application, String input) {
