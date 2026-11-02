@@ -886,6 +886,8 @@ valid UTF-8 regular files no larger than 10 MiB. Counts are bounded at 100,000
 records per section. Borrowing/return audit events and stable IDs are supported.
 Duplicate IDs, invalid event ownership and broken correction references are rejected. Invalid renewal chains or dates, and loss reports on returned
 loans or before the latest renewal, are rejected.
+If a loan has a recorded `LOAN` event and is marked returned, its matching
+effective `RETURN` event is required. Legacy loans without issue evidence remain supported.
 
 Any validation or save failure reports an error and preserves current live and
 saved records. Fix the reported problem and submit the import again. Unknown

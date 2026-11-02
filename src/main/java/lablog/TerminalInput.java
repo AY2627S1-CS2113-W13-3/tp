@@ -185,7 +185,14 @@ final class TerminalInput implements ConsoleInput {
             while (true) {
                 Size size = terminal.getSize();
                 if (size.getRows() < 7 || size.getColumns() < 2) {
-                    return;
+                    // Retain the page while minimized and force a complete redraw even at the previous size.
+                    pages.clear();
+                    displayedWidth = -1;
+                    displayedRows = -1;
+                    if (readPageAction(keys, bindings) == PageAction.CLOSE) {
+                        return;
+                    }
+                    continue;
                 }
                 int width = Math.max(1, size.getColumns() - 1);
                 int capacity = Math.max(1, size.getRows() - 6);
@@ -229,17 +236,14 @@ final class TerminalInput implements ConsoleInput {
                     displayedRows = size.getRows();
                     displayedOffset = offset;
                 }
-                // A timed, non-consuming peek lets a resize redraw while no key is pressed.
-                int next = keys.peekCharacter(200);
-                if (next == NonBlockingReader.READ_EXPIRED) {
+                PageAction action = readPageAction(keys, bindings);
+                if (action == PageAction.CLOSE) {
+                    return;
+                }
+                // The terminal may shrink while key polling is blocked; ignore navigation until it fits again.
+                Size navigationSize = terminal.getSize();
+                if (navigationSize.getRows() < 7 || navigationSize.getColumns() < 2) {
                     continue;
-                }
-                if (next < 0) {
-                    return;
-                }
-                PageAction action = keys.readBinding(bindings);
-                if (action == null || action == PageAction.CLOSE) {
-                    return;
                 }
                 switch (action) {
                 case NEXT -> offset++;
@@ -260,6 +264,19 @@ final class TerminalInput implements ConsoleInput {
             reader.resetDisplay();
             outputWidth = 0;
         }
+    }
+
+    /** Polls without consuming a partial key so resize checks continue and close/EOF still work while minimized. */
+    private PageAction readPageAction(BindingReader keys, KeyMap<PageAction> bindings) {
+        int next = keys.peekCharacter(200);
+        if (next == NonBlockingReader.READ_EXPIRED) {
+            return PageAction.IGNORE;
+        }
+        if (next < 0) {
+            return PageAction.CLOSE;
+        }
+        PageAction action = keys.readBinding(bindings);
+        return action == null ? PageAction.CLOSE : action;
     }
 
     /** Keeps the current result and section visible independently of the scrolled body. */

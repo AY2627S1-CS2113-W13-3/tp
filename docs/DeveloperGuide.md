@@ -1515,6 +1515,11 @@ ordering are rejected. Original events remain present. The model can display and
 round-trip correction evidence. `LoanCorrectionCommands` applies reversals and
 validates operational dependencies; the audit query remains read-only.
 
+Current returned loans with original `LOAN` evidence must have a matching effective
+`RETURN` event. Decode and save reject a missing return event before publishing or
+replacing data. Legacy loans without original issue evidence may retain historical
+returns without fabricated events.
+
 Formats 2-10 load with an empty event log and fresh loan IDs. The first successful
 save persists those IDs. Restoring uses `replaceAll(loans, events)` rather than
 `addLoan`, so no historical issue/return events are invented. A legacy loan can

@@ -2,6 +2,7 @@ package lablog;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
@@ -11,6 +12,7 @@ import java.lang.reflect.Constructor;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -24,6 +26,87 @@ import org.junit.jupiter.api.Test;
 
 /** Exercises pager navigation, live resizing and cleanup using JLine's stream terminal. */
 class TerminalInputTest {
+    @Test
+    void pager_tinyResizes_preserveOffsetAndRedrawWhenRestored() throws Exception {
+        try (PipedInputStream input = new PipedInputStream();
+                PipedOutputStream keys = new PipedOutputStream(input)) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try (Terminal terminal = TerminalBuilder.builder().system(false).type("xterm")
+                    .streams(input, output).encoding(StandardCharsets.UTF_8).build()) {
+                terminal.setSize(new Size(80, 24));
+                TerminalInput console = console(terminal);
+                String attributes = terminal.getAttributes().toString();
+                CompletableFuture<Void> pager = CompletableFuture.runAsync(
+                        () -> console.presentOutput(new HelpCommands().execute("help"), System.out));
+                try {
+                    await(() -> output.toString(StandardCharsets.UTF_8).contains("Lines 1-18/"));
+                    write(keys, KeyMap.key(terminal, Capability.key_down));
+                    terminal.setSize(new Size(81, 24));
+                    await(() -> output.toString(StandardCharsets.UTF_8).contains("Lines 2-19/"));
+                    for (Size tiny : new Size[]{new Size(81, 6), new Size(1, 24), new Size(0, 0)}) {
+                        terminal.setSize(tiny);
+                        // Navigation while suspended must not move the position the user was reading.
+                        write(keys, KeyMap.key(terminal, Capability.key_down));
+                        write(keys, " \rb");
+                        assertThrows(TimeoutException.class, () -> pager.get(600, TimeUnit.MILLISECONDS));
+                        int beforeRestore = output.size();
+                        terminal.setSize(new Size(81, 24));
+                        await(() -> output.toString(StandardCharsets.UTF_8).substring(beforeRestore)
+                                .contains("Lines 2-19/"));
+                        assertFalse(pager.isDone());
+                    }
+                    write(keys, "q");
+                    pager.get(5, TimeUnit.SECONDS);
+                    assertEquals(attributes, terminal.getAttributes().toString());
+                    CompletableFuture<String> next = CompletableFuture.supplyAsync(
+                            () -> console.readLine("TYPE COMMAND", "lablog> "));
+                    write(keys, "exit\r");
+                    assertEquals("exit", next.get(5, TimeUnit.SECONDS));
+                } finally {
+                    if (!pager.isDone()) {
+                        keys.close();
+                        pager.get(5, TimeUnit.SECONDS);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void pager_tinyResize_allCloseActionsRestoreTerminal() throws Exception {
+        for (String close : new String[]{"q", KeyMap.ctrl('C'), KeyMap.ctrl('D'), null}) {
+            try (PipedInputStream input = new PipedInputStream();
+                    PipedOutputStream keys = new PipedOutputStream(input)) {
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                try (Terminal terminal = TerminalBuilder.builder().system(false).type("xterm")
+                        .streams(input, output).encoding(StandardCharsets.UTF_8).build()) {
+                    terminal.setSize(new Size(80, 24));
+                    TerminalInput console = console(terminal);
+                    String attributes = terminal.getAttributes().toString();
+                    CompletableFuture<Void> pager = CompletableFuture.runAsync(
+                            () -> console.presentOutput(new HelpCommands().execute("help"), System.out));
+                    try {
+                        await(() -> output.toString(StandardCharsets.UTF_8).contains("Lines 1-18/"));
+                        terminal.setSize(new Size(80, 6));
+                        assertThrows(TimeoutException.class, () -> pager.get(600, TimeUnit.MILLISECONDS));
+                        if (close == null) {
+                            keys.close();
+                        } else {
+                            write(keys, close);
+                        }
+                        pager.get(5, TimeUnit.SECONDS);
+                        assertEquals(attributes, terminal.getAttributes().toString());
+                    } finally {
+                        if (!pager.isDone()) {
+                            keys.close();
+                            pager.get(5, TimeUnit.SECONDS);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @Test
     void pager_pageAndLineKeysClampAtBoundaries() throws Exception {
         try (PipedInputStream input = new PipedInputStream();
