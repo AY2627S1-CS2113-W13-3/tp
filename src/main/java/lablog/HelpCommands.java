@@ -13,7 +13,7 @@ public class HelpCommands {
      */
     private static final String[][] SUMMARY_ROWS = {
         {"Equipment"},
-        {"add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]", "Register equipment (main console)."},
+        {"add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION", "Register equipment (main console)."},
         {"copy SOURCE_ASSET_ID NEW_ASSET_ID", "Copy details to a new equipment unit (main console)."},
         {"edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]", "Edit equipment (main console)."},
         {"move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION", "Move selected equipment together (main console)."},
@@ -39,11 +39,11 @@ public class HelpCommands {
         {"edit-borrower BORROWER_ID [n/NAME] [p/PHONE] [e/EMAIL]", "Edit contacts (both consoles)."},
         {"Reservations"},
         {"reserve ASSET_ID b/BORROWER_ID from/START to/END", "Create a confirmed reservation."},
-        {"edit-reservation RESERVATION_ID [b/USER] [from/START] [to/END]", "Edit a booking."},
+        {"edit-reservation RESERVATION_ID [b/BORROWER_ID] [from/START] [to/END]", "Edit a booking."},
         {"cancel-reservation RESERVATION_ID reason/TEXT", "Cancel a booking and retain its history."},
         {"available from/START to/END [category/CATEGORY]", "Find units free throughout an interval."},
         {"why-unavailable ASSET_ID [from/START to/END]", "Explain all booking blockers."},
-        {"wait-request b/USER category/CATEGORY from/START to/END", "Record unallocated demand."},
+        {"wait-request b/BORROWER_ID category/CATEGORY from/START to/END", "Record unallocated demand."},
         {"waiting-requests", "List waiting requests; these do not reserve units."},
         {"reservations", "List reservations, status and IDs."},
         {"Faults and maintenance"},
@@ -117,10 +117,6 @@ public class HelpCommands {
                 continue;
             }
             if (text.isEmpty()) {
-                if (line.startsWith("LOAN /")) {
-                    text.append(line);
-                    continue;
-                }
                 text.append("Help: ").append(command);
             }
             String nextSection = "";
@@ -254,7 +250,7 @@ public class HelpCommands {
                     + "Copy or edit the displayed command, then submit it explicitly to execute.";
         case "wait-request":
             return "Record unallocated demand when all suitable units in a category are booked.\n"
-                    + "Format: wait-request b/USER category/CATEGORY from/START to/END\n"
+                    + "Format: wait-request b/BORROWER_ID category/CATEGORY from/START to/END\n"
                     + "Dates are inclusive ISO dates starting today or later; the borrower must be registered.\n"
                     + "Example: wait-request b/A0123456X category/Electronics from/2099-01-01 to/2099-01-02\n"
                     + "Rejects duplicate demand, unknown categories and available capacity. No automatic allocation.";
@@ -383,8 +379,7 @@ public class HelpCommands {
                     + "  Show return examples with and without reported faults.\n"
                     + "Fields: COMMAND is optional; omit it for the concise list.";
         case "loan":
-            return "LOAN / Issue equipment to a borrower\n"
-                    + "Issue loans for one or more available equipment units.\n"
+            return "Issue loans for one or more available equipment units.\n"
                     + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
                     + "\nExample\n"
                     + "Example: loan OSC-001 b/A0123456X d/2099-09-18\n"

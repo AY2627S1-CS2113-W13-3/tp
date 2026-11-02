@@ -127,11 +127,15 @@ final class TerminalInput implements ConsoleInput {
     private static List<Integer> pageStarts(List<String> lines, int capacity) {
         List<Integer> starts = new ArrayList<>();
         starts.add(0);
+        boolean seenSection = false;
         for (int index = 1; index < lines.size(); index++) {
             int start = starts.getLast();
-            if (index - start >= capacity || PagerContext.isSectionStart(lines, index)) {
+            boolean sectionStart = PagerContext.isSectionStart(lines, index);
+            // Keep the introduction with the first section instead of creating a title-only page.
+            if (index - start >= capacity || (sectionStart && seenSection)) {
                 starts.add(index);
             }
+            seenSection |= sectionStart;
         }
         return starts;
     }

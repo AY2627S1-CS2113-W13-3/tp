@@ -8,7 +8,7 @@ import java.util.Set;
 
 /** Parses waiting demand and explicitly distinguishes it from allocated reservations. */
 public class WaitingRequestCommands {
-    private static final String USAGE = "Use: wait-request b/USER category/CATEGORY from/START to/END";
+    private static final String USAGE = "Use: wait-request b/BORROWER_ID category/CATEGORY from/START to/END";
     private final WaitingRequestBook requests;
 
     public WaitingRequestCommands(WaitingRequestBook requests) {
