@@ -77,7 +77,10 @@ console remains available. Both provide command help and examples.
    java -jar lablog.jar
    ```
 
-4. The LabLog v2.1 banner appears after data loads. In an interactive terminal,
+4. Use a terminal at least **100 columns wide and 30 rows high** for comfortable
+   help, tables and command entry. This is a recommendation; smaller windows still
+   work using the wrapping, labelled records and paging described below.
+5. The LabLog v2.1 banner and terminal-size recommendation appear after data loads. In an interactive terminal,
    press Enter at the ready message to show the clean welcome and boxed `lablog>`
    prompt. Try `help`, then `help loan`, then `exit`.
 

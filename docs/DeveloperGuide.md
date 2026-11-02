@@ -2029,6 +2029,25 @@ after editing a recalled command.
 
 ### Console output
 
+`ConsoleWelcome.TERMINAL_RECOMMENDATION` supplies the shared startup advice:
+100 columns by 30 rows. The main console prints it directly below its ASCII
+banner; the standalone borrower console prints it below its welcome line.
+This is guidance, not a launch restriction. The 75-character ASCII sentence
+also fits in an 80-column window.
+
+A layout probe using the actual help formatter, responsive table layout and
+word wrapper compared 80x24, 100x30 and 120x30 (one column is reserved by JLine).
+With two equipment rows (digital oscilloscope and digital multimeter, category
+Electronics, model and lab location), the 80-column view produced 15 labelled
+lines, exceeding its 14-line short-result allowance. Both wider views kept a
+four-line table. Help occupied 126, 125 and 125 wrapped lines respectively;
+the pager could show 18, 24 and 24 content lines. The command box had 75, 95
+and 115 inner columns. Thus 100x30 is a practical comfortable minimum for
+these examples; arbitrary long values may still wrap or trigger labelled records.
+Smaller interactive windows retain wrapping, responsive records and paging;
+plain/redirected input uses ordinary prompts and unpaged output. No terminal
+size is enforced, and the existing tiny-window fallbacks still apply.
+
 Equipment construction rejects control characters in asset IDs, including when
 a snapshot is loaded. Both consoles reject control characters in command lines
 while allowing tabs. Diagnostic messages escape control characters before display,
