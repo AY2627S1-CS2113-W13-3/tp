@@ -31,4 +31,24 @@ public final class ConsoleWelcome {
         output.println("LabLog v" + VERSION + " - Lab equipment and loan manager");
         output.println("Manage your laboratory equipment and loans here.");
     }
+
+    /**
+     * Prints the compact welcome after the startup banner has been acknowledged.
+     *
+     * @param output destination for the ready screen
+     */
+    public static void printReady(PrintStream output) {
+        output.println("LabLog v" + VERSION);
+        output.println("Lab equipment and loan manager");
+        output.println();
+        output.println("Ready. Changes are saved automatically.");
+        output.println();
+        output.println("Start here");
+        output.println("    overview");
+        output.println("        View overdue loans, today's reservations and severe faults");
+        output.println("    list");
+        output.println("        Browse equipment and availability");
+        output.println("    help");
+        output.println("        Explore commands and examples");
+    }
 }

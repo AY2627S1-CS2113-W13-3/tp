@@ -1,7 +1,5 @@
 package lablog;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Logger;
 
 /** Displays command guidance without accessing or changing application records. */
@@ -10,7 +8,7 @@ public class HelpCommands {
     private static final Logger LOGGER = Logger.getLogger(HelpCommands.class.getName());
     private static final String USAGE = "Use: help [COMMAND]";
     /**
-     * Rows of the plain help table. A one-element row is a section heading; a two-element row is a
+     * Rows of the grouped command summary. A one-element row is a section heading; a two-element row is a
      * command and its description.
      */
     private static final String[][] SUMMARY_ROWS = {
@@ -60,61 +58,33 @@ public class HelpCommands {
         {"commands | recall INDEX", "View recent input without executing it (both consoles)."},
         {"exit", "Close the main console."},
     };
-    /** Longest description line in the help table; longer descriptions continue on the next line. */
-    private static final int DESCRIPTION_WIDTH = 45;
     private static final String QUICK_START =
-            "Common commands: add-borrower, add, list, loan, return, history. Use help COMMAND for details.";
+            "Common commands: add-borrower, add, list, loan, return, history.";
     private static final String SUMMARY_FOOTER = "Use help COMMAND for syntax, fields, and usage examples.";
     private static final String SUMMARY = buildSummary();
 
     /**
-     * Lays out {@link #SUMMARY_ROWS} as a two-column text table split into titled sections. The
-     * command column is padded to its widest entry so the "|" separators line up in a monospaced
-     * console.
+     * Groups complete command syntax and descriptions without a wide padded table.
+     * Each command stays next to its description even in a narrow terminal.
      */
     private static String buildSummary() {
-        String commandHeader = "Command";
-        int width = commandHeader.length();
-        for (String[] row : SUMMARY_ROWS) {
-            if (row.length == 2) {
-                width = Math.max(width, row[0].length());
-            }
-        }
-        String format = "%-" + width + "s | %s\n";
-        StringBuilder table = new StringBuilder("LabLog commands:\n" + QUICK_START + "\n\n");
-        table.append(String.format(format, commandHeader, "Description"));
-        table.append("-".repeat(width + 1)).append('+').append("-".repeat(13)).append('\n');
+        StringBuilder text = new StringBuilder("LabLog commands:\n");
+        text.append(QUICK_START).append('\n');
+        boolean hasCommandInSection = false;
         for (String[] row : SUMMARY_ROWS) {
             if (row.length == 1) {
-                table.append('\n').append("== ").append(row[0]).append(" ==\n");
+                text.append("\n== ").append(row[0]).append(" ==\n");
+                hasCommandInSection = false;
             } else {
-                // Only the first line shows the command; continuation lines leave that column blank.
-                String command = row[0];
-                for (String line : wrap(row[1], DESCRIPTION_WIDTH)) {
-                    table.append(String.format(format, command, line));
-                    command = "";
+                if (hasCommandInSection) {
+                    text.append('\n');
                 }
+                text.append("    ").append(row[0]).append('\n');
+                text.append("        ").append(row[1]).append('\n');
+                hasCommandInSection = true;
             }
         }
-        return table.append('\n').append(SUMMARY_FOOTER).toString();
-    }
-
-    /**
-     * Splits text into lines of at most {@code width} characters, breaking only at spaces.
-     * A single word longer than {@code width} is kept whole on its own line.
-     */
-    private static List<String> wrap(String text, int width) {
-        List<String> lines = new ArrayList<>();
-        StringBuilder line = new StringBuilder();
-        for (String word : text.split(" ")) {
-            if (line.length() > 0 && line.length() + 1 + word.length() > width) {
-                lines.add(line.toString());
-                line.setLength(0);
-            }
-            line.append(line.length() > 0 ? " " : "").append(word);
-        }
-        lines.add(line.toString());
-        return lines;
+        return text.append('\n').append(SUMMARY_FOOTER).toString();
     }
 
     /**
@@ -127,11 +97,60 @@ public class HelpCommands {
     public String execute(String input) {
         String guidance = describe(input);
         if (guidance.equals(SUMMARY)) {
-            // The summary has its own section headings, so it needs no dotted border.
-            return "\n" + guidance + "\n";
+            return guidance;
         }
-        String separator = "............................................................";
-        return "\n" + separator + "\n" + guidance + "\n" + separator + "\n";
+        String command = input.strip().split("\\s+")[1];
+        return formatDetails(command, guidance);
+    }
+
+    /**
+     * Presents existing guidance as a space-indented hierarchy without repeating syntax labels.
+     * Section headings use four spaces, commands and fields eight, and example actions twelve.
+     */
+    private static String formatDetails(String command, String guidance) {
+        StringBuilder text = new StringBuilder();
+        String section = "";
+        for (String original : guidance.split("\\R")) {
+            String line = original.strip();
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (text.isEmpty()) {
+                if (line.startsWith("LOAN /")) {
+                    text.append(line);
+                    continue;
+                }
+                text.append("Help: ").append(command);
+            }
+            String nextSection = "";
+            String content = line;
+            if (line.equals("Usage") || line.startsWith("Format: ")) {
+                nextSection = "Usage";
+                content = line.equals("Usage") ? "" : line.substring("Format: ".length());
+            } else if (line.startsWith("Batch format: ")) {
+                nextSection = "Usage";
+                content = "Batch: " + line.substring("Batch format: ".length());
+            } else if (line.equals("Example") || line.startsWith("Example: ")) {
+                nextSection = "Example";
+                content = line.equals("Example") ? "" : line.substring("Example: ".length());
+            } else if (line.equals("Required") || line.startsWith("Fields: ")) {
+                nextSection = "Required";
+                content = line.equals("Required") ? "" : line.substring("Fields: ".length());
+            } else if (line.equals("Before issuing")) {
+                nextSection = "Before issuing";
+                content = "";
+            }
+            if (!nextSection.isEmpty() && !nextSection.equals(section)) {
+                text.append("\n\n    ").append(nextSection);
+                section = nextSection;
+            }
+            if (!content.isEmpty()) {
+                boolean exampleAction = section.equals("Example") && nextSection.isEmpty()
+                        && !original.equals(original.stripLeading());
+                text.append('\n').append(exampleAction ? "            " : "        ").append(content);
+            }
+        }
+        return text.toString();
     }
 
     /** Resolves help text before adding presentation so validation errors stay concise. */
@@ -357,16 +376,21 @@ public class HelpCommands {
                     + "  Show return examples with and without reported faults.\n"
                     + "Fields: COMMAND is optional; omit it for the concise list.";
         case "loan":
-            return "Issue loans for one or more available equipment units.\n"
+            return "LOAN / Issue equipment to a borrower\n"
+                    + "Issue loans for one or more available equipment units.\n"
                     + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
+                    + "\nExample\n"
                     + "Example: loan OSC-001 b/A0123456X d/2099-09-18\n"
                     + "  Lend OSC-001 to borrower A0123456X with a due date of 18 September 2099.\n"
                     + "  Substitute the actual asset ID, borrower ID, and due date when issuing a loan.\n"
                     + "Example: loan OSC-001 MIC-002 b/A0123456X d/2099-09-18\n"
                     + "  Lend both selected units to the same borrower with the same dates.\n"
-                    + "Fields: Supply one or more distinct, case-sensitive asset IDs separated by spaces; "
-                    + "b/ identifies the borrower; "
-                    + "d/ gives the due date in YYYY-MM-DD format.\n"
+                    + "\nRequired\n"
+                    + "Fields: Supply one or more distinct, case-sensitive asset IDs separated by spaces.\n"
+                    + "  ASSET_ID       Registered equipment to lend; supply each ID once.\n"
+                    + "  b/BORROWER_ID  Identifies the registered borrower receiving every selected unit.\n"
+                    + "  d/DUE_DATE     Gives the due date in YYYY-MM-DD format.\n"
+                    + "\nBefore issuing\n"
                     + "Register the borrower with add-borrower before issuing a loan.\n"
                     + "The inclusive loan interval must not overlap a reservation, including your own.\n"
                     + "Every unit must be registered, not on loan, and free of unresolved severe faults.\n"
