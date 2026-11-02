@@ -1944,6 +1944,12 @@ after editing a recalled command.
 
 ### Console output
 
+Equipment construction rejects control characters in asset IDs, including when
+a snapshot is loaded. Both consoles reject control characters in command lines
+while allowing tabs. Diagnostic messages escape control characters before display,
+including messages derived from invalid imported data. Existing snapshots containing
+control characters in asset IDs fail validation and require correction before loading.
+
 Listings use aligned tables; saved changes start with `[OK]`, and rejected
 commands with `Error:`.
 

@@ -20,8 +20,9 @@ public class Equipment {
      * @param location equipment location
      */
     public Equipment(String assetId, String name, String category, String model, String location) {
-        if (assetId == null || assetId.isBlank() || assetId.chars().anyMatch(Character::isWhitespace)) {
-            throw new IllegalArgumentException("Asset ID must be a single non-empty word.");
+        if (assetId == null || assetId.isBlank()
+                || assetId.chars().anyMatch(c -> Character.isWhitespace(c) || Character.isISOControl(c))) {
+            throw new IllegalArgumentException("Asset ID must be a single non-empty word without control characters.");
         }
         // These characters delimit prefixed fields and batch selections in equipment commands.
         if (assetId.indexOf('/') >= 0 || assetId.indexOf(',') >= 0) {

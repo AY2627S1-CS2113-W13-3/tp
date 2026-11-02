@@ -147,7 +147,8 @@ public class LabLog {
         try {
             load(Path.of(args.length == 1 ? args[0] : "data/lablog.properties")).run();
         } catch (IOException exception) {
-            System.err.println("Error: Cannot load LabLog data. " + exception.getMessage());
+            System.err.println("Error: Cannot load LabLog data. "
+                    + TerminalText.escapeControls(exception.getMessage()));
         }
     }
 
@@ -274,7 +275,7 @@ public class LabLog {
             return true;
         } catch (IOException exception) {
             LOGGER.warning("Cannot save LabLog records; stopping the session");
-            output.println("Error: Changes could not be saved. " + exception.getMessage());
+            output.println("Error: Changes could not be saved. " + TerminalText.escapeControls(exception.getMessage()));
             output.println("Session stopped. Previous saved data is unchanged; retry after fixing file access.");
             return false;
         }
@@ -305,7 +306,12 @@ public class LabLog {
             if (!scanner.hasNextLine()) {
                 return;
             }
-            String input = scanner.nextLine().strip();
+            String input = scanner.nextLine();
+            if (TerminalText.hasUnsafeControls(input)) {
+                output.println("Error: Input must not contain control characters.");
+                continue;
+            }
+            input = input.strip();
             if (input.equals("exit")) {
                 return;
             }
@@ -316,7 +322,7 @@ public class LabLog {
                     continue;
                 }
             } catch (IllegalArgumentException exception) {
-                output.println("Error: " + exception.getMessage());
+                output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 continue;
             }
             String command = input.split("\\s+", 2)[0];
@@ -324,7 +330,7 @@ public class LabLog {
                 try {
                     output.println(Messages.ok(transfer(input, command)));
                 } catch (IOException | IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                     output.println("Current records were not changed.");
                 }
                 continue;
@@ -334,7 +340,7 @@ public class LabLog {
                     String result = reservationCommands.execute(input);
                     output.println(command.equals("reservations") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException | IOException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                     output.println("Reservations were not changed.");
                 }
                 continue;
@@ -344,7 +350,7 @@ public class LabLog {
                     String result = waitingCommands.execute(input);
                     output.println(command.equals("waiting-requests") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException | IOException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                     output.println("Waiting requests were not changed.");
                 }
                 continue;
@@ -354,7 +360,7 @@ public class LabLog {
                     output.println(command.equals("available") ? availableEquipment.execute(input)
                             : unavailableReasons.execute(input));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -362,7 +368,7 @@ public class LabLog {
                 try {
                     output.println(help.execute(input));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -374,7 +380,7 @@ public class LabLog {
                     }
                     output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -382,7 +388,7 @@ public class LabLog {
                 try {
                     output.println(loanAudit.execute(input));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -390,7 +396,7 @@ public class LabLog {
                 try {
                     output.println(command.equals("overview") ? overview.execute(input) : activeLoans.execute(input));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -398,7 +404,7 @@ public class LabLog {
                 try {
                     output.println(equipmentList.execute(input));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -410,7 +416,7 @@ public class LabLog {
                     }
                     output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -422,7 +428,7 @@ public class LabLog {
                     }
                     output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -430,7 +436,7 @@ public class LabLog {
                 try {
                     output.println(equipmentFind.execute(input));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -438,7 +444,7 @@ public class LabLog {
                 try {
                     output.println(equipmentSearch.execute(input));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -451,7 +457,7 @@ public class LabLog {
                     }
                     output.println(command.equals("history") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -460,9 +466,10 @@ public class LabLog {
                     String result = borrowerCommands.execute(input);
                     output.println(command.equals("loans") ? result : Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 } catch (IOException exception) {
-                    output.println("Error: Cannot save borrower data. " + exception.getMessage());
+                    output.println("Error: Cannot save borrower data. "
+                            + TerminalText.escapeControls(exception.getMessage()));
                     output.println("No changes saved.");
                 }
                 continue;
@@ -475,7 +482,7 @@ public class LabLog {
                     }
                     output.println(Messages.ok(result));
                 } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
+                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 }
                 continue;
             }
@@ -511,7 +518,7 @@ public class LabLog {
             } catch (RegistrationCancelledException exception) {
                 output.println("Equipment registration cancelled.");
             } catch (IllegalArgumentException exception) {
-                output.println("Error: " + exception.getMessage());
+                output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
             }
         }
     }
