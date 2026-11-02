@@ -1,10 +1,10 @@
 # Yuncong Shen's Project Portfolio Page
 
-## Overview
+### Project: LabLog
 
 LabLog is a command-line application for laboratory technicians who lend electronics equipment to students. Written in Java, it tracks equipment, borrowers, loans, reservations and faults, and stores records in one validated local file.
 
-## Summary of Contributions
+Given below are my contributions to the project.
 
 * **New Feature: Added fault reporting, severity and repair management** ([#107](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/107), [#108](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/108), [#109](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/109)).
   * **What it does:** Records persistent faults with stable IDs, descriptions and severity. Unresolved severe faults block lending. Repairs resolve individual faults while retaining the original report and dated repair history.

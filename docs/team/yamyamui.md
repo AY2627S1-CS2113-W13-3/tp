@@ -53,8 +53,6 @@ reservations and faults, and keeps every record in one validated local file.
   cancellation, failed saves, restart/export/import and older snapshot formats
   alongside the reservation and waiting-request features above.
 
-* **Pager navigation** ([#159](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/159)): extended the paged results view with man-style navigation and reconciled pager regression tests.
-
 **Contributions to the UG:**
 
 * Wrote the initial Quick Start ([#24](https://github.com/AY2627S1-CS2113-W13-3/tp/pull/24))
