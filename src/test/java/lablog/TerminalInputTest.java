@@ -84,6 +84,26 @@ class TerminalInputTest {
         assertEquals("exit", input.readLine("TYPE COMMAND", "lablog> "));
     }
 
+    @Test
+    void pager_sectionsStartNewPagesAndBackReturnsToSameBoundary() {
+        for (String text : new String[] {
+            "LabLog commands:\n== Equipment ==\nlist\n== Loans ==\nloan",
+            "Help: add\n    Usage\nadd syntax\n    Example\nadd example",
+            "OVERVIEW / 2026-11-02\nOVERDUE LOANS (1)\nloan\nSEVERE FAULTS (1)\nfault"
+        }) {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            PrintStream output = new PrintStream(bytes, true, StandardCharsets.UTF_8);
+            TerminalInput input = new TerminalInput(new Scanner("\n\nb\nq\nexit\n"), output, 100, 30);
+            input.presentOutput(text, output);
+            String rendered = bytes.toString(StandardCharsets.UTF_8);
+            assertTrue(rendered.contains("Lines 1-1/5"));
+            assertTrue(rendered.contains("Lines 2-3/5"));
+            assertTrue(rendered.contains("Lines 4-5/5"));
+            assertEquals(2, rendered.split("Lines 2-3/5", -1).length - 1);
+            assertEquals("exit", input.readLine("TYPE COMMAND", "lablog> "));
+        }
+    }
+
     /** Produces numbered plain lines so page boundaries are deterministic. */
     private String result(int count) {
         return IntStream.rangeClosed(1, count).mapToObj(index -> "Result line " + index)

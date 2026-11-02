@@ -1041,3 +1041,5 @@ LabLog again; it reloads the last saved records.
 
 Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
 to record a dated event in the main console. Fault reports are persistent records.
+
+Recognised sections in help, detailed help and overview results start on new pager pages.

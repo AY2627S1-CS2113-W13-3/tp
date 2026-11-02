@@ -57,6 +57,15 @@ final class PagerContext {
         return section.isEmpty() ? title : title + " / " + section;
     }
 
+    /** Identifies generated section headings using the same result-aware rules as breadcrumbs. */
+    static boolean isSectionStart(List<String> lines, int index) {
+        String title = lines.stream().map(String::strip).filter(line -> !line.isEmpty())
+                .findFirst().map(PagerContext::titleOf).orElse("RESULT");
+        String original = lines.get(index);
+        int indent = original.length() - original.stripLeading().length();
+        return !sectionOf(title, original.strip(), indent).isEmpty();
+    }
+
     /** Matches complete generated title layouts and returns only canonical, safe labels. */
     private static String titleOf(String line) {
         if (line.equals("LabLog commands:")) {

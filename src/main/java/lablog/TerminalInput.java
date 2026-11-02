@@ -1,6 +1,7 @@
 package lablog;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
@@ -88,13 +89,16 @@ final class TerminalInput implements ConsoleInput {
         // Style the whole wrapped result once so later pages retain table-column context.
         List<String> styled = ConsolePresentation.format(String.join("\n", lines) + "\n", true).lines().toList();
         int capacity = Math.max(1, rows - 8);
-        if (lines.size() <= capacity) {
+        List<Integer> starts = pageStarts(lines, capacity);
+        if (starts.size() == 1) {
             printPage(lines, styled, 0, lines.size(), false);
             return;
         }
-        int offset = 0;
+        int page = 0;
         while (true) {
-            printPage(lines, styled, offset, capacity, true);
+            int offset = starts.get(page);
+            int end = page + 1 < starts.size() ? starts.get(page + 1) : lines.size();
+            printPage(lines, styled, offset, end - offset, true);
             String action;
             while (true) {
                 output.print("Enter: next page/close at end | b: back | q: close (then Enter): ");
@@ -109,14 +113,27 @@ final class TerminalInput implements ConsoleInput {
                 return;
             }
             if (action.isEmpty()) {
-                if (offset + capacity >= lines.size()) {
+                if (page + 1 >= starts.size()) {
                     return;
                 }
-                offset += capacity;
+                page++;
             } else {
-                offset = Math.max(0, offset - capacity);
+                page = Math.max(0, page - 1);
             }
         }
+    }
+
+    /** Precomputes variable page boundaries so backwards navigation returns to the same page. */
+    private static List<Integer> pageStarts(List<String> lines, int capacity) {
+        List<Integer> starts = new ArrayList<>();
+        starts.add(0);
+        for (int index = 1; index < lines.size(); index++) {
+            int start = starts.getLast();
+            if (index - start >= capacity || PagerContext.isSectionStart(lines, index)) {
+                starts.add(index);
+            }
+        }
+        return starts;
     }
 
     /** Prints a complete page together so table and heading styling retains its context. */
