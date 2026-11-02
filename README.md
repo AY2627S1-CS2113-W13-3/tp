@@ -92,6 +92,12 @@ To build and run the executable JAR:
 java -jar build/libs/lablog.jar
 ```
 
+Run the packaged JAR in a terminal to use interactive paging; Gradle `run` may
+provide plain input instead. Long results, including `help`, start at the top.
+Press Space/Page Down for the next page, `b`/Page Up for the previous page,
+Enter/Down for the next line, Up for the previous line, and `q` to close.
+Redirected input and unsupported terminals print the complete result without paging.
+
 The main console supports registration, help, loans, history, active-loan lists,
 returns, and borrower commands, so a fresh session can complete a loan/return
 workflow. The main console saves equipment, borrowers, loans, returns, faults, repairs and history

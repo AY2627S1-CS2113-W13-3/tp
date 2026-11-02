@@ -14,6 +14,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.jline.keymap.KeyMap;
 import org.jline.terminal.Size;
@@ -45,6 +47,7 @@ class TerminalInputTest {
                         terminal.setSize(tiny);
                         // Navigation while suspended must not move the position the user was reading.
                         write(keys, KeyMap.key(terminal, Capability.key_down));
+                        write(keys, " \rb");
                         assertThrows(TimeoutException.class, () -> pager.get(600, TimeUnit.MILLISECONDS));
                         int beforeRestore = output.size();
                         terminal.setSize(new Size(81, 24));
@@ -52,7 +55,7 @@ class TerminalInputTest {
                                 .contains("Lines 2-19/"));
                         assertFalse(pager.isDone());
                     }
-                    write(keys, "\r");
+                    write(keys, "q");
                     pager.get(5, TimeUnit.SECONDS);
                     assertEquals(attributes, terminal.getAttributes().toString());
                     CompletableFuture<String> next = CompletableFuture.supplyAsync(
@@ -71,7 +74,7 @@ class TerminalInputTest {
 
     @Test
     void pager_tinyResize_allCloseActionsRestoreTerminal() throws Exception {
-        for (String close : new String[]{"\r", KeyMap.ctrl('C'), KeyMap.ctrl('D'), null}) {
+        for (String close : new String[]{"q", KeyMap.ctrl('C'), KeyMap.ctrl('D'), null}) {
             try (PipedInputStream input = new PipedInputStream();
                     PipedOutputStream keys = new PipedOutputStream(input)) {
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -105,7 +108,49 @@ class TerminalInputTest {
     }
 
     @Test
-    void pager_arrowsResizeAndEnter_restoreTerminal() throws Exception {
+    void pager_pageAndLineKeysClampAtBoundaries() throws Exception {
+        try (PipedInputStream input = new PipedInputStream();
+                PipedOutputStream keys = new PipedOutputStream(input)) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try (Terminal terminal = TerminalBuilder.builder().system(false).type("xterm")
+                    .streams(input, output).encoding(StandardCharsets.UTF_8).build()) {
+                terminal.setSize(new Size(100, 24));
+                TerminalInput console = console(terminal);
+                String attributes = terminal.getAttributes().toString();
+                String text = IntStream.rangeClosed(1, 50).mapToObj(i -> "Result line " + i)
+                        .collect(Collectors.joining("\n"));
+                CompletableFuture<Void> pager = CompletableFuture.runAsync(
+                        () -> console.presentOutput(text, System.out));
+                await(() -> output.toString(StandardCharsets.UTF_8).contains("Lines 1-18/50"));
+                assertPage(terminal, keys, output, " ", "Lines 19-36/50");
+                assertPage(terminal, keys, output, "\r", "Lines 20-37/50");
+                assertPage(terminal, keys, output, KeyMap.key(terminal, Capability.key_npage), "Lines 33-50/50");
+                assertPage(terminal, keys, output, " ", "Lines 33-50/50");
+                assertPage(terminal, keys, output, "b", "Lines 15-32/50");
+                assertPage(terminal, keys, output, KeyMap.key(terminal, Capability.key_ppage), "Lines 1-18/50");
+                assertPage(terminal, keys, output, "b", "Lines 1-18/50");
+                assertFalse(pager.isDone());
+                write(keys, "q");
+                pager.get(5, TimeUnit.SECONDS);
+                assertEquals(attributes, terminal.getAttributes().toString());
+            }
+        }
+    }
+
+    /** Forces a complete redraw to expose offsets, including navigation that stays at a boundary. */
+    private void assertPage(Terminal terminal, PipedOutputStream keys, ByteArrayOutputStream output,
+                            String navigation, String expected) throws Exception {
+        // An ignored key must not close the pager or become the next command.
+        write(keys, navigation + "x");
+        // Resize polling is bounded at 200 ms; allow queued key handling before requesting a full redraw.
+        Thread.sleep(300);
+        int start = output.toString(StandardCharsets.UTF_8).length();
+        terminal.setSize(new Size(terminal.getSize().getColumns() + 1, 24));
+        await(() -> output.toString(StandardCharsets.UTF_8).substring(start).contains(expected));
+    }
+
+    @Test
+    void pager_arrowsResizeAndQuit_restoreTerminal() throws Exception {
         try (PipedInputStream input = new PipedInputStream();
                 PipedOutputStream keys = new PipedOutputStream(input)) {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -128,11 +173,11 @@ class TerminalInputTest {
                 await(() -> output.size() > beforeUp);
                 terminal.setSize(new Size(100, 30));
                 await(() -> output.toString(StandardCharsets.UTF_8).contains("Lines 1-24/"));
-                write(keys, "\r");
+                write(keys, "q");
                 pager.get(5, TimeUnit.SECONDS);
                 assertEquals(attributes, terminal.getAttributes().toString());
                 assertTrue(output.toString(StandardCharsets.UTF_8).contains("HELP"));
-                assertFalse(output.toString(StandardCharsets.UTF_8).contains("PageDown"));
+                assertTrue(output.toString(StandardCharsets.UTF_8).contains("Space: page"));
             }
         }
     }

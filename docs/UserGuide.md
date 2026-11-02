@@ -69,8 +69,11 @@ Both provide command help and examples.
    prompt. Try `help`, then `help loan`, then `exit`.
 
 Both consoles frame command results with separators. Results that do not fit with
-an input box open at their beginning in a paged view. Use Up/Down Arrow to scroll
-one displayed line, and Enter to close the view. A fixed header identifies the
+an input box open at their beginning in a paged view. Press Space or Page Down to
+advance one page, and `b` or Page Up to go back one page. Enter or Down Arrow
+advances one displayed line; Up Arrow goes back one line. Press `q` to close
+the view (Enter now scrolls instead of closing). At the last page, scrolling
+stops until you go back or quit. A fixed header identifies the
 current result and section while you scroll. The footer shows the visible line
 range; wrapping and window width affect the total. Colour-capable terminals show
 filled heading and status labels. Set `NO_COLOR` to disable colour. Redirected

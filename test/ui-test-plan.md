@@ -34,9 +34,11 @@ boxed prompt. Redirected input must begin executing commands immediately.
   wrapping keeps each complete visible character together, including at very narrow widths.
 - Shrink an open pager below 7 rows or 2 columns, then restore the previous size:
   the pager stays open at its previous position and redraws the content. Navigation
-  while too small leaves that position unchanged; Enter, Ctrl-C, Ctrl-D and EOF
+  while too small leaves that position unchanged; q, Ctrl-C, Ctrl-D and EOF
   must still close it and restore terminal settings.
-- Enter closes the pager. Ctrl-C, Ctrl-D and EOF restore terminal settings.
+- Space/Page Down advances a page; b/Page Up goes back a page. Enter advances
+  one line. Navigation stops at the first/last page, including after resizing.
+- q closes the pager. Ctrl-C, Ctrl-D and EOF restore terminal settings.
 - Repeat with NO_COLOR set: labels lose colour but user-supplied controls remain
   escaped. Redirected output uses no pager or interactive acknowledgement.
 - Repeat help/paging in the standalone borrower console using the fat JAR and
