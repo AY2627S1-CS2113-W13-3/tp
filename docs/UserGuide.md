@@ -24,6 +24,7 @@ Current application version: **LabLog v2.1** (Java 25).
   * [Renewing an active loan: `renew`](#renewing-an-active-loan-renew)
   * [Recording a return: `return`](#recording-a-return-return)
   * [Reporting loaned equipment lost: `lost`](#reporting-loaned-equipment-lost-lost)
+  * [Recovering lost equipment: `recover`](#recovering-lost-equipment-recover)
   * [Viewing borrowing and return evidence: `loan-audit`](#viewing-borrowing-and-return-evidence-loan-audit)
   * [Correcting a mistaken loan or return](#correcting-a-mistaken-loan-or-return)
   * [Viewing equipment history: `history`](#viewing-equipment-history-history)
@@ -383,10 +384,12 @@ a message naming the current borrower and due date, so the same unit cannot be
 lent twice. Unresolved severe faults also prevent new loans, including after a
 return. Minor, moderate and unspecified faults do not block lending.
 
-The inclusive period from the loan date through its due date must also pass
-the shared booking checks. A reservation overlapping even the due date blocks
-the loan, including reservations made for the same borrower. A returned unit is
-still occupied on its return date, so it can be lent again from the next day.
+The loan period from today through the due date must pass the shared booking
+checks. The intended borrower can collect a reserved unit when both dates fall
+within that reservation. Other overlapping reservations still block the loan.
+The reservation remains recorded and protects its period after an early return.
+A returned unit can be lent again on its return date if no other restriction
+blocks it.
 
 LabLog validates the entire selection before adding any loan. If any unit,
 borrower, date, or field is invalid, no loans from that command are recorded.
@@ -517,8 +520,20 @@ Existing reservations remain recorded and must be handled explicitly; reporting
 a loss does not cancel them. A category with only lost or severely faulty units
 has no operationally suitable capacity for a waiting request.
 
-Loss reports survive restart, export and import. There is no recovery command
-in this version.
+Loss reports survive restart, export and import.
+
+### Recovering lost equipment: `recover`
+
+Use `recover OSC-001` when the lost equipment is found or the loss was reported
+by mistake. The registered unit must have exactly one outstanding lost loan.
+Recovery closes that loan on today's local date, which cannot precede the loss
+report. It keeps the borrower, loss date and renewal history and records a
+`RETURN` audit event. Ordinary `return` still rejects lost units.
+
+Recovery cannot be repeated, and its return event cannot be reopened with
+`reverse-return`. Existing reservations and faults still apply before the unit
+can be lent again. Recovery survives restart, export and import. See also the
+[lending workflows](LendingWorkflows.md).
 
 ### Viewing borrowing and return evidence: `loan-audit`
 
@@ -729,19 +744,22 @@ period and intended borrower. Invalid input or a failed save changes no bookings
 These are structured records introduced in snapshot format 6, preserved by restart, export
 and replacement import. Older formats load with no bookings. The existing
 `reservation ... d/DATE desc/TEXT` command remains a history note and cannot
-reserve a unit. Overlapping reservations and loans are rejected.
+reserve a unit. Overlapping reservations and loans are normally rejected; collecting a unit
+within the intended borrower's reservation is an exception described below.
 
 ### Booking conflicts
 
-Reservations and loans occupy inclusive start/end dates. A booking ending on
-Friday conflicts with another starting Friday; starting Saturday is valid.
-Returned loans occupy their actual loan-to-return dates. An active loan occupies
-its loan-to-due dates; once overdue, it blocks future periods until returned.
-Lost equipment also blocks every period without an assumed recovery date.
-Unresolved severe faults block reservations and lending for every period because
-there is no known repair completion date. Errors identify the conflicting booking
-or loan. The same rule applies even for the same borrower: cancel a reservation
-before issuing its loan. Legacy notes are not booking constraints.
+Reservation periods include both endpoints: a booking ending on Friday conflicts
+with another starting Friday. An active loan occupies its loan-to-due dates; once
+overdue, it blocks future periods until returned. A completed loan does not
+block a period starting on or after its return date. Lost equipment blocks every
+period until recovered, and unresolved severe faults block reservations and
+lending for every period. Errors identify the conflicting booking or loan.
+
+When issuing a loan, LabLog ignores the intended borrower's reservation if the
+whole loan period fits inside it; other conflicts still apply. Availability
+queries and renewals continue to check reservations. Legacy notes are not
+booking constraints.
 
 ### Editing a reservation: `edit-reservation`
 
@@ -797,12 +815,13 @@ Multiple reasons can apply simultaneously. Resolved faults, cancelled bookings
 and records for other equipment are excluded. No blockers produces an explicit
 available-throughout-the-interval message.
 
-These are the same inclusive interval rules used by `available` and lending:
-the return day remains occupied, an overdue unreturned loan blocks future dates
-indefinitely, and losses or blocking faults apply regardless of the query dates.
-Consequently `list`/`find` may show a returned unit as available while this query
-explains its occupied return day or a reservation. Use this command for a full
-booking explanation. Queries do not reserve equipment or rewrite saved data.
+These are the same interval checks used by `available`: a completed loan does
+not block a period starting on or after its return date, an overdue unreturned
+loan blocks future dates indefinitely, and losses or blocking faults apply
+regardless of the query dates. Unlike `loan`, this query does not exclude an
+intended borrower's covering reservation. `list`/`find` can therefore show a
+unit as available while this query identifies a reservation. Queries do not
+reserve equipment or rewrite saved data.
 Repairs, cancellations, returns and imports are reflected on the next query.
 
 ### Recording waiting demand: `wait-request`
@@ -948,7 +967,7 @@ contact details, so avoid displaying it when sharing your screen.
   `reverse-loan` or `reverse-return` with an event ID and reason to correct a
   mistaken issue or return; dependency and availability checks may reject a
   correction.
-- There is no lost-equipment recovery or automatic waiting-request allocation.
+- Waiting requests are not allocated automatically.
 
 ## FAQ
 
@@ -989,6 +1008,7 @@ LabLog again; it reloads the last saved records.
 | `reverse-loan EVENT_ID reason/TEXT` | Main | Correct a mistaken loan and retain its original evidence |
 | `reverse-return EVENT_ID reason/TEXT` | Main | Correct a mistaken return after dependency and availability checks |
 | `lost ASSET_ID` | Main | Record a loss while retaining the outstanding loan |
+| `recover ASSET_ID` | Main | Close a lost loan while retaining its history |
 | `history ASSET_ID` | Main | View equipment records, renewal events and loss reports |
 | `why-unavailable ASSET_ID [from/START to/END]` | Main | Explain all applicable booking blockers |
 | `return ASSET_ID [faults/DESCRIPTION]` | Main | Return one unit, optionally reporting new faults |

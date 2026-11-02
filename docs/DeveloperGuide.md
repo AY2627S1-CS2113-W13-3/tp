@@ -581,9 +581,9 @@ loan yields `lost`; otherwise an active loan yields
 `on-loan`; otherwise an unresolved severe fault yields `unavailable`; all
 remaining units are `available`. Retired units appear only with an explicit
 `status/retired` filter. The listing reads the live loan and fault
-books. Actual reservations block loans for overlapping date ranges but do not
-change this undated status; display-only history notes do not participate in
-booking checks.
+books. Actual reservations can block overlapping loans, except when a borrower
+collects within their own covering reservation. They do not change this undated
+status; display-only history notes do not participate in booking checks.
 
 For example, `list location/lab 5 sort/name` matches `Lab 5` without case
 sensitivity and prints the matching units as a table (see
@@ -1013,7 +1013,8 @@ sequenceDiagram
 
 **Lost loans remain outstanding** and appear with status `LOST`; other
 active rows show `On loan`. This keeps unresolved borrower responsibility visible. Ordinary return and
-renewal commands reject lost loans; no recovery command is implemented.
+renewal commands reject lost loans; `recover` closes an outstanding lost loan
+while preserving its loss evidence.
 A due date before today is overdue; a loan due today is not. Injecting `Clock`
 makes this rule testable at local-date boundaries without changing the machine's
 clock. The injected equipment-name function avoids coupling the handler to the
@@ -1093,14 +1094,16 @@ stateDiagram-v2
     OnLoan --> Returned : return
     Returned --> OnLoan : reverse-return [no booking conflict]
     OnLoan --> Lost : lost
+    Lost --> Returned : recover
     OnLoan --> Reversed : reverse-loan [no renewals]
 ```
 
 *Each transition is labelled with the command that triggers it and its guard.
 `Loan#isActive()` is true in On loan and Lost. A lost loan is still
-outstanding, so it stays in borrower and active-loan listings. No command
-leaves Lost or Reversed, so they have no outgoing transitions. To reverse the issue of a returned loan, reverse
-its return first.*
+outstanding, so it stays in borrower and active-loan listings. Recovery closes a
+lost loan but its return cannot be reversed. Reversed loans have no outgoing
+transitions. To reverse the issue of an ordinary returned loan, reverse its
+return first.*
 
 #### Issuing single and batch loans
 
@@ -1114,8 +1117,10 @@ validates the borrower and due date, and checks every selected unit's availabili
 Active-loan checks use `LoanBook.findActiveLoan`, retaining the warning naming
 the current borrower and due date. `FaultBook` rejects unresolved severe faults.
 The main console also supplies `BookingAvailability`, which applies the shared
-inclusive interval checks to reservations and historical loan occupancy. A
-reservation touching the due date is a conflict, including for the same borrower.
+interval checks to reservations and loan occupancy. For a new loan it excludes
+one confirmed reservation for the same borrower and asset only when the entire
+loan period fits inside it. Other overlapping reservations still conflict; a
+completed loan does not block a new period starting on its return date.
 
 `LabLog` supplies its shared `BorrowerBook` to `LoanCommands`, which rejects
 unregistered borrowers before recording a loan. The three-argument handler
@@ -1407,11 +1412,13 @@ issue date or latest renewal, then sets the loss report date. Borrower, issue da
 deadlines and renewal events remain unchanged.
 
 **State choice:** A lost loan stays active in the sense of outstanding, with a
-separate `isLost` flag derived from its report date. Treating loss as a return
+`isLost` derived from its report date and outstanding state. Treating loss as a return
 would falsely release the equipment and remove it from borrower listings.
 `Loan.validateReturn` and `Loan.renew` reject lost records, so batch-return
-validation also fails before changing any selected loan. No recovery transition
-is implemented in this increment.
+validation also fails before changing any selected loan. `LostCommands` also
+handles `recover ASSET_ID`: `LoanBook.recover` validates the date and loan,
+closes it and appends a RETURN audit event. The loss date and loan history are
+retained, and `reverse-return` cannot reopen a recovered loan.
 
 `LoanBook.hasLostLoan` supplies the shared loss check. `BookingAvailability`
 rejects lost equipment before interval/exclusion checks, even when a caller
@@ -1429,9 +1436,10 @@ rows now have a separate Status column alongside Overdue. History retains the
 original loan/renewals and derives a `LOST` row dated on the report day.
 
 Snapshot format 10 adds the required `loan.N.lost` field: an empty string means
-no loss, otherwise it is the report date. Decode restores renewals and returns
-before applying the loss transition, rejecting contradictory dates or a loss
-on a returned loan. Formats 2-9 remain readable without fabricated loss reports.
+no loss, otherwise it is the report date. Decode restores renewals, applies the
+loss transition and then recovers the loan when both loss and return dates are
+present. Invalid chronology is rejected. Formats 2-9 remain readable without
+fabricated loss reports.
 The closed schema rejects loss fields in older formats and rejects display notes
 masquerading as loss events. Complete and legacy loan stores preserve the field;
 restart, export and replacement import use the same validated representation.
@@ -1876,10 +1884,11 @@ adds the shared conflict policy without changing the interval contract.
 #### Shared conflict policy
 
 BookingAvailability.conflict/requireAvailable is the shared public boundary for
-reservations, loans, RenewCommands and interval queries. All intervals
-are inclusive. A renewal caller passes its original Loan as ignoredLoan and the
-proposed full loan period; an edit passes only its own reservation ID. Other
-records are still checked. Main-console LoanCommands is wired to this policy.
+reservations, loans, RenewCommands and interval queries. Reservation intervals
+are inclusive. Completed loans do not block windows starting on or after their
+return date. A new loan may exclude the intended borrower's covering reservation;
+a renewal excludes its original Loan and an edit excludes its own reservation
+ID. Other records are still checked. Main-console LoanCommands is wired to this policy.
 The existing standalone constructors retain their no-reservation behavior.
 
 Restore validates reservation references, IDs and pairwise booking overlaps.
@@ -1935,8 +1944,9 @@ status field or new persistence schema is introduced.
 
 The main console supplies the same BookingAvailability instance used by lending.
 Imports replace book contents without replacing their identities, so explanations
-reflect replacement records immediately. Queries do not invoke the saver. Loan
-return dates remain inclusive; overdue outstanding loans block indefinitely;
+reflect replacement records immediately. Queries do not invoke the saver.
+Completed loans do not block windows starting on or after their return date;
+overdue outstanding loans block indefinitely;
 losses and unresolved severe faults block every interval. The compact list/find
 labels remain unchanged and are not a substitute for an interval explanation.
 
@@ -2122,8 +2132,8 @@ checks the interactive boundary. Focused tests include `ConsolePresentationTest`
 
 List/find status reflects retirement, loans, losses and severe faults. Interval
 availability also checks reservations through `BookingAvailability`; undated status is not a
-booking guarantee. Lost-equipment recovery is unsupported; loan and return
-mistakes can be corrected with `reverse-loan` and `reverse-return`.
+booking guarantee. Lost loans can be closed using `recover`; ordinary loan and
+return mistakes can be corrected with `reverse-loan` and `reverse-return`.
 
 The packaged CLI runner checks help, integrated workflows, export/import,
 restart persistence and unchanged files after read-only queries. Run it after
@@ -2397,10 +2407,10 @@ deadline. All three returns succeed; the last active-loan query says
 includes the renewal and reported cable damage. A `faults/` return description
 does not create a separate structured fault report.
 
-Try `return LEND-001` again: it is rejected. Also try
-`loan LEND-001 b/A0123456X d/2099-01-01` on the return day: the inclusive booking
-rule rejects reuse of that day's occupied interval. Exit and restart; the audit
-and history must remain, and all loans must still be returned.
+Try `return LEND-001` again: it is rejected. Then run
+`loan LEND-001 b/A0123456X d/2099-01-01` on the return day: the new loan
+succeeds. Return it, exit and restart; both loans and their audit evidence remain
+in history, and all loans are returned.
 
 #### 4. Overdue loans and a historical-file restart
 
@@ -2442,7 +2452,10 @@ renew LOST-001 d/2099-02-01
 
 Expected: the loss remains an outstanding loan, displayed as LOST/Lost, with its
 dated history. Return and renewal are rejected. Restart and check
-`find LOST-001` and `active-loans`; the lost state persists.
+`find LOST-001` and `active-loans`; the lost state persists. Run
+`recover LOST-001`, then check `active-loans`, `history LOST-001` and
+`loan-audit LOST-001`: the loan is closed while its loss and return evidence
+remain. A second recovery is rejected; restart and verify the history again.
 
 #### 6. Correcting a loan or return without deleting evidence
 
@@ -2543,6 +2556,32 @@ Expected: the edit succeeds. Before cancellation the unit is excluded from
 is available again. `reservations` retains the cancelled booking and history
 retains its cancellation reason after restart. Editing or cancelling it again
 is rejected.
+
+##### Collecting a reserved unit
+
+Use a fresh `collection.properties` session. Replace `TODAY` with the current
+local date, as described at the start of this appendix:
+
+```text
+add COLLECT-001 n/Microscope c/Optics m/M2 l/Lab
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+add-borrower A0123457X n/Alex Lim p/92345678 e/alex@u.nus.edu
+reserve COLLECT-001 b/A0123456X from/TODAY to/TODAY
+loan COLLECT-001 b/A0123457X d/TODAY
+loan COLLECT-001 b/A0123456X d/2099-01-01
+active-loans
+loan COLLECT-001 b/A0123456X d/TODAY
+reservations
+active-loans
+```
+
+Expected: the other borrower's loan is rejected. The intended borrower's loan
+ending outside the reservation is also rejected, leaving no active loans.
+Collection with today's due date succeeds because its whole interval fits inside
+the reservation. Exactly one active loan belongs to Jamie; the reservation stays
+confirmed. Exit and restart the same file, then run `active-loans` and
+`reservations` again: both records persist. `return COLLECT-001` closes the loan
+without cancelling the reservation.
 
 #### 9. Waiting demand and availability after cancellation
 
