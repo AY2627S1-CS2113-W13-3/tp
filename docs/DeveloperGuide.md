@@ -15,6 +15,7 @@
 * [Implementation](#implementation)
   * [Equipment records](#equipment-records)
     * [Equipment registration](#equipment-registration)
+    * [Retiring equipment](#retiring-equipment)
     * [Equipment listing, filters, and sorting](#equipment-listing-filters-and-sorting)
     * [Equipment search](#equipment-search)
     * [Exact equipment lookup](#exact-equipment-lookup)
@@ -367,20 +368,6 @@ user stories they implement.
 
 ### Equipment records
 
-`retire ASSET_ID reason/TEXT` replaces the immutable equipment record with one
-containing the local retirement date and reason. It rejects an outstanding loan
-or an uncancelled reservation ending today or later. The shared availability
-policy blocks retired assets from lending, reservations, and availability results.
-Ordinary list and search hide retired assets; `list status/retired`, `find`, and
-`history` retain access to them. Existing references and asset IDs remain valid.
-
-Snapshot format 12 stores `equipment.N.retired` and
-`equipment.N.retirementReason`. Earlier formats load as active equipment; format
-12 validates the paired fields and rejects retired assets with outstanding loans
-or overlapping current/future reservations. Replacement import and save use the
-existing full-snapshot validation and atomic write path. Retirement is irreversible
-in this version. A failed save stops the console with the prior file unchanged.
-
 These commands register, change and find individual equipment units. `Inventory`
 keeps units in registration order, and loans, faults and history refer to units by
 asset ID, so edits never break those references.
@@ -391,6 +378,7 @@ classDiagram
     EquipmentCopyCommands --> "1" Inventory : inventory
     EquipmentEditCommands --> "1" Inventory : inventory
     EquipmentMoveCommands --> "1" Inventory : inventory
+    RetireEquipmentCommands --> "1" Inventory : inventory
     EquipmentFindCommands --> "1" Inventory : inventory
     EquipmentListCommands --> "1" Inventory : inventory
     Inventory --> "0..*" Equipment : equipmentUnits {ordered}
@@ -408,14 +396,18 @@ classDiagram
         -category: String
         -model: String
         -location: String
+        -retiredOn: LocalDate
+        -retirementReason: String
     }
 ```
 
-*All six equipment handlers share the main console's one `Inventory`. Only those
+*All seven equipment handlers share the main console's one `Inventory`. Only those
 associations are shown: `LabLog` holds one instance of each handler (see
 [Architecture](#architecture)), and `EquipmentListCommands` and
 `EquipmentFindCommands` also read `LoanBook` and `FaultBook` to derive availability,
-as the [search diagram](#equipment-search) shows for `search`. `getEquipmentUnits()`
+as the [search diagram](#equipment-search) shows for `search`.
+`RetireEquipmentCommands` also reads `LoanBook` and `ReservationBook`, as shown
+in the [retirement sequence](#retiring-equipment). `getEquipmentUnits()`
 returns an immutable copy, so handlers read units freely but change them only
 through the operations shown.*
 
@@ -494,6 +486,69 @@ and unknown fields, and duplicate IDs. `EquipmentValidationTest` covers blank
 details for every field and checks that a rejected duplicate leaves the original
 unit unchanged. `RegistrationCancellationTest` cancels at each prompt and
 checks that no partial unit is stored and the session continues.
+
+#### Retiring equipment
+
+`retire ASSET_ID reason/TEXT` replaces the immutable equipment record with one
+containing the local retirement date and reason. It rejects an outstanding loan
+or an uncancelled reservation ending today or later. The shared availability
+policy blocks retired assets from lending, reservations, and availability results.
+Ordinary list and search hide retired assets; `list status/retired`, `find`, and
+`history` retain access to them. Existing references and asset IDs remain valid.
+
+Snapshot format 12 stores `equipment.N.retired` and
+`equipment.N.retirementReason`. Earlier formats load as active equipment; format
+12 validates the paired fields and rejects retired assets with outstanding loans
+or overlapping current/future reservations. Replacement import and save use the
+existing full-snapshot validation and atomic write path. Retirement is irreversible
+in this version. A failed save stops the console with the prior file unchanged.
+
+The following sequence shows the checks, rejection paths and a successful save.
+The handler validates the asset and reason before checking loans.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant L as :LabLog
+    participant R as :RetireEquipmentCommands
+    participant I as :Inventory
+    participant B as :LoanBook
+    participant V as :ReservationBook
+    User->>+L: retire OSC-001 reason/End of service
+    L->>+R: execute(input)
+    R->>+I: getEquipment("OSC-001")
+    I-->>-R: unit
+    Note right of R: reject an already retired unit<br/>or an empty or invalid reason
+    R->>+B: hasActiveLoan("OSC-001")
+    B-->>-R: activeLoan
+    opt no outstanding loan
+        R->>+V: getReservations()
+        V-->>-R: reservations
+        Note right of R: check uncancelled reservations<br/>ending today or later
+    end
+    alt outstanding loan or reservation
+        R-->>L: IllegalArgumentException
+    else no conflicting loan or reservation
+        create participant E as replacement:Equipment
+        R->>+E: Equipment(assetId, ..., today, reason)
+        E-->>-R: replacement
+        R->>+I: updateEquipment(replacement)
+        I-->>-R: #nbsp;
+        R-->>L: retirement confirmation
+    end
+    deactivate R
+    alt rejected
+        L-->>User: Error: ...
+    else accepted
+        L->>+L: saveChanges(output)
+        L-->>-L: true
+        L-->>User: [OK] Retired equipment OSC-001 ...
+    end
+    deactivate L
+```
+
+On a failed save, `LabLog` reports the failure and ends the session without
+printing the confirmation. The prior snapshot remains unchanged.
 
 #### Equipment listing, filters, and sorting
 
