@@ -1,5 +1,7 @@
 # User Guide
 
+Current application version: **LabLog v2.1** (Java 25).
+
 ## Table of contents
 
 * [Introduction](#introduction)
@@ -62,7 +64,7 @@ Both provide command help and examples.
    java -jar lablog.jar
    ```
 
-4. A LabLog banner with the version and the command list appear once at startup;
+4. The LabLog v2.1 banner and the command list appear once at startup;
    after that, the short `lablog>` prompt waits for your input. Try `help`, then `help loan`, then `exit`.
 
 For the standalone borrower console, run `java -cp lablog.jar lablog.BorrowerCli`
@@ -829,10 +831,15 @@ they include borrower contact details.
 Format 12 contains retirement details and equipment, borrowers, complete loans and returns, structured
 renewal events, loss reports, stable loan IDs, borrowing/return audit events,
 history notes, faults with severity and repair details, reservations and waiting
-requests. Formats 2 through 10 remain readable. Formats before 10 load without
+requests. Formats 2 through 11 remain readable; equipment from those formats is not retired. Formats before 10 load without
 loss reports; formats before 9 have no renewal events and treat the saved due
 date as the original deadline. Formats before 11 have no event log. Legacy fault notes remain notes. Unknown future fields
 are rejected instead of silently discarded.
+
+**Upgrading from v2.0.** Export a backup with the old application before
+opening your data in v2.1. Each successful change in v2.1 writes format 12,
+which v2.0 cannot read. Keep the original backup for use with the older JAR;
+a v2.1 export also uses format 12.
 
 ### Importing data: `import`
 

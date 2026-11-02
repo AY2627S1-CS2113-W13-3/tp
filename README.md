@@ -1,8 +1,10 @@
 # LabLog
 
+Current application version: **LabLog v2.1** (Java 25).
+
 LabLog is a command-line application for laboratory technicians who manage
 loanable electronics equipment. It supports equipment and borrower registration,
-equipment copying, editing and relocation; single-unit and batch lending/returns;
+equipment copying, editing, relocation and retirement; single-unit and batch lending/returns;
 renewals, loss reports, overdue listings and loan audit queries; reservations,
 waiting requests, fault reports and repairs; validated import/export; and command recall.
 
