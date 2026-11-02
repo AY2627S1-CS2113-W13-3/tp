@@ -30,6 +30,10 @@ boxed prompt. Redirected input must begin executing commands immediately.
 - Resize width and height while the pager is idle: wrapping and footer ranges
   update without dropping table columns or cell values. Wide/Unicode tables
   become complete numbered records; fitting ASCII tables remain aligned.
+- Shrink an open pager below 7 rows or 2 columns, then restore the previous size:
+  the pager stays open at its previous position and redraws the content. Navigation
+  while too small leaves that position unchanged; Enter, Ctrl-C, Ctrl-D and EOF
+  must still close it and restore terminal settings.
 - Enter closes the pager. Ctrl-C, Ctrl-D and EOF restore terminal settings.
 - Repeat with NO_COLOR set: labels lose colour but user-supplied controls remain
   escaped. Redirected output uses no pager or interactive acknowledgement.
