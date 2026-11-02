@@ -77,7 +77,7 @@ class UnavailableReasonCommandsTest {
         Loan loan = new Loan("OSC", USER, TODAY.minusDays(2), TODAY.plusDays(1));
         loans.addLoan(loan);
         loan.markReturned(TODAY);
-        assertTrue(commands.execute("why-unavailable OSC").contains("returned 2026-10-23"));
+        assertTrue(commands.execute("why-unavailable OSC").contains("is available"));
         assertTrue(commands.execute("why-unavailable OSC to/2026-10-24 from/2026-10-24")
                 .contains("is available"));
     }

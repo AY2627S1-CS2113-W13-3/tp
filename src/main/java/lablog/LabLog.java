@@ -480,7 +480,7 @@ public class LabLog {
                     }
                     continue;
                 }
-                if (List.of("history", "return", "loan", "renew", "lost", "reverse-loan", "reverse-return")
+                if (List.of("history", "return", "loan", "renew", "lost", "recover", "reverse-loan", "reverse-return")
                         .contains(command)) {
                     try {
                         String result = executeRecordCommand(command, input);
@@ -571,7 +571,7 @@ public class LabLog {
      */
     private String executeRecordCommand(String command, String input) {
         // Only the record-command branch in run should call this helper.
-        assert List.of("history", "return", "loan", "renew", "lost", "reverse-loan", "reverse-return")
+        assert List.of("history", "return", "loan", "renew", "lost", "recover", "reverse-loan", "reverse-return")
                 .contains(command) : "Unexpected record command";
         switch (command) {
         case "history":
@@ -583,6 +583,7 @@ public class LabLog {
             return loanConfirmation(input);
         case "renew":
             return renewals.execute(input);
+        case "recover":
         case "lost":
             return lost.execute(input);
         case "reverse-loan":

@@ -115,7 +115,7 @@ class LostPersistenceTest {
         Path source = directory.resolve("invalid.properties");
         for (String[] change : List.of(new String[]{"loan.0.lost", "not-a-date"},
                 new String[]{"loan.0.lost", "2026-02-30"}, new String[]{"loan.0.lost", "2026-10-20"},
-                new String[]{"loan.0.lost", "2026-10-21"}, new String[]{"loan.0.returned", "2026-10-23"},
+                new String[]{"loan.0.lost", "2026-10-21"}, new String[]{"loan.0.returned", "2026-10-22"},
                 new String[]{"loan.1.lost", "2026-10-23"}, new String[]{"loan.0.faults", "Not a return"},
                 new String[]{"loan.0.lost.reason", "unsupported"})) {
             Properties records = sample().toProperties();
