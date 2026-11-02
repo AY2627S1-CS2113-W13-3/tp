@@ -1944,8 +1944,8 @@ status field or new persistence schema is introduced.
 
 The main console supplies the same BookingAvailability instance used by lending.
 Imports replace book contents without replacing their identities, so explanations
-reflect replacement records immediately. Queries do not invoke the saver. Loan
-completed loans do not block windows starting on or after their return date;
+reflect replacement records immediately. Queries do not invoke the saver.
+Completed loans do not block windows starting on or after their return date;
 overdue outstanding loans block indefinitely;
 losses and unresolved severe faults block every interval. The compact list/find
 labels remain unchanged and are not a substitute for an interval explanation.
@@ -2556,6 +2556,32 @@ Expected: the edit succeeds. Before cancellation the unit is excluded from
 is available again. `reservations` retains the cancelled booking and history
 retains its cancellation reason after restart. Editing or cancelling it again
 is rejected.
+
+##### Collecting a reserved unit
+
+Use a fresh `collection.properties` session. Replace `TODAY` with the current
+local date, as described at the start of this appendix:
+
+```text
+add COLLECT-001 n/Microscope c/Optics m/M2 l/Lab
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+add-borrower A0123457X n/Alex Lim p/92345678 e/alex@u.nus.edu
+reserve COLLECT-001 b/A0123456X from/TODAY to/TODAY
+loan COLLECT-001 b/A0123457X d/TODAY
+loan COLLECT-001 b/A0123456X d/2099-01-01
+active-loans
+loan COLLECT-001 b/A0123456X d/TODAY
+reservations
+active-loans
+```
+
+Expected: the other borrower's loan is rejected. The intended borrower's loan
+ending outside the reservation is also rejected, leaving no active loans.
+Collection with today's due date succeeds because its whole interval fits inside
+the reservation. Exactly one active loan belongs to Jamie; the reservation stays
+confirmed. Exit and restart the same file, then run `active-loans` and
+`reservations` again: both records persist. `return COLLECT-001` closes the loan
+without cancelling the reservation.
 
 #### 9. Waiting demand and availability after cancellation
 
