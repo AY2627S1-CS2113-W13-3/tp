@@ -26,7 +26,8 @@ public class BorrowerCli {
                     assetId -> null, Clock.systemDefaultZone());
             run(scanner, System.out, commands);
         } catch (IOException exception) {
-            System.err.println("Error: Cannot load borrower data. " + exception.getMessage());
+            System.err.println("Error: Cannot load borrower data. "
+                    + TerminalText.escapeControls(exception.getMessage()));
         }
     }
 
@@ -46,6 +47,10 @@ public class BorrowerCli {
                 break;
             }
             String input = scanner.nextLine();
+            if (TerminalText.hasUnsafeControls(input)) {
+                output.println("Error: Input must not contain control characters.");
+                continue;
+            }
             if (input.strip().equals("exit")) {
                 break;
             }
@@ -60,10 +65,11 @@ public class BorrowerCli {
                         || input.strip().startsWith("edit-borrower");
                 output.println(changesRecords ? Messages.ok(result) : result);
             } catch (IllegalArgumentException exception) {
-                output.println("Error: " + exception.getMessage());
+                output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
                 output.println("No changes saved.");
             } catch (IOException exception) {
-                output.println("Error: Cannot save borrower data. " + exception.getMessage());
+                output.println("Error: Cannot save borrower data. "
+                            + TerminalText.escapeControls(exception.getMessage()));
                 output.println("No changes saved.");
             }
         }

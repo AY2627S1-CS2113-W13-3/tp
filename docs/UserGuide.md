@@ -145,6 +145,10 @@ contact details, and dates with your own when entering a command.
 
 ### Registering equipment
 
+Asset IDs cannot contain whitespace, control characters, `/`, or `,`. Commands
+containing terminal control characters are rejected; ordinary tab separators are allowed.
+Existing data with an invalid asset ID must be corrected before it can be loaded.
+
 Use `add ASSET_ID n/NAME c/CATEGORY m/MODEL l/LOCATION` to register in one line.
 All four non-empty prefixes are required exactly once, in any order; values may
 contain spaces. Duplicate IDs are rejected by this one-line command.
