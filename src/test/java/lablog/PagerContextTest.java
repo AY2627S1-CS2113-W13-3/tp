@@ -20,7 +20,7 @@ class PagerContextTest {
     @Test
     void at_detailedHelpRetainsNestedContext() {
         List<String> lines = List.of(
-                " LOAN / Issue equipment to a borrower ",
+                " Help: loan ",
                 "    Usage", "        loan ASSET_ID",
                 "     Required ",
                 "        b/BORROWER_ID");

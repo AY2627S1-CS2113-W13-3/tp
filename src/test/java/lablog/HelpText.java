@@ -16,8 +16,7 @@ final class HelpText {
         for (String line : text.split("\n")) {
             if (line.startsWith("Help: ")) {
                 command = line.substring(6);
-            } else if (line.startsWith("LOAN /")) {
-                command = "loan";
+
             }
             if (line.startsWith("    ") && !line.startsWith("        ")) {
                 inExamples = line.equals("    Example");

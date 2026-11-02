@@ -93,13 +93,12 @@ class TerminalInputTest {
         }) {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             PrintStream output = new PrintStream(bytes, true, StandardCharsets.UTF_8);
-            TerminalInput input = new TerminalInput(new Scanner("\n\nb\nq\nexit\n"), output, 100, 30);
+            TerminalInput input = new TerminalInput(new Scanner("\nb\nq\nexit\n"), output, 100, 30);
             input.presentOutput(text, output);
             String rendered = bytes.toString(StandardCharsets.UTF_8);
-            assertTrue(rendered.contains("Lines 1-1/5"));
-            assertTrue(rendered.contains("Lines 2-3/5"));
+            assertTrue(rendered.contains("Lines 1-3/5"));
             assertTrue(rendered.contains("Lines 4-5/5"));
-            assertEquals(2, rendered.split("Lines 2-3/5", -1).length - 1);
+            assertEquals(2, rendered.split("Lines 1-3/5", -1).length - 1);
             assertEquals("exit", input.readLine("TYPE COMMAND", "lablog> "));
         }
     }
@@ -108,18 +107,30 @@ class TerminalInputTest {
     void pager_shortSectionsAndFinalPageKeepTheSameHeight() {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         PrintStream output = new PrintStream(bytes, true, StandardCharsets.UTF_8);
-        TerminalInput input = new TerminalInput(new Scanner("\n\nq\n"), output, 100, 12);
+        TerminalInput input = new TerminalInput(new Scanner("\nq\n"), output, 100, 12);
         input.presentOutput("LabLog commands:\n== Equipment ==\nlist\n== Loans ==\nloan", output);
         String prompt = "Enter: next page/close at end | b: back | q: close (then Enter): ";
         String[] pages = bytes.toString(StandardCharsets.UTF_8).split(java.util.regex.Pattern.quote(prompt), -1);
-        assertEquals(4, pages.length);
-        for (int page = 0; page < 3; page++) {
+        assertEquals(3, pages.length);
+        for (int page = 0; page < 2; page++) {
             // Four body rows plus the top border, context, bottom border and line counter.
             assertEquals(8, pages[page].lines().count());
         }
         assertTrue(pages[0].replace("\r\n", "\n").contains("LabLog commands:"));
-        assertTrue(pages[1].contains("Lines 2-3/5"));
-        assertTrue(pages[2].contains("Lines 4-5/5"));
+        assertTrue(pages[0].contains("Lines 1-3/5"));
+        assertTrue(pages[1].contains("Lines 4-5/5"));
+    }
+
+    @Test
+    void help_firstPageIncludesCommandsWithoutAdvancing() {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        PrintStream output = new PrintStream(bytes, true, StandardCharsets.UTF_8);
+        TerminalInput input = new TerminalInput(new Scanner("q\nexit\n"), output, 100, 30);
+        input.presentOutput(new HelpCommands().execute("help"), output);
+        String rendered = bytes.toString(StandardCharsets.UTF_8);
+        assertTrue(rendered.contains("== Equipment =="));
+        assertTrue(rendered.contains("Register equipment"));
+        assertEquals("exit", input.readLine("TYPE COMMAND", "lablog> "));
     }
 
     /** Produces numbered plain lines so page boundaries are deterministic. */

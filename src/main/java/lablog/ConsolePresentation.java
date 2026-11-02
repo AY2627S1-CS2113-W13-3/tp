@@ -320,7 +320,7 @@ final class ConsolePresentation {
                 || line.startsWith("TODAY'S RESERVATIONS (")) {
             return CYAN_TITLE;
         }
-        if (line.startsWith("LOAN /") || line.equals("Loan audit:")
+        if (line.equals("Loan audit:")
                 || line.startsWith("Loan audit for ") && line.endsWith(":")) {
             return BLUE_TITLE;
         }

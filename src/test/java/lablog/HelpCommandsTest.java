@@ -105,7 +105,7 @@ class HelpCommandsTest {
     @Test
     void execute_loanHelp_includesRequestedExampleAndFieldGuidance() {
         String detail = help.execute("  help\tloan  ");
-        assertTrue(detail.startsWith("LOAN / Issue equipment to a borrower"));
+        assertTrue(detail.startsWith("Help: loan"));
         assertFalse(detail.contains(".".repeat(60)));
         assertTrue(detail.contains("Issue loans for one or more available equipment units.\n"
                 + "\n    Usage\n        loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"

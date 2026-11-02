@@ -74,9 +74,6 @@ final class PagerContext {
         if (line.matches("Help: [a-z][a-z-]{0,39}")) {
             return "HELP " + line.substring("Help: ".length()).toUpperCase(Locale.ROOT);
         }
-        if (line.equals("LOAN / Issue equipment to a borrower")) {
-            return "HELP LOAN";
-        }
         if (line.matches("OVERVIEW / \\d{4}-\\d{2}-\\d{2}")) {
             return "OVERVIEW";
         }
