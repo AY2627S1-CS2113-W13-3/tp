@@ -64,10 +64,24 @@ Both provide command help and examples.
    java -jar lablog.jar
    ```
 
-4. The LabLog v2.1 banner and the command list appear once at startup;
-   after that, the short `lablog>` prompt waits for your input. Try `help`, then `help loan`, then `exit`.
+4. The LabLog v2.1 banner appears after data loads. In an interactive terminal,
+   press Enter at the ready message to show the clean welcome and boxed `lablog>`
+   prompt. Try `help`, then `help loan`, then `exit`.
 
-For the standalone borrower console, run `java -cp lablog.jar lablog.BorrowerCli`
+Both consoles frame command results with separators. Results that do not fit with
+an input box open at their beginning in a paged view. Use Up/Down Arrow to scroll
+one displayed line, and Enter to close the view. A fixed header identifies the
+current result and section while you scroll. The footer shows the visible line
+range; wrapping and window width affect the total. Colour-capable terminals show
+filled heading and status labels. Set `NO_COLOR` to disable colour. Redirected
+input and unsupported terminals use plain prompts without paging.
+Wide tables in an interactive terminal become numbered, labelled records when
+columns would overflow. Every field remains available; widen the window to return
+to a table. Unicode-containing tables use the labelled layout to avoid uneven
+character widths. Plain redirected output retains the original table format.
+
+For the standalone borrower console, run
+`java --enable-native-access=ALL-UNNAMED -cp lablog.jar lablog.BorrowerCli`
 in the same folder. Exit either console with `exit`, or end input with Ctrl+Z then
 Enter on Windows, or Ctrl+D on macOS/Linux. The borrower console's default data
 file is `data/borrowers.properties`; add another path after `lablog.BorrowerCli`
@@ -100,8 +114,9 @@ See the [FAQ](#faq) for what happens if saving fails.
   fields and batch selections. For example, `OSC-001` is valid; `A/B` and `A,B`
   are rejected. The same rule applies to `add` and the new ID in `copy`.
 * Dates use `YYYY-MM-DD`.
-* Successful changes start with `[OK]`. Rejected commands start with `Error:` and
-  change nothing. Listings are shown as aligned tables.
+* In plain output, successful changes start with `[OK]` and rejected commands
+  start with `Error:`. Colour output uses filled OK and ERROR labels instead.
+  Rejected commands change nothing. Listings are shown as aligned tables.
 * Commands that change records save automatically; read-only commands never save.
 
 ### Viewing common commands and examples: `help`

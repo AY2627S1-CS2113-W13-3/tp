@@ -1,3 +1,42 @@
+# CLI UI refresh verification
+
+Verified locally on 2 November 2026 against upstream develop at 5c6c12d.
+Runtime: Temurin OpenJDK 25.0.4 on Windows.
+
+| Check | Result |
+| --- | --- |
+| Java 25 clean check shadowJar | Passed; 342 JUnit tests, no failures or skips; main/test Checkstyle and fat JAR passed |
+| Packaged Python smoke runner | Passed; ten checks covering both consoles, persistence, restart, help and export/import |
+| PowerShell borrower runner | Passed; both exact-output/persistence cases using the fat JAR and native-access flag |
+| Disposable presentation audit | Passed; 98 main scenarios and nine borrower scenarios, repeated with colour and NO_COLOR |
+| Pager integration tests | Passed; one-line arrows, width/height redraw, Enter, Ctrl-C, Ctrl-D, EOF and terminal-attribute restoration |
+| Responsive table regression tests | Passed; narrow/wide changes, Unicode, long IDs, internal spaces, empty fields and surrounding footers |
+
+Existing build folders contained locked files. A temporary Gradle init script
+redirected generated output to a fresh sibling directory; project build paths
+were not changed. The packaged Python runner accepts LABLOG_TEST_JAR for this
+case, and the PowerShell runner accepts -Jar. All sample data and presentation
+captures remain outside the source tree.
+
+The presentation audit uses a disposable input boundary and checks command
+results, styling, control escaping and data retention. It is not an exhaustive
+native terminal test. Earlier native Windows pseudo-terminal checks covered
+startup, boxed input, guided add/cancel, pager arrows, borrower help, word
+wrapping, stacked inventory and sticky headings. The new stream-terminal tests
+exercise live resize and cleanup through JLine on the test platform. Native
+macOS/Linux terminal appearance has not been manually verified.
+
+GitHub Actions checks Gradle on Ubuntu, macOS and Windows. At the user's request, the PR is opened without waiting for those remote runs;
+local results above do not imply CI has passed. CI does not run the
+separate Python and PowerShell smoke runners. No claim is made that every manual
+Developer Guide scenario or every terminal emulator has been tested.
+
+The verification fixes update UI-specific expectations while retaining domain,
+ordering, persistence, rollback and error assertions. Documented help examples
+are still executed by tests, now extracted from the indented Example section.
+
+---
+
 # Current feature verification
 
 Verified locally on 2 November 2026 for the v2.1 preparation branch based on

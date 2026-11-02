@@ -33,9 +33,10 @@ class HelpCommandsTest {
                 "find", "search", "history", "copy", "add-borrower", "loans", "exit")) {
             assertTrue(summary.contains(command));
             String detail = help.execute("help " + command);
-            assertTrue(detail.contains("Format: " + command));
-            assertTrue(detail.contains("Example: " + command));
-            assertTrue(detail.contains("Fields:"));
+            assertTrue(detail.contains("Usage\n        " + command));
+            assertTrue(HelpText.examples(detail).stream()
+                    .anyMatch(example -> example.startsWith("Example: " + command)));
+            assertTrue(detail.contains("    Required"));
         }
     }
 
@@ -43,13 +44,13 @@ class HelpCommandsTest {
     void execute_activeLoanHelp_documentsOverdueModeAndBothExamples() {
         String detail = help.execute("help active-loans");
         assertTrue(help.execute("help").contains("active-loans [overdue]"));
-        assertTrue(detail.contains("Format: active-loans [overdue]"));
+        assertTrue(detail.contains("Usage\n        active-loans [overdue]"));
         assertTrue(detail.contains("Loans due today are not overdue."));
         assertTrue(detail.contains("ordered by due date then asset ID"));
-        assertTrue(detail.contains("Fields: overdue"));
+        assertTrue(detail.contains("Required\n        overdue"));
         ActiveLoanCommands commands = new ActiveLoanCommands(new LoanBook(), Clock.systemDefaultZone());
         int count = 0;
-        for (String line : detail.split("\n")) {
+        for (String line : HelpText.examples(detail)) {
             if (line.startsWith("Example: ")) {
                 String example = line.substring(9);
                 assertEquals(example.endsWith(" overdue") ? "No overdue loans." : "No active loans.",
@@ -63,9 +64,9 @@ class HelpCommandsTest {
     @Test
     void execute_listHelp_documentsFiltersAndAvailabilityRules() {
         String detail = help.execute("help list");
-        assertTrue(detail.contains("Format: list [category/VALUE] [location/VALUE]"
+        assertTrue(detail.contains("Usage\n        list [category/VALUE] [location/VALUE]"
                 + " [status/available|on-loan|unavailable|lost|retired] [sort/FIELD]"));
-        assertTrue(detail.contains("Example: list category/Electronics location/Lab A status/available"));
+        assertTrue(detail.contains("        list category/Electronics location/Lab A status/available"));
         assertTrue(detail.contains("Match category and location exactly, ignoring case; combine any filters."));
         assertTrue(detail.contains("severe faults and lost units are unavailable"));
     }
@@ -73,7 +74,7 @@ class HelpCommandsTest {
     @Test
     void execute_copyHelpExplainsUniqueIdAndRecordBehavior() {
         String detail = help.execute("help copy");
-        assertTrue(detail.contains("Format: copy SOURCE_ASSET_ID NEW_ASSET_ID"));
+        assertTrue(detail.contains("Usage\n        copy SOURCE_ASSET_ID NEW_ASSET_ID"));
         assertTrue(detail.contains("The new ID must be unique."));
         assertTrue(detail.contains("Loans and history are not copied"));
     }
@@ -82,7 +83,7 @@ class HelpCommandsTest {
     void execute_searchHelp_documentsCaseInsensitiveNameAndModelSearch() {
         String detail = help.execute("help search");
 
-        assertTrue(detail.contains("Format: search TEXT"));
+        assertTrue(detail.contains("Usage\n        search TEXT"));
         assertTrue(detail.contains("Match text anywhere in an equipment name or model, ignoring case."));
         assertTrue(detail.contains("asset IDs, categories and locations are not searched."));
         assertTrue(detail.contains("Search does not change inventory or saved records."));
@@ -90,7 +91,7 @@ class HelpCommandsTest {
 
     @Test
     void run_copyHelpExampleWorksAfterRegistration() {
-        String example = help.execute("help copy").lines()
+        String example = HelpText.examples(help.execute("help copy")).stream()
                 .filter(line -> line.startsWith("Example: ")).findFirst().orElseThrow().substring(9);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
 
@@ -98,17 +99,17 @@ class HelpCommandsTest {
                 + example + "\nlist\nexit\n"), new PrintStream(output));
 
         assertTrue(compact(output.toString()).contains("Copied OSC-001 to OSC-002."));
-        assertTrue(compact(output.toString()).contains("OSC-002 | Scope | Electronics | S1 | Lab A | Available"));
+        assertTrue(compact(output.toString()).contains("OSC-002 | Scope | Electronics | S1 | Lab A | AVAILABLE"));
     }
 
     @Test
     void execute_loanHelp_includesRequestedExampleAndFieldGuidance() {
         String detail = help.execute("  help\tloan  ");
-        assertTrue(detail.startsWith("\n" + ".".repeat(60) + "\n"));
-        assertTrue(detail.endsWith("\n" + ".".repeat(60) + "\n"));
+        assertTrue(detail.startsWith("LOAN / Issue equipment to a borrower"));
+        assertFalse(detail.contains(".".repeat(60)));
         assertTrue(detail.contains("Issue loans for one or more available equipment units.\n"
-                + "Format: loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
-                + "Example: loan OSC-001 b/A0123456X d/2099-09-18\n"));
+                + "\n    Usage\n        loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE\n"
+                + "\n    Example\n        loan OSC-001 b/A0123456X d/2099-09-18\n"));
         assertTrue(detail.contains("YYYY-MM-DD"));
         assertTrue(detail.contains("Register the borrower with add-borrower"));
     }
@@ -120,7 +121,7 @@ class HelpCommandsTest {
         assertTrue(detail.contains("distinct, case-sensitive asset IDs"));
         Clock clock = Clock.fixed(Instant.parse("2026-09-10T12:00:00Z"), ZoneOffset.UTC);
         int count = 0;
-        for (String line : detail.split("\n")) {
+        for (String line : HelpText.examples(detail)) {
             if (!line.startsWith("Example: ")) {
                 continue;
             }
@@ -152,7 +153,7 @@ class HelpCommandsTest {
         String detail = help.execute("help list");
 
         assertTrue(detail.contains("[status/available|on-loan|unavailable|lost|retired] [sort/FIELD]"));
-        assertTrue(detail.contains("Example: list sort/name"));
+        assertTrue(detail.contains("        list sort/name"));
         assertTrue(detail.contains("asset-id, name, category, model, location, availability"));
         assertTrue(detail.contains("case-insensitive"));
         assertTrue(detail.contains("does not change inventory order"));
@@ -162,7 +163,7 @@ class HelpCommandsTest {
     void execute_returnExamples_areAcceptedForSeparateActiveLoans() {
         String detail = help.execute("help return");
         int count = 0;
-        for (String line : detail.split("\n")) {
+        for (String line : HelpText.examples(detail)) {
             if (!line.startsWith("Example: ")) {
                 continue;
             }
@@ -193,7 +194,7 @@ class HelpCommandsTest {
         BorrowerBook borrowers = new BorrowerBook();
         BorrowerCommands commands = new BorrowerCommands(borrowers, new LoanBook(), id -> null,
                 Clock.systemDefaultZone());
-        for (String line : help.execute("help add-borrower").split("\n")) {
+        for (String line : HelpText.examples(help.execute("help add-borrower"))) {
             if (line.startsWith("Example: ")) {
                 commands.execute(line.substring(9));
             }
@@ -202,7 +203,7 @@ class HelpCommandsTest {
         assertEquals("Jamie Tan", borrowers.getBorrower("A0123456X").getName());
         assertEquals("Alex Lim", borrowers.getBorrower("A0123457X").getName());
         int lookups = 0;
-        for (String line : help.execute("help loans").split("\n")) {
+        for (String line : HelpText.examples(help.execute("help loans"))) {
             if (line.startsWith("Example: ")) {
                 assertTrue(commands.execute(line.substring(9)).startsWith("No active loans for "));
                 lookups++;
@@ -214,7 +215,7 @@ class HelpCommandsTest {
     @Test
     void execute_helpExamples_resolveToKnownGuidance() {
         int count = 0;
-        for (String line : help.execute("help help").split("\n")) {
+        for (String line : HelpText.examples(help.execute("help help"))) {
             if (line.startsWith("Example: ")) {
                 assertFalse(help.execute(line.substring(9)).isBlank());
                 count++;
@@ -225,7 +226,7 @@ class HelpCommandsTest {
 
     @Test
     void run_historyExample_worksAfterEquipmentRegistration() {
-        String example = help.execute("help history").lines()
+        String example = HelpText.examples(help.execute("help history")).stream()
                 .filter(line -> line.startsWith("Example: ")).findFirst().orElseThrow().substring(9);
         Inventory inventory = new Inventory();
         ByteArrayOutputStream output = new ByteArrayOutputStream();

@@ -4,12 +4,12 @@ import java.util.List;
 
 /**
  * Lays out rows of text as a plain-text table with a header row and a separator line.
- * Every column except the last is padded to its widest cell so the {@code |} separators line up
+ * Every column except the last is padded to its widest cell so columns line up
  * in a monospaced console. The last column is not padded, so lines carry no trailing spaces.
  */
 final class TableFormatter {
-    private static final String COLUMN_SEPARATOR = " | ";
-    private static final String HEADER_JOINT = "-+-";
+    private static final String COLUMN_SEPARATOR = "  ";
+    private static final String HEADER_JOINT = "  ";
 
     private TableFormatter() {
     }

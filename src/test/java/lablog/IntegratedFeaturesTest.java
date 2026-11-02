@@ -60,7 +60,8 @@ class IntegratedFeaturesTest {
         new ApplicationSnapshot(sample().getEquipment(), sample().getBorrowers(), List.of(), List.of()).write(source);
         run(app, "import " + source + " --replace");
         assertFalse(run(app, "history OSC-001").contains("F-1"));
-        assertTrue(run(app, "loan OSC-001 b/A0123456X d/" + LocalDate.now().plusDays(1)).contains("Loaned OSC-001"));
+        assertTrue(run(app, "loan OSC-001 b/A0123456X d/" + LocalDate.now().plusDays(1))
+                .contains("Loan recorded.\n  Asset     OSC-001\n  Borrower  A0123456X"));
     }
 
     @Test

@@ -18,6 +18,11 @@ repositories {
 
 dependencies {
     String jUnitVersion = '5.14.4'
+    String jLineVersion = '4.4.6'
+
+    implementation "org.jline:jline-reader:${jLineVersion}"
+    implementation "org.jline:jline-terminal:${jLineVersion}"
+    runtimeOnly "org.jline:jline-terminal-jni:${jLineVersion}"
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:${jUnitVersion}"
 
@@ -26,6 +31,7 @@ dependencies {
 }
 
 test {
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
     enableAssertions = true
     useJUnitPlatform()
 
@@ -42,6 +48,7 @@ test {
 
 application {
     mainClass = 'lablog.LabLog'
+    applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
 }
 
 jar {
@@ -54,7 +61,8 @@ jar {
 shadowJar {
     archiveFileName = 'lablog.jar'
     manifest {
-        attributes 'Implementation-Title': 'LabLog', 'Implementation-Version': project.version
+        attributes 'Implementation-Title': 'LabLog', 'Implementation-Version': project.version,
+                'Enable-Native-Access': 'ALL-UNNAMED'
     }
 }
 

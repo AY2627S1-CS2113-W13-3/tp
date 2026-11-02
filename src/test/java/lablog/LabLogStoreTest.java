@@ -58,7 +58,9 @@ class LabLogStoreTest {
                 + "loan OSC-001 MIC-002 b/A0123456X d/" + dueDate + "\nexit\n"), new PrintStream(output));
 
         assertFalse(compact(output.toString()).contains("Error:"));
-        assertTrue(compact(output.toString()).contains("Loaned OSC-001, MIC-002 to A0123456X on "));
+        assertTrue(output.toString().contains("Loan recorded."));
+        assertTrue(output.toString().contains("  Asset     OSC-001\n  Borrower  A0123456X"));
+        assertTrue(output.toString().contains("  Asset     MIC-002\n  Borrower  A0123456X"));
         ApplicationSnapshot saved = ApplicationSnapshot.read(file);
         assertEquals(2, saved.getEquipment().size());
         assertEquals(1, saved.getBorrowers().size());
@@ -224,7 +226,7 @@ class LabLogStoreTest {
         application.run(new Scanner("add OSC-001\nScope\nElectronics\nS1\nLab\nhelp\n"), new PrintStream(output));
         assertTrue(compact(output.toString()).contains("Changes could not be saved"));
         assertFalse(compact(output.toString()).contains("Equipment added to inventory."));
-        assertEquals(1, output.toString().split("LabLog commands:", -1).length - 1);
+        assertEquals(1, output.toString().split("Start here", -1).length - 1);
         assertEquals("keep", Files.readString(file.resolve("keep.txt")));
         try (var files = Files.list(directory)) {
             assertEquals(1, files.count());

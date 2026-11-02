@@ -107,11 +107,13 @@ From the repository root in PowerShell:
 
 ```powershell
 java -version
-.\gradlew.bat classes
-java -cp build/classes/java/main lablog.BorrowerCli build/borrowers-demo.properties
+.\gradlew.bat shadowJar
+java --enable-native-access=ALL-UNNAMED -cp build/libs/lablog.jar lablog.BorrowerCli build/borrowers-demo.properties
 ```
 
-On macOS or Linux, use `./gradlew classes` for the build step; the Java command is the same. Ensure `java -version` reports Java 25.
+On macOS or Linux, use `./gradlew shadowJar` for the build step; the Java command is the same. Ensure `java -version` reports Java 25.
+The packaged JAR includes the terminal dependencies. The native-access flag enables
+the terminal provider when launching a class with `-cp`.
 
 Example input:
 
@@ -168,7 +170,7 @@ After compiling, run the recorded console cases with PowerShell 7:
 pwsh -File test/run-borrower-ui-tests.ps1
 ```
 
-The runner uses a fresh demonstration file under `build/`, verifies exact output, and checks persistence across two separate Java processes. It stops on the first failure and writes the results to [the recorded transcript](test/borrower-ui-transcript.md). See the [test plan](test/ui-test-plan.md) for inputs and expected output. The optional `-Classes` argument selects an alternate compiled-class directory.
+The runner uses a fresh demonstration file under `build/`, verifies exact output, and checks persistence across two separate Java processes. It stops on the first failure and writes the results to [the recorded transcript](test/borrower-ui-transcript.md). See the [test plan](test/ui-test-plan.md) for inputs and expected output. The optional `-Jar` argument selects an alternate packaged JAR.
 
 Run these console checks explicitly: the Gradle checks and GitHub Actions workflow do not invoke the PowerShell runner. Each run updates the transcript, so review that change before including it in a commit.
 

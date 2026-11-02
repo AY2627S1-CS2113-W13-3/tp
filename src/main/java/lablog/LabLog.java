@@ -287,8 +287,8 @@ public class LabLog {
      * Displays the welcome message and adds an equipment unit to the inventory.
      */
     public void run() {
-        try (Scanner scanner = new Scanner(System.in)) {
-            run(scanner, System.out);
+        try (ConsoleInput input = TerminalInput.open()) {
+            run(input, ConsolePresentation.decorate(System.out, input.isInteractive()));
         }
     }
 
@@ -301,238 +301,263 @@ public class LabLog {
      * @param output destination for prompts and results
      */
     public void run(Scanner scanner, PrintStream output) {
+        run(ConsoleInput.plain(scanner, output), output);
+    }
+
+    /** Shares dispatch between interactive terminal sessions and caller-owned input streams. */
+    private void run(ConsoleInput console, PrintStream output) {
         ConsoleWelcome.print(output);
-        output.println(help.execute("help"));
+        if (console.isInteractive()) {
+            if (console.readLine("", "Ready - press Enter to begin ") == null) {
+                return;
+            }
+            console.clearScreen();
+        }
+        ConsoleWelcome.printReady(output);
+        PrintStream destination = output;
         while (true) {
-            output.print("lablog> ");
-            if (!scanner.hasNextLine()) {
+            String input = console.readLine("TYPE COMMAND", "lablog> ");
+            if (input == null) {
                 return;
             }
-            String input = scanner.nextLine();
-            if (TerminalText.hasUnsafeControls(input)) {
-                output.println("Error: Input must not contain control characters.");
-                continue;
-            }
-            input = input.strip();
-            if (input.equals("exit")) {
+            if (!TerminalText.hasUnsafeControls(input) && input.strip().equals("exit")) {
                 return;
+            }
+            CommandOutput resultOutput = console.isInteractive() ? new CommandOutput(console, destination) : null;
+            if (resultOutput != null) {
+                output = resultOutput;
             }
             try {
-                String historyOutput = commandHistory.accept(input);
-                if (historyOutput != null) {
-                    output.println(historyOutput);
+                if (TerminalText.hasUnsafeControls(input)) {
+                    output.println("Error: Input must not contain control characters.");
                     continue;
                 }
-            } catch (IllegalArgumentException exception) {
-                output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                continue;
-            }
-            String command = input.split("\\s+", 2)[0];
-            if (command.equals("export") || command.equals("import")) {
+                input = input.strip();
                 try {
-                    output.println(Messages.ok(transfer(input, command)));
-                } catch (IOException | IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                    output.println("Current records were not changed.");
-                }
-                continue;
-            }
-            if (List.of("reserve", "reservations", "edit-reservation", "cancel-reservation").contains(command)) {
-                try {
-                    String result = reservationCommands.execute(input);
-                    output.println(command.equals("reservations") ? result : Messages.ok(result));
-                } catch (IllegalArgumentException | IOException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                    output.println("Reservations were not changed.");
-                }
-                continue;
-            }
-            if (command.equals("wait-request") || command.equals("waiting-requests")) {
-                try {
-                    String result = waitingCommands.execute(input);
-                    output.println(command.equals("waiting-requests") ? result : Messages.ok(result));
-                } catch (IllegalArgumentException | IOException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                    output.println("Waiting requests were not changed.");
-                }
-                continue;
-            }
-            if (command.equals("available") || command.equals("why-unavailable")) {
-                try {
-                    output.println(command.equals("available") ? availableEquipment.execute(input)
-                            : unavailableReasons.execute(input));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (command.equals("help")) {
-                try {
-                    output.println(help.execute(input));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (List.of("reservation", "fault", "maintenance", "repair").contains(command)) {
-                try {
-                    String result = command.equals("repair") ? repairs.execute(input) : historyRecords.execute(input);
-                    if (!saveChanges(output)) {
-                        return;
-                    }
-                    output.println(Messages.ok(result));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (command.equals("loan-audit")) {
-                try {
-                    output.println(loanAudit.execute(input));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (command.equals("active-loans") || command.equals("overview")) {
-                try {
-                    output.println(command.equals("overview") ? overview.execute(input) : activeLoans.execute(input));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (command.equals("list")) {
-                try {
-                    output.println(equipmentList.execute(input));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (command.equals("edit-equipment")) {
-                try {
-                    String result = equipmentEdit.execute(input);
-                    if (!saveChanges(output)) {
-                        return;
-                    }
-                    output.println(Messages.ok(result));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (command.equals("retire")) {
-                try {
-                    String result = retireEquipment.execute(input);
-                    if (!saveChanges(output)) {
-                        return;
-                    }
-                    output.println(Messages.ok(result));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + exception.getMessage());
-                }
-                continue;
-            }
-            if (command.equals("move-equipment")) {
-                try {
-                    String result = equipmentMove.execute(input);
-                    if (!saveChanges(output)) {
-                        return;
-                    }
-                    output.println(Messages.ok(result));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (command.equals("find")) {
-                try {
-                    output.println(equipmentFind.execute(input));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (command.equals("search")) {
-                try {
-                    output.println(equipmentSearch.execute(input));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (List.of("history", "return", "loan", "renew", "lost", "reverse-loan", "reverse-return")
-                    .contains(command)) {
-                try {
-                    String result = executeRecordCommand(command, input);
-                    if (!command.equals("history") && !saveChanges(output)) {
-                        return;
-                    }
-                    output.println(command.equals("history") ? result : Messages.ok(result));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (List.of("loans", "add-borrower", "edit-borrower").contains(command)) {
-                try {
-                    String result = borrowerCommands.execute(input);
-                    output.println(command.equals("loans") ? result : Messages.ok(result));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                } catch (IOException exception) {
-                    output.println("Error: Cannot save borrower data. "
-                            + TerminalText.escapeControls(exception.getMessage()));
-                    output.println("No changes saved.");
-                }
-                continue;
-            }
-            if (command.equals("copy")) {
-                try {
-                    String result = equipmentCopy.execute(input);
-                    if (!saveChanges(output)) {
-                        return;
-                    }
-                    output.println(Messages.ok(result));
-                } catch (IllegalArgumentException exception) {
-                    output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
-                }
-                continue;
-            }
-            if (!command.equals("add")) {
-                LOGGER.fine("Rejected unknown command");
-                output.println("Error: Unknown command. Use help for commands.");
-                continue;
-            }
-            String[] addParts = input.split("\\s+", 3);
-            try {
-                String result;
-                if (addParts.length == 2) {
-                    String assetId = addParts[1];
-                    if (inventory.containsAssetId(assetId)) {
-                        output.println("Error: Equipment " + assetId + " already exists.");
+                    String historyOutput = commandHistory.accept(input);
+                    if (historyOutput != null) {
+                        output.println(historyOutput);
                         continue;
                     }
-                    Equipment equipment = readEquipment(assetId, scanner, output);
-                    if (equipment == null) {
-                        LOGGER.fine("Discarded incomplete equipment registration at end of input");
-                        output.println("Equipment not added: incomplete input.");
+                } catch (IllegalArgumentException exception) {
+                    printError(output, exception.getMessage());
+                    continue;
+                }
+                String command = input.split("\\s+", 2)[0];
+                if (command.equals("export") || command.equals("import")) {
+                    try {
+                        output.println(Messages.ok(transfer(input, command)));
+                    } catch (IOException | IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                        output.println("Current records were not changed.");
+                    }
+                    continue;
+                }
+                if (List.of("reserve", "reservations", "edit-reservation", "cancel-reservation").contains(command)) {
+                    try {
+                        String result = reservationCommands.execute(input);
+                        output.println(command.equals("reservations") ? result : Messages.ok(result));
+                    } catch (IllegalArgumentException | IOException exception) {
+                        printError(output, exception.getMessage());
+                        output.println("Reservations were not changed.");
+                    }
+                    continue;
+                }
+                if (command.equals("wait-request") || command.equals("waiting-requests")) {
+                    try {
+                        String result = waitingCommands.execute(input);
+                        output.println(command.equals("waiting-requests") ? result : Messages.ok(result));
+                    } catch (IllegalArgumentException | IOException exception) {
+                        printError(output, exception.getMessage());
+                        output.println("Waiting requests were not changed.");
+                    }
+                    continue;
+                }
+                if (command.equals("available") || command.equals("why-unavailable")) {
+                    try {
+                        output.println(command.equals("available") ? availableEquipment.execute(input)
+                                : unavailableReasons.execute(input));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (command.equals("help")) {
+                    try {
+                        output.println(help.execute(input));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (List.of("reservation", "fault", "maintenance", "repair").contains(command)) {
+                    try {
+                        String result = command.equals("repair") ? repairs.execute(input)
+                                : historyRecords.execute(input);
+                        if (!saveChanges(output)) {
+                            return;
+                        }
+                        output.println(Messages.ok(result));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (command.equals("loan-audit")) {
+                    try {
+                        output.println(loanAudit.execute(input));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (command.equals("active-loans") || command.equals("overview")) {
+                    try {
+                        output.println(command.equals("overview") ? overview.execute(input)
+                                : activeLoans.execute(input));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (command.equals("list")) {
+                    try {
+                        output.println(equipmentList.execute(input));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (command.equals("edit-equipment")) {
+                    try {
+                        String result = equipmentEdit.execute(input);
+                        if (!saveChanges(output)) {
+                            return;
+                        }
+                        output.println(Messages.ok(result));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (command.equals("retire")) {
+                    try {
+                        String result = retireEquipment.execute(input);
+                        if (!saveChanges(output)) {
+                            return;
+                        }
+                        output.println(Messages.ok(result));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (command.equals("move-equipment")) {
+                    try {
+                        String result = equipmentMove.execute(input);
+                        if (!saveChanges(output)) {
+                            return;
+                        }
+                        output.println(Messages.ok(result));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (command.equals("find")) {
+                    try {
+                        output.println(equipmentFind.execute(input));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (command.equals("search")) {
+                    try {
+                        output.println(equipmentSearch.execute(input));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (List.of("history", "return", "loan", "renew", "lost", "reverse-loan", "reverse-return")
+                        .contains(command)) {
+                    try {
+                        String result = executeRecordCommand(command, input);
+                        if (!command.equals("history") && !saveChanges(output)) {
+                            return;
+                        }
+                        output.println(command.equals("history") ? result : Messages.ok(result));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (List.of("loans", "add-borrower", "edit-borrower").contains(command)) {
+                    try {
+                        String result = borrowerCommands.execute(input);
+                        output.println(command.equals("loans") ? result : Messages.ok(result));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    } catch (IOException exception) {
+                        output.println("Error: Cannot save borrower data. "
+                                + TerminalText.escapeControls(exception.getMessage()));
+                        output.println("No changes saved.");
+                    }
+                    continue;
+                }
+                if (command.equals("copy")) {
+                    try {
+                        String result = equipmentCopy.execute(input);
+                        if (!saveChanges(output)) {
+                            return;
+                        }
+                        output.println(Messages.ok(result));
+                    } catch (IllegalArgumentException exception) {
+                        printError(output, exception.getMessage());
+                    }
+                    continue;
+                }
+                if (!command.equals("add")) {
+                    LOGGER.fine("Rejected unknown command");
+                    output.println("Error: Unknown command. Use help for commands.");
+                    continue;
+                }
+                String[] addParts = input.split("\\s+", 3);
+                try {
+                    String result;
+                    if (addParts.length == 2) {
+                        String assetId = addParts[1];
+                        if (inventory.containsAssetId(assetId)) {
+                            output.println("Error: Equipment " + assetId + " already exists.");
+                            continue;
+                        }
+                        Equipment equipment = readEquipment(assetId, console, output);
+                        if (equipment == null) {
+                            LOGGER.fine("Discarded incomplete equipment registration at end of input");
+                            output.println("Equipment not added: incomplete input.");
+                            return;
+                        }
+                        inventory.addEquipment(equipment);
+                        result = "Equipment added to inventory.";
+                    } else {
+                        result = equipmentAdd.execute(input);
+                    }
+                    if (!saveChanges(output)) {
                         return;
                     }
-                    inventory.addEquipment(equipment);
-                    result = "Equipment added to inventory.";
-                } else {
-                    result = equipmentAdd.execute(input);
+                    output.println(Messages.ok(result));
+                } catch (RegistrationCancelledException exception) {
+                    output.println("Equipment registration cancelled.");
+                } catch (IllegalArgumentException exception) {
+                    printError(output, exception.getMessage());
                 }
-                if (!saveChanges(output)) {
-                    return;
+            } finally {
+                output = destination;
+                if (resultOutput != null) {
+                    resultOutput.showPending();
+                    resultOutput.close();
                 }
-                output.println(Messages.ok(result));
-            } catch (RegistrationCancelledException exception) {
-                output.println("Equipment registration cancelled.");
-            } catch (IllegalArgumentException exception) {
-                output.println("Error: " + TerminalText.escapeControls(exception.getMessage()));
             }
         }
     }
@@ -554,7 +579,8 @@ public class LabLog {
         case "return":
             return returns.execute(input);
         case "loan":
-            return loanCommands.execute(input);
+            loanCommands.execute(input);
+            return loanConfirmation(input);
         case "renew":
             return renewals.execute(input);
         case "lost":
@@ -567,26 +593,59 @@ public class LabLog {
         }
     }
 
+    /** Builds display details from the loans actually issued by a successful command. */
+    private String loanConfirmation(String input) {
+        StringBuilder confirmation = new StringBuilder("Loan recorded.");
+        String[] words = input.strip().split("\\s+");
+        for (int i = 1; i < words.length && !words[i].contains("/"); i++) {
+            String assetId = words[i];
+            Loan issued = loans.getLoans().stream()
+                    .filter(loan -> loan.isActive() && loan.getAssetId().equals(assetId))
+                    .findFirst().orElseThrow();
+            confirmation.append("\n  Asset     ").append(assetId)
+                    .append("\n  Borrower  ").append(issued.getBorrowerId())
+                    .append("\n  Issued    ").append(issued.getLoanDate())
+                    .append("\n  Due       ").append(issued.getDueDate());
+        }
+        return confirmation.toString();
+    }
+
+    /** Prints safe diagnostic text and an actionable hint when its meaning is known. */
+    private static void printError(PrintStream output, String message) {
+        output.println("Error: " + TerminalText.escapeControls(message));
+        String hint = ConsolePresentation.errorHint(message);
+        if (!hint.isEmpty()) {
+            output.println("  " + hint);
+        }
+    }
+
     /**
      * Prompts for the remaining details after the initial asset ID input.
      *
      * @param assetId identifier supplied at the initial prompt
-     * @param scanner reads the user's input
+     * @param console reads the user's input
      * @param output destination for prompts
      * @return equipment unit created from the input, or null if input ends prematurely
      */
-    private Equipment readEquipment(String assetId, Scanner scanner, PrintStream output) {
+    private Equipment readEquipment(String assetId, ConsoleInput console, PrintStream output) {
         // The initial prompt must validate the identifier before requesting equipment details.
         assert assetId != null && !assetId.isEmpty()
                 && assetId.chars().noneMatch(Character::isWhitespace) : "Expected a validated asset ID";
         String[] prompts = {"name", "category", "model", "location"};
         String[] details = new String[prompts.length];
+        output.println("\nADD EQUIPMENT / " + assetId);
+        output.println("Type cancel at any prompt to discard.");
+        if (output instanceof CommandOutput resultOutput) {
+            resultOutput.showPending();
+        }
         for (int i = 0; i < prompts.length; i++) {
-            output.println("Enter " + prompts[i] + ": (type cancel to abort)");
-            if (!scanner.hasNextLine()) {
+            String field = prompts[i].substring(0, 1).toUpperCase() + prompts[i].substring(1);
+            String step = "STEP " + (i + 1) + " OF " + prompts.length;
+            details[i] = console.readLine(field.toUpperCase() + " / " + step,
+                    field + " [" + (i + 1) + "/" + prompts.length + "]> ");
+            if (details[i] == null) {
                 return null;
             }
-            details[i] = scanner.nextLine();
             if (details[i].strip().equals("cancel")) {
                 throw new RegistrationCancelledException();
             }

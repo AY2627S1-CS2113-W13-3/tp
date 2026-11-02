@@ -26,9 +26,9 @@ public class OverviewCommands {
             throw new IllegalArgumentException("Use: overview");
         }
         LocalDate today = LocalDate.now(clock);
-        StringBuilder output = new StringBuilder("Operational overview for " + today + "\n");
-        appendReservations(output, today);
+        StringBuilder output = new StringBuilder("OVERVIEW / " + today + "\n");
         appendOverdueLoans(output, today);
+        appendReservations(output, today);
         appendSevereFaults(output);
         return output.append("\nMaintenance scheduling is not supported; no due-maintenance data is included.")
                 .toString();
@@ -40,7 +40,7 @@ public class OverviewCommands {
                 .filter(item -> !item.isCancelled() && !item.window().start().isAfter(today)
                         && !item.window().end().isBefore(today))
                 .sorted(Comparator.comparing(Reservation::assetId).thenComparing(Reservation::id)).toList();
-        output.append("\nToday's reservations (" + current.size() + "):\n");
+        output.append("\nTODAY'S RESERVATIONS (" + current.size() + ")\n");
         if (current.isEmpty()) {
             output.append("No reservations for today.\n");
             return;
@@ -60,7 +60,7 @@ public class OverviewCommands {
                 .filter(loan -> loan.isActive() && loan.getDueDate().isBefore(today))
                 .sorted(Comparator.comparing(Loan::getDueDate).thenComparing(Loan::getAssetId)
                         .thenComparing(Loan::getId)).toList();
-        output.append("\nOverdue loans (" + overdue.size() + "):\n");
+        output.append("\nOVERDUE LOANS (" + overdue.size() + ")\n");
         if (overdue.isEmpty()) {
             output.append("No overdue loans.\n");
             return;
@@ -79,7 +79,7 @@ public class OverviewCommands {
         List<Fault> severe = faults.getUnresolvedSevereFaults().stream()
                 .sorted(Comparator.comparing(Fault::getReportDate).thenComparing(Fault::getAssetId)
                         .thenComparing(Fault::getId)).toList();
-        output.append("\nUnresolved severe faults (" + severe.size() + "):\n");
+        output.append("\nSEVERE FAULTS (" + severe.size() + ")\n");
         if (severe.isEmpty()) {
             output.append("No unresolved severe faults.\n");
             return;

@@ -35,15 +35,15 @@ class ConsoleWelcomeTest {
     }
 
     @Test
-    void run_mainConsole_printsBannerOnceBeforeCommandList() {
+    void run_mainConsole_printsBannerThenReadyScreen() {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         Scanner input = new Scanner(new ByteArrayInputStream("exit\n".getBytes(StandardCharsets.UTF_8)));
         new LabLog().run(input, new PrintStream(bytes, true, StandardCharsets.UTF_8));
         String output = bytes.toString(StandardCharsets.UTF_8);
 
         String versionLine = "LabLog v" + ConsoleWelcome.VERSION;
-        assertEquals(output.indexOf(versionLine), output.lastIndexOf(versionLine));
+        assertEquals(2, output.split(versionLine, -1).length - 1);
         assertTrue(output.startsWith(welcomeText()));
-        assertTrue(output.indexOf(versionLine) < output.indexOf("LabLog commands:"));
+        assertTrue(output.indexOf(versionLine) < output.indexOf("Start here"));
     }
 }
