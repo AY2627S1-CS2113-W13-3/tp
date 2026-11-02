@@ -896,7 +896,7 @@ spaces and letter case are preserved.
 | (none) | Borrower ID | An uppercase letter, seven digits and an uppercase letter, e.g. `A0123456X`. This is a shape check, not a check-digit calculation. |
 | `n/` | Name | 1–100 characters with no control characters. |
 | `p/` | Phone | Exactly eight ASCII digits. |
-| `e/` | Email | The lowercase `u.nus.edu` domain and the supported local-part pattern. |
+| `e/` | Email | The `u.nus.edu` domain, matched case-insensitively, and the supported local-part pattern; the supplied spelling is preserved. |
 
 The `Borrower` constructor enforces these rules even when a caller bypasses the
 command parser. `BorrowerBook` separately enforces uniqueness because that rule
