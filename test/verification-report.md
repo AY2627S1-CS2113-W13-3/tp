@@ -17,6 +17,16 @@ Full regression, broad packaged workflows and cross-platform terminal checks are
 deferred until publication preparation. Current launches require no native-access
 flag and the replacement does not bundle JLine.
 
+### Pagination follow-ups
+
+Section-aware pagination passed 12 focused pager/context tests. Fixed-height
+pagination subsequently passed all eight pager tests, main/test Checkstyle and
+the JAR build. Regression coverage checks help, detailed-help and overview section
+boundaries, backwards navigation, and equal page height for short/final pages.
+Windows locked the previous binary test-results directories; focused checks used
+fresh output directories under build/ without changing project configuration.
+These automated results do not establish physical-terminal appearance.
+
 ## Historical scope and baseline
 
 Fetched upstream before creating isolated branch `chore/release-verification`.

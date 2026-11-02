@@ -89,14 +89,18 @@ Both consoles frame command results with separators. Long results open at their
 beginning in a paged view. Press Enter to advance one page, type `b` then Enter
 to go back, or `q` then Enter to close. Invalid responses repeat the navigation
 prompt; EOF ends input. Navigation is separate from command history. Each page
-repeats its result/section heading and visible line range. Pages append to normal
+repeats its result/section heading and visible line range. Recognised help categories,
+detailed-help labels and overview sections start on new pages, even if the previous
+page has space. Unused body rows are filled with blank lines, including on the final
+page, to keep headings and navigation aligned. Enter on the final page closes it.
+Short results without section breaks remain compact. Pages append to normal
 terminal scrollback; arrow keys and live resizing are not managed by LabLog.
 Colour-capable terminals show filled heading and status labels. Set `NO_COLOR`
 to disable colour. Redirected input and unsupported terminals use plain prompts
 without paging. Standard terminal editing replaces application-managed editing.
 
 Layout reads `COLUMNS` and `LINES` once at startup. Values below 20 columns or
-10 rows, absent values and invalid values use defaults of 100 columns and 30 rows.
+10 rows, values above 1000, absent values and invalid values use defaults of 100 columns and 30 rows.
 Set these variables to match your window before starting; restart to change layout.
 Wide tables become numbered, labelled records when columns would overflow.
 Every field remains available. Unicode-containing tables use labelled records;
@@ -1041,6 +1045,3 @@ LabLog again; it reloads the last saved records.
 
 Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
 to record a dated event in the main console. Fault reports are persistent records.
-
-Recognised sections in help, detailed help and overview results start on new pager pages.
-Paged results reserve a fixed body height, filling unused rows with blank lines so headings and navigation stay aligned.

@@ -108,7 +108,10 @@ java -jar build/libs/lablog.jar
 Run the packaged JAR in a terminal to use interactive paging; Gradle `run` may
 provide plain input instead. Long results, including `help`, start at the top.
 Press Enter for the next page, type `b` then Enter for the previous page,
-and type `q` then Enter to close. Each page repeats its result/section heading.
+and type `q` then Enter to close. Enter on the final page also closes it.
+Recognised sections in help, detailed help and overview start on new pages.
+Each page repeats its result/section heading; unused body rows are blank so
+paged results keep a consistent height. Short unpaged results remain compact.
 Redirected input and unsupported terminals print the complete result without paging.
 Layout uses startup `COLUMNS` (at least 20) and `LINES` (at least 10), defaulting
 to 100 columns and 30 rows. Restart after changing these values; resizing is not detected.

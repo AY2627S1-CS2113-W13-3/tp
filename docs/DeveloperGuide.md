@@ -2045,7 +2045,7 @@ also fits in an 80-column window.
 The previous JLine layout probe motivated the 100x30 recommendation; its measured
 page sizes and editable-box dimensions are historical. The replacement reads
 `COLUMNS` (minimum 20) and `LINES` (minimum 10) once at startup, defaulting to
-100x30 for absent, malformed or smaller values. It does not detect resizing.
+100x30 for absent, malformed, smaller or above-1000 values. It does not detect resizing.
 Wide and Unicode tables retain the labelled-record fallback.
 
 Equipment construction rejects control characters in asset IDs, including when
@@ -2105,8 +2105,16 @@ styles it. Grapheme clusters remain intact; non-ASCII width estimates are conser
 rather than an exact terminal-cell model. `NO_COLOR` suppresses styling.
 Plain output preserves handler text and bypasses pagination.
 
-The pager reserves eight rows, leaving `max(1, rows - 8)` body rows. Enter advances
-a page, `b` then Enter goes back, and `q` then Enter closes. Invalid input repeats
+The pager reserves eight rows, leaving `max(1, rows - 8)` body rows.
+`PagerContext.isSectionStart` recognises help categories, detailed-help labels and
+overview sections using the same result-aware rules as breadcrumbs; record values
+do not introduce section breaks. `TerminalInput` precomputes page starts at either
+the body capacity or a recognised section heading. Back navigation uses these same
+boundaries. Every paged body is padded with blank lines to its full capacity,
+including the final page; short unpaged output stays compact.
+
+Enter advances
+a page (or closes the final page), `b` then Enter goes back, and `q` then Enter closes. Invalid input repeats
 the navigation prompt; EOF closes paging and ends subsequent command input.
 Navigation never enters command history. Each appended page repeats the canonical
 result/section breadcrumb from `PagerContext` and the visible line range. Pages
@@ -2728,6 +2736,9 @@ must remain after another restart.
 Use a native terminal and a new `presentation.properties`; redirected input
 cannot exercise interactive paging. Start with `COLUMNS=80` and `LINES=24`, then
 run `help`. Press Enter to advance, enter `b` to return, and enter `q` to close.
+Check that help categories, detailed-help labels and overview sections start on new
+pages. Short section pages and the final page should retain the same body height
+with blank padding. Go back to confirm the same page boundaries are restored.
 Check repeated result/section headings and line ranges, invalid navigation input,
 and EOF. Confirm paging input does not appear in `commands`. After closing, run
 `help loan` to confirm command input resumes normally.
@@ -2736,4 +2747,6 @@ Restart with different dimension variables to check wrapping and table fallback;
 resizing during a session does not recalculate layout. Unicode tables use labelled
 records. Repeat with `NO_COLOR` set, then pipe `help` and `exit` to the JAR and
 confirm plain output has no paging, acknowledgement or ANSI escapes. Use disposable
-data. These replacement checks are pending until recorded in the verification report.
+data. Focused automated checks and captured-output probes are recorded in the
+[verification report](../test/verification-report.md); physical-terminal appearance
+and cross-platform checks remain pending.

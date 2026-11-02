@@ -21,11 +21,16 @@ loan without changing the system clock. Use a disposable copy of that file.
 
 ## Interactive refresh checks
 
-Replacement verification is pending. In an interactive terminal, launch the JAR
+Focused replacement tests and captured-output probes passed; physical-terminal
+verification remains pending. In an interactive terminal, launch the JAR
 with disposable data and confirm the startup acknowledgement and labelled prompt.
 
 - Run `help`; Enter advances a page, `b` then Enter returns, and `q` then Enter closes.
   Check repeated result/section headings and line ranges, including first/last pages.
+  Help categories, detailed-help labels and overview sections must start on new pages.
+  Check blank padding on short section pages and the final page: all paged bodies
+  must keep the same height. Back navigation must restore the same boundaries.
+  Enter on the final page closes the pager; short unpaged output stays compact.
 - Invalid navigation input repeats the prompt. EOF closes paging and ends command input.
   Pager responses must not enter command history.
 - Start with different `COLUMNS` and `LINES` values to check wrapping and responsive
