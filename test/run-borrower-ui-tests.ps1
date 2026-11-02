@@ -32,7 +32,7 @@ foreach ($case in $cases) {
     $info.RedirectStandardInput = $true
     $info.RedirectStandardOutput = $true
     $info.RedirectStandardError = $true
-    foreach ($argument in @('--enable-native-access=ALL-UNNAMED', '-cp', $Jar, 'lablog.BorrowerCli', $dataFile)) {
+    foreach ($argument in @('-cp', $Jar, 'lablog.BorrowerCli', $dataFile)) {
         $info.ArgumentList.Add($argument)
     }
     $process = [System.Diagnostics.Process]::Start($info)
@@ -41,7 +41,7 @@ foreach ($case in $cases) {
     $actual = $process.StandardOutput.ReadToEnd().Replace("`r`n", "`n")
     $errors = $process.StandardError.ReadToEnd()
     $process.WaitForExit()
-    $transcript.Add("## $($case.Name)`n`nCommand: java --enable-native-access=ALL-UNNAMED -cp $Jar lablog.BorrowerCli $dataFile`n")
+    $transcript.Add("## $($case.Name)`n`nCommand: java -cp $Jar lablog.BorrowerCli $dataFile`n")
     $transcript.Add("Input:`n``````text`n$($case.Input)```````n`nActual output:`n``````text`n$($actual.TrimEnd())`n``````")
     $transcript.Add("Exit code: $($process.ExitCode). Stderr: $(if ($errors.Length -eq 0) { '(empty)' } else { $errors })")
     if ($actual -cne $case.Expected -or $errors.Length -ne 0 -or $process.ExitCode -ne 0) {

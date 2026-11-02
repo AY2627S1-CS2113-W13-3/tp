@@ -43,7 +43,7 @@ class CliSmokeTests(unittest.TestCase):
 
     def borrower(self, file, user_input):
         return self.run_java(
-            ["--enable-native-access=ALL-UNNAMED", "-cp", str(JAR), "lablog.BorrowerCli", str(file)], user_input
+            ["-cp", str(JAR), "lablog.BorrowerCli", str(file)], user_input
         )
 
     def test_main_help_examples_and_recovery(self):
