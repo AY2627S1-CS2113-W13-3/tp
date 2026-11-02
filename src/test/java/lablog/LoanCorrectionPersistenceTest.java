@@ -58,7 +58,7 @@ class LoanCorrectionPersistenceTest {
                 + "loan MIC b/" + USER + " d/" + LocalDate.now().plusDays(1));
         assertFalse(output.contains("Error:"), output);
         ApplicationSnapshot corrected = ApplicationSnapshot.read(data);
-        assertEquals("11", ApplicationSnapshot.readProperties(data).getProperty("format"));
+        assertEquals("12", ApplicationSnapshot.readProperties(data).getProperty("format"));
         assertEquals(original.getAuditEvents(), corrected.getAuditEvents().subList(0, 4));
         assertEquals(8, corrected.getAuditEvents().size());
         assertTrue(corrected.getLoans().get(0).isActive());
@@ -190,6 +190,9 @@ class LoanCorrectionPersistenceTest {
     void migration_legacyLoanCanReverseNewReturnWithoutFabricatingPastIssue(@TempDir Path directory) throws Exception {
         Properties legacy = sample().toProperties();
         legacy.setProperty("format", "10");
+        legacy.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(legacy::remove);
         legacy.keySet().removeIf(key -> key.toString().startsWith("audit.")
                 || (key.toString().startsWith("loan.") && key.toString().endsWith(".id")));
         legacy.setProperty("audit.count", "0");

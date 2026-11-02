@@ -36,6 +36,7 @@ public class EquipmentSearchCommands {
         }
         String normalizedQuery = query.toLowerCase(Locale.ROOT);
         List<Equipment> matches = equipment.stream()
+                .filter(unit -> !unit.isRetired())
                 .filter(unit -> normalize(unit.getName()).toLowerCase(Locale.ROOT).contains(normalizedQuery)
                         || normalize(unit.getModel()).toLowerCase(Locale.ROOT).contains(normalizedQuery))
                 .toList();

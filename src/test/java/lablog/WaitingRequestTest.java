@@ -137,6 +137,9 @@ class WaitingRequestTest {
         }
         Properties legacy = snapshot.toProperties();
         legacy.setProperty("format", "7");
+        legacy.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(legacy::remove);
         legacy.keySet().removeIf(key -> key.toString().startsWith("waiting."));
         assertTrue(ApplicationSnapshot.decode(legacy).getWaitingRequests().isEmpty());
         assertFalse(ApplicationSnapshot.decode(legacy).getReservations().isEmpty());

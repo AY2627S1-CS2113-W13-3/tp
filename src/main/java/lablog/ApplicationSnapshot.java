@@ -116,7 +116,7 @@ public class ApplicationSnapshot {
         return parsed;
     }
 
-    /** Reads transfer formats 2 through 11; legacy two-file data is handled only by the application loader. */
+    /** Reads transfer formats 2 through 12; legacy two-file data is handled only by the application loader. */
     public static ApplicationSnapshot read(Path file) throws IOException {
         return decode(readProperties(file));
     }
@@ -132,9 +132,10 @@ public class ApplicationSnapshot {
      */
     static ApplicationSnapshot decode(Properties records) throws IOException {
         try {
-            if (!Set.of("2", "3", "4", "5", "6", "7", "8", "9", "10", "11").contains(required(records, "format"))) {
+            if (!Set.of("2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")
+                    .contains(required(records, "format"))) {
                 throw new IllegalArgumentException(
-                        "Unsupported snapshot format; expected 2, 3, 4, 5, 6, 7, 8, 9, 10 or 11.");
+                        "Unsupported snapshot format; expected a version from 2 through 12.");
             }
             LabLogStore base = new LabLogStore(records);
             List<Borrower> borrowers = new ArrayList<>();
@@ -169,17 +170,25 @@ public class ApplicationSnapshot {
                 }
                 notes.add(entry);
             }
-            if (!"11".equals(records.getProperty("format")) && count(records, "audit.count") != 0) {
+            if (!Set.of("11", "12").contains(records.getProperty("format")) && count(records, "audit.count") != 0) {
                 throw new IllegalArgumentException("Audit records are not supported by this schema version.");
             }
             BorrowerBook borrowerBook = new BorrowerBook();
             borrowerBook.replaceAll(borrowers);
             ReservationBook bookingBook = new ReservationBook(base.getInventory(), borrowerBook,
                     Clock.systemDefaultZone());
-            if (Set.of("6", "7", "8", "9", "10", "11").contains(records.getProperty("format"))) {
+            if (Set.of("6", "7", "8", "9", "10", "11", "12").contains(records.getProperty("format"))) {
                 bookingBook.replaceAll(ReservationCodec.read(records));
             }
-            List<WaitingRequest> waiting = Set.of("8", "9", "10", "11").contains(records.getProperty("format"))
+            for (Equipment unit : base.getInventory().getEquipmentUnits()) {
+                if (unit.isRetired() && (base.getLoans().hasActiveLoan(unit.getAssetId())
+                        || bookingBook.getReservations().stream().anyMatch(r -> !r.isCancelled()
+                                && r.assetId().equals(unit.getAssetId())
+                                && !r.window().end().isBefore(unit.getRetiredOn())))) {
+                    throw new IllegalArgumentException("Retired equipment has an outstanding loan or reservation.");
+                }
+            }
+            List<WaitingRequest> waiting = Set.of("8", "9", "10", "11", "12").contains(records.getProperty("format"))
                     ? WaitingRequestCodec.read(records) : List.of();
             WaitingRequestBook.validate(waiting, borrowerBook);
             ApplicationSnapshot result = new ApplicationSnapshot(base.getInventory().getEquipmentUnits(), borrowers,
@@ -206,31 +215,35 @@ public class ApplicationSnapshot {
             if (format.equals("3")) {
                 accepted.removeIf(key -> key.startsWith("fault.") && key.endsWith(".severity"));
             }
-            if (!Set.of("5", "6", "7", "8", "9", "10", "11").contains(format)) {
+            if (!Set.of("5", "6", "7", "8", "9", "10", "11", "12").contains(format)) {
                 accepted.removeIf(key -> key.startsWith("fault.")
                         && (key.endsWith(".resolved") || key.endsWith(".repair")));
             }
         }
-        if (!Set.of("6", "7", "8", "9", "10", "11").contains(format)) {
+        if (!Set.of("6", "7", "8", "9", "10", "11", "12").contains(format)) {
             accepted.removeIf(key -> key.startsWith("reservation."));
         }
         if (format.equals("6")) {
             accepted.removeIf(key -> key.startsWith("reservation.")
                     && (key.endsWith(".cancelled") || key.endsWith(".reason")));
         }
-        if (!Set.of("8", "9", "10", "11").contains(format)) {
+        if (!Set.of("8", "9", "10", "11", "12").contains(format)) {
             accepted.removeIf(key -> key.startsWith("waiting."));
         }
-        if (!Set.of("9", "10", "11").contains(format)) {
+        if (!Set.of("9", "10", "11", "12").contains(format)) {
             accepted.removeIf(key -> key.startsWith("loan.")
                     && (key.endsWith(".originalDue") || key.contains(".renewal.")));
         }
-        if (!Set.of("10", "11").contains(format)) {
+        if (!Set.of("10", "11", "12").contains(format)) {
             accepted.removeIf(key -> key.startsWith("loan.") && key.endsWith(".lost"));
         }
-        if (!format.equals("11")) {
+        if (!Set.of("11", "12").contains(format)) {
             accepted.removeIf(key -> (key.startsWith("audit.") && !key.equals("audit.count"))
                     || (key.startsWith("loan.") && key.endsWith(".id")));
+        }
+        if (!format.equals("12")) {
+            accepted.removeIf(key -> key.startsWith("equipment.")
+                    && (key.endsWith(".retired") || key.endsWith(".retirementReason")));
         }
         return accepted;
     }
@@ -287,7 +300,7 @@ public class ApplicationSnapshot {
         Path temporary = Files.createTempFile(file.getParent(), "snapshot-", ".tmp");
         try {
             try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
-                records.store(writer, "LabLog complete snapshot, format 11");
+                records.store(writer, "LabLog complete snapshot, format 12");
             }
             if (Files.size(temporary) > MAX_BYTES) {
                 throw new IOException("Snapshot exceeds the supported 10 MiB size limit.");

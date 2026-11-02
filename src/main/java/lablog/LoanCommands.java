@@ -189,6 +189,9 @@ public class LoanCommands {
      * Warns instead of lending a unit that someone else still has, naming who holds it.
      */
     private void rejectUnavailable(String assetId) {
+        if (inventory.getEquipment(assetId).isRetired()) {
+            throw new IllegalArgumentException("Equipment " + assetId + " is retired and cannot be loaned.");
+        }
         if (loans.hasLostLoan(assetId)) {
             throw new IllegalArgumentException("Equipment " + assetId + " is marked lost and cannot be loaned.");
         }

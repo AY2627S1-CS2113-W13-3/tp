@@ -174,6 +174,9 @@ class RepairCommandsTest {
         Fault original = report(store.getFaults(), TODAY);
         Properties records = store.toProperties();
         records.setProperty("format", "4");
+        records.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(records::remove);
         records.remove("fault.0.resolved");
         records.remove("fault.0.repair");
         store.write(records);
@@ -185,6 +188,9 @@ class RepairCommandsTest {
         records.setProperty("audit.count", "0");
         assertFalse(ApplicationSnapshot.decode(records).getFaults().getFirst().isResolved());
         records.setProperty("format", "5");
+        records.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(records::remove);
         assertThrows(IOException.class, () -> ApplicationSnapshot.decode(records));
         for (String[] invalid : List.of(new String[]{"", "Orphan repair"},
                 new String[]{"2026-10-22", ""}, new String[]{"2026-10-21", "Too early"},

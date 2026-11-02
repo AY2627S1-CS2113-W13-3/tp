@@ -1,5 +1,7 @@
 package lablog;
 
+import java.time.LocalDate;
+
 /**
  * Represents an equipment unit and its identifying details.
  */
@@ -9,6 +11,8 @@ public class Equipment {
     private final String category;
     private final String model;
     private final String location;
+    private final LocalDate retiredOn;
+    private final String retirementReason;
 
     /**
      * Creates an equipment unit with the given details.
@@ -20,6 +24,12 @@ public class Equipment {
      * @param location equipment location
      */
     public Equipment(String assetId, String name, String category, String model, String location) {
+        this(assetId, name, category, model, location, null, "");
+    }
+
+    /** Restores the retirement date and reason alongside the equipment details. */
+    public Equipment(String assetId, String name, String category, String model, String location,
+            LocalDate retiredOn, String retirementReason) {
         if (assetId == null || assetId.isBlank()
                 || assetId.chars().anyMatch(c -> Character.isWhitespace(c) || Character.isISOControl(c))) {
             throw new IllegalArgumentException("Asset ID must be a single non-empty word without control characters.");
@@ -32,6 +42,13 @@ public class Equipment {
         validateDetail(category, "Category");
         validateDetail(model, "Model");
         validateDetail(location, "Location");
+        if (retirementReason == null || (retiredOn == null && !retirementReason.isEmpty())
+                || (retiredOn != null && (retirementReason.isBlank()
+                        || retirementReason.chars().anyMatch(Character::isISOControl)))) {
+            throw new IllegalArgumentException("Retirement needs a date and a single-line reason.");
+        }
+        this.retiredOn = retiredOn;
+        this.retirementReason = retirementReason;
         this.assetId = assetId;
         this.name = name;
         this.category = category;
@@ -44,6 +61,18 @@ public class Equipment {
         if (value == null || value.isBlank() || value.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException(label + " must be non-empty and on one line.");
         }
+    }
+
+    public boolean isRetired() {
+        return retiredOn != null;
+    }
+
+    public LocalDate getRetiredOn() {
+        return retiredOn;
+    }
+
+    public String getRetirementReason() {
+        return retirementReason;
     }
 
     public String getAssetId() {

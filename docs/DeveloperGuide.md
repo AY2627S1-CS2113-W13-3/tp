@@ -15,6 +15,7 @@
 * [Implementation](#implementation)
   * [Equipment records](#equipment-records)
     * [Equipment registration](#equipment-registration)
+    * [Retiring equipment](#retiring-equipment)
     * [Equipment listing, filters, and sorting](#equipment-listing-filters-and-sorting)
     * [Equipment search](#equipment-search)
     * [Exact equipment lookup](#exact-equipment-lookup)
@@ -286,7 +287,7 @@ repairs, reservations and waiting requests. Each record uses indexed keys such a
 `loan.0.asset`, and a `*.count` key gives the number of records of each type.
 
 **Format versions.** The `format` key records the schema version. The current
-writer always saves format 11, and formats 2 to 10 still load without inventing
+writer always saves format 12, and formats 2 to 11 still load without inventing
 newer data. Each version added one kind of record:
 
 | Format | Added | Format | Added |
@@ -296,10 +297,11 @@ newer data. Each version added one kind of record:
 | 4 | Fault severity | 9 | Loan renewal chains |
 | 5 | Repairs and fault resolution | 10 | Loss reports |
 | 6 | Reservations | 11 | Stable loan IDs and the loan audit log |
+| 12 | Equipment retirement | | |
 
 Only an explicit `format=1` equipment/loan file uses legacy loading through
 `LabLogStore`, with contacts from the separate borrower file. The next successful
-change migrates those records to one snapshot. Formats 2 through 11 must pass
+change migrates those records to one snapshot. Formats 2 through 12 must pass
 complete snapshot validation. A missing `borrower.count` does not select legacy
 loading: missing counts and unknown formats stop startup before the prompt and
 leave the source file unchanged.
@@ -376,6 +378,7 @@ classDiagram
     EquipmentCopyCommands --> "1" Inventory : inventory
     EquipmentEditCommands --> "1" Inventory : inventory
     EquipmentMoveCommands --> "1" Inventory : inventory
+    RetireEquipmentCommands --> "1" Inventory : inventory
     EquipmentFindCommands --> "1" Inventory : inventory
     EquipmentListCommands --> "1" Inventory : inventory
     Inventory --> "0..*" Equipment : equipmentUnits {ordered}
@@ -393,14 +396,18 @@ classDiagram
         -category: String
         -model: String
         -location: String
+        -retiredOn: LocalDate
+        -retirementReason: String
     }
 ```
 
-*All six equipment handlers share the main console's one `Inventory`. Only those
+*All seven equipment handlers share the main console's one `Inventory`. Only those
 associations are shown: `LabLog` holds one instance of each handler (see
 [Architecture](#architecture)), and `EquipmentListCommands` and
 `EquipmentFindCommands` also read `LoanBook` and `FaultBook` to derive availability,
-as the [search diagram](#equipment-search) shows for `search`. `getEquipmentUnits()`
+as the [search diagram](#equipment-search) shows for `search`.
+`RetireEquipmentCommands` also reads `LoanBook` and `ReservationBook`, as shown
+in the [retirement sequence](#retiring-equipment). `getEquipmentUnits()`
 returns an immutable copy, so handlers read units freely but change them only
 through the operations shown.*
 
@@ -479,6 +486,69 @@ and unknown fields, and duplicate IDs. `EquipmentValidationTest` covers blank
 details for every field and checks that a rejected duplicate leaves the original
 unit unchanged. `RegistrationCancellationTest` cancels at each prompt and
 checks that no partial unit is stored and the session continues.
+
+#### Retiring equipment
+
+`retire ASSET_ID reason/TEXT` replaces the immutable equipment record with one
+containing the local retirement date and reason. It rejects an outstanding loan
+or an uncancelled reservation ending today or later. The shared availability
+policy blocks retired assets from lending, reservations, and availability results.
+Ordinary list and search hide retired assets; `list status/retired`, `find`, and
+`history` retain access to them. Existing references and asset IDs remain valid.
+
+Snapshot format 12 stores `equipment.N.retired` and
+`equipment.N.retirementReason`. Earlier formats load as active equipment; format
+12 validates the paired fields and rejects retired assets with outstanding loans
+or overlapping current/future reservations. Replacement import and save use the
+existing full-snapshot validation and atomic write path. Retirement is irreversible
+in this version. A failed save stops the console with the prior file unchanged.
+
+The following sequence shows the checks, rejection paths and a successful save.
+The handler validates the asset and reason before checking loans.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant L as :LabLog
+    participant R as :RetireEquipmentCommands
+    participant I as :Inventory
+    participant B as :LoanBook
+    participant V as :ReservationBook
+    User->>+L: retire OSC-001 reason/End of service
+    L->>+R: execute(input)
+    R->>+I: getEquipment("OSC-001")
+    I-->>-R: unit
+    Note right of R: reject an already retired unit<br/>or an empty or invalid reason
+    R->>+B: hasActiveLoan("OSC-001")
+    B-->>-R: activeLoan
+    opt no outstanding loan
+        R->>+V: getReservations()
+        V-->>-R: reservations
+        Note right of R: check uncancelled reservations<br/>ending today or later
+    end
+    alt outstanding loan or reservation
+        R-->>L: IllegalArgumentException
+    else no conflicting loan or reservation
+        create participant E as replacement:Equipment
+        R->>+E: Equipment(assetId, ..., today, reason)
+        E-->>-R: replacement
+        R->>+I: updateEquipment(replacement)
+        I-->>-R: #nbsp;
+        R-->>L: retirement confirmation
+    end
+    deactivate R
+    alt rejected
+        L-->>User: Error: ...
+    else accepted
+        L->>+L: saveChanges(output)
+        L-->>-L: true
+        L-->>User: [OK] Retired equipment OSC-001 ...
+    end
+    deactivate L
+```
+
+On a failed save, `LabLog` reports the failure and ends the session without
+printing the confirmation. The prior snapshot remains unchanged.
 
 #### Equipment listing, filters, and sorting
 
@@ -1691,7 +1761,7 @@ before printing success (see [Storage](#storage)).
 
 Format 3 introduced `fault.count` and indexed `fault.N.id`, `asset`, `date`
 and `description` fields; formats 4 and 5 extend these records below. The current
-writer always saves one complete format-11 snapshot, including borrowers and notes.
+writer always saves one complete format-12 snapshot, including borrowers and notes.
 Legacy split-file installations migrate on save. Imports replace the existing
 shared fault book, so all handlers see replacement faults immediately.
 Derived fault history is excluded from exported notes to prevent duplication.
@@ -1724,7 +1794,7 @@ Live and export format 4 adds required `fault.N.severity` enum names. Live
 formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
 migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
 unknown severity in format 4 or later is corruption, not a migration default.
-The current writer uses format 11, retaining audit evidence, renewal events and loss reports.
+The current writer uses format 12, retaining audit evidence, renewal events and loss reports.
 
 `FaultSeverityTest` covers all levels, description validation, immutable overview
 results, affected-unit isolation, date boundaries, reports during active loans,
@@ -1878,7 +1948,7 @@ ApplicationSnapshot format 8 adds waiting.count and indexed id, borrower,
 category, from and to fields. Formats 2-7 decode with empty waiting lists. Schema
 history: 3 introduced faults, 4 severity, 5 repairs, 6 reservations, 7 cancellation,
 8 waiting demand, 9 loan renewal chains, 10 loss reports, 11 loan IDs and audit evidence.
-Every current save/export writes format 11
+Every current save/export writes format 12
 and retains all these records. Unknown fields and missing required fields remain errors.
 
 WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,
@@ -2097,7 +2167,7 @@ corrections; it is not a general audit of every inventory-changing action.
 * **Overdue loan:** an active loan with a due date before today's local date.
 * **Severe fault:** an unresolved fault with severity `SEVERE`; it blocks lending.
 * **Snapshot format:** the schema version stored in the data file's `format` key;
-  the current writer uses format 11.
+  the current writer uses format 12.
 * **Audit event:** an immutable record of one loan, return or correction, shown by
   `loan-audit`.
 * **History entry:** a display snapshot of a record, not an immutable event log.

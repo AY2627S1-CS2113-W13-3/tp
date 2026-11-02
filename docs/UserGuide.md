@@ -7,6 +7,7 @@
 * [Features](#features)
   * [Viewing common commands and examples: `help`](#viewing-common-commands-and-examples-help)
   * [Registering equipment](#registering-equipment)
+  * [Retiring equipment: `retire`](#retiring-equipment-retire)
   * [Copying equipment details: `copy`](#copying-equipment-details-copy)
   * [Editing equipment details](#editing-equipment-details)
   * [Moving several equipment units together](#moving-several-equipment-units-together)
@@ -172,6 +173,21 @@ Registration begins only after an explicit `add` command.
 Equipment is saved to the configured LabLog data file after each successful
 registration and is available after restart.
 
+### Retiring equipment: `retire`
+
+Use `retire ASSET_ID reason/TEXT`, for example `retire OSC-001 reason/End of service`.
+The unit must be registered and not already retired. Return or resolve any
+outstanding loan and cancel its current or future reservations first. The
+command records the retirement date and reason and preserves the asset ID,
+loans, reservations, faults and history. Retirement cannot be undone in this
+version; a retired ID cannot be reused.
+
+Retired units are hidden from ordinary `list` and `search` results and cannot be
+loaned or reserved. Use `list status/retired` to list them, or `find OSC-001`
+to see the date and reason. `history OSC-001` still shows prior records.
+Retired units cannot be edited or moved. Retirement persists across restart,
+export and import.
+
 ### Copying equipment details: `copy`
 
 Use `copy SOURCE_ASSET_ID NEW_ASSET_ID` to create another unit from a registered
@@ -211,11 +227,12 @@ unchanged. A successful batch is saved to the configured LabLog data file.
 ### Listing, filtering, and sorting equipment: `list`
 
 Enter `list` in the main console to show asset ID, name, category, model,
-location, and availability for each registered unit. Add any combination of
+location, and availability for each active registered unit. Use `status/retired`
+to list retired units. Add any combination of
 category, location, and status filters:
 
 ```text
-list [category/VALUE] [location/VALUE] [status/available|on-loan|unavailable|lost] [sort/FIELD]
+list [category/VALUE] [location/VALUE] [status/available|on-loan|unavailable|lost|retired] [sort/FIELD]
 ```
 
 For example, `list category/Electronics location/Lab A status/available` shows
@@ -231,14 +248,15 @@ not change this undated operational status; reservations block loans only when
 their date ranges overlap.
 Add `sort/FIELD` to sort the matching units in ascending order by `asset-id`,
 `name`, `category`, `model`, `location`, or `availability`. For example,
-`list sort/name` sorts all units, while
+`list sort/name` sorts active units, while
 `list category/Electronics location/Lab A status/available sort/name` filters
 first and then sorts the matches. Options may appear in any order, once each.
 Comparisons are case-insensitive. Equal values are ordered by asset ID, with
 exact ID case as a final tie-breaker. Sorting only reorders the displayed
 snapshot; it does not change inventory order or stored records.
 
-An empty inventory reports `No equipment registered.` A filter with no
+An empty inventory reports `No equipment registered.` An inventory containing only
+retired units reports `No active equipment registered.` A filter with no
 matches reports `No equipment matches the supplied filters.`
 
 ### Finding one unit: `find`
@@ -808,7 +826,7 @@ FILE must not already exist. Paths containing spaces may be enclosed in double
 quotes. Export does not change current records. Store backups securely because
 they include borrower contact details.
 
-Format 11 contains equipment, borrowers, complete loans and returns, structured
+Format 12 contains retirement details and equipment, borrowers, complete loans and returns, structured
 renewal events, loss reports, stable loan IDs, borrowing/return audit events,
 history notes, faults with severity and repair details, reservations and waiting
 requests. Formats 2 through 10 remain readable. Formats before 10 load without
@@ -824,7 +842,7 @@ For example: import backups/lablog.properties --replace. Paths may contain space
 and may be enclosed in double quotes. A successful import takes effect immediately
 and survives restart. Missing --replace or invalid records cause an error.
 
-The main console now saves one format-11 file containing equipment, borrowers,
+The main console now saves one format-12 file containing equipment, borrowers,
 loans, returns, renewal events, loss reports, stable IDs and borrowing/return audit
 events, structured faults, repairs, history notes, reservations and waiting
 requests. It also loads legacy equipment/loan data with
@@ -911,7 +929,8 @@ LabLog again; it reloads the last saved records.
 | `help [COMMAND]` | Both | View commands and explained examples |
 | `add ASSET_ID [n/NAME c/CATEGORY m/MODEL l/LOCATION]` | Main | Register equipment |
 | `copy SOURCE_ASSET_ID NEW_ASSET_ID` | Main | Copy descriptive equipment details |
-| `list [category/VALUE] [location/VALUE] [status/STATUS] [sort/FIELD]` | Main | List, filter and sort equipment; status is available, on-loan, unavailable or lost |
+| `retire ASSET_ID reason/TEXT` | Main | Retire equipment while preserving its history |
+| `list [category/VALUE] [location/VALUE] [status/STATUS] [sort/FIELD]` | Main | List, filter and sort equipment; status is available, on-loan, unavailable, lost or retired |
 | `active-loans [overdue]` | Main | List all active loans or only overdue loans |
 | `overview` | Main | Show today's reservations, overdue loans and unresolved severe faults |
 | `loan ASSET_ID [ASSET_ID ...] b/BORROWER_ID d/DUE_DATE` | Main | Lend one or more available units together |

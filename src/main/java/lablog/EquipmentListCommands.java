@@ -16,7 +16,7 @@ public class EquipmentListCommands {
     private static final Set<String> SORT_FIELDS = Set.of(
             "asset-id", "name", "category", "model", "location", "availability");
     private static final String USAGE = "Use: list [category/VALUE] [location/VALUE]"
-            + " [status/available|on-loan|unavailable|lost] [sort/FIELD]";
+            + " [status/available|on-loan|unavailable|lost|retired] [sort/FIELD]";
     private static final Set<String> OPTION_FIELDS = Set.of("category", "location", "status", "sort");
 
     private final Inventory inventory;
@@ -55,6 +55,9 @@ public class EquipmentListCommands {
         }
         List<Equipment> units = equipment.stream().filter(unit -> matches(unit, options)).toList();
         if (units.isEmpty()) {
+            if (options.isEmpty()) {
+                return "No active equipment registered.";
+            }
             return "No equipment matches the supplied filters.";
         }
         String sortField = options.get("sort");
@@ -96,9 +99,9 @@ public class EquipmentListCommands {
             }
             if (field.equals("status")) {
                 value = value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "-");
-                if (!Set.of("available", "on-loan", "unavailable", "lost").contains(value)) {
+                if (!Set.of("available", "on-loan", "unavailable", "lost", "retired").contains(value)) {
                     throw new IllegalArgumentException(
-                            "Status must be available, on-loan, unavailable or lost. " + USAGE);
+                            "Status must be available, on-loan, unavailable, lost or retired. " + USAGE);
                 }
             }
             if (field.equals("sort") && !SORT_FIELDS.contains(value)) {
@@ -115,7 +118,8 @@ public class EquipmentListCommands {
         String category = options.get("category");
         String location = options.get("location");
         String status = options.get("status");
-        return (category == null || unit.getCategory().equalsIgnoreCase(category))
+        return (unit.isRetired() == "retired".equals(status))
+                && (category == null || unit.getCategory().equalsIgnoreCase(category))
                 && (location == null || unit.getLocation().equalsIgnoreCase(location))
                 && (status == null || status.equals(statusOf(unit)));
     }
@@ -139,13 +143,15 @@ public class EquipmentListCommands {
 
     /** Returns the same availability label displayed in each equipment row. */
     private String availabilityOf(Equipment unit) {
-        return loans.hasLostLoan(unit.getAssetId()) ? "Lost"
+        return unit.isRetired() ? "Retired"
+                : loans.hasLostLoan(unit.getAssetId()) ? "Lost"
                 : loans.hasActiveLoan(unit.getAssetId()) ? "On loan"
                 : faults.blocksLending(unit.getAssetId()) ? "Unavailable: severe fault" : "Available";
     }
     /** Keeps filters consistent with lending restrictions and displayed availability. */
     private String statusOf(Equipment unit) {
-        return loans.hasLostLoan(unit.getAssetId()) ? "lost"
+        return unit.isRetired() ? "retired"
+                : loans.hasLostLoan(unit.getAssetId()) ? "lost"
                 : loans.hasActiveLoan(unit.getAssetId()) ? "on-loan"
                 : faults.blocksLending(unit.getAssetId()) ? "unavailable" : "available";
     }

@@ -51,7 +51,7 @@ class RenewalPersistenceTest {
         assertEquals(expected.getRenewals(), reloaded.getRenewals());
         assertEquals(expected.getOriginalDueDate(), reloaded.getOriginalDueDate());
         assertEquals(expected.getDueDate(), reloaded.getDueDate());
-        assertEquals("11", ApplicationSnapshot.readProperties(data).getProperty("format"));
+        assertEquals("12", ApplicationSnapshot.readProperties(data).getProperty("format"));
         Path exported = directory.resolve("export.properties");
         assertFalse(run(LabLog.load(data), "export " + exported).contains("Error:"));
         Path imported = directory.resolve("imported.properties");
@@ -148,6 +148,9 @@ class RenewalPersistenceTest {
     void read_format8MigratesWithoutInventingRenewals_rejectsHiddenNewFields() throws Exception {
         Properties records = sample().toProperties();
         records.setProperty("format", "8");
+        records.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(records::remove);
         records.keySet().removeIf(key -> key.toString().endsWith(".originalDue")
                 || key.toString().contains(".renewal.") || key.toString().endsWith(".lost")
                 || (key.toString().startsWith("loan.") && key.toString().endsWith(".id")));
@@ -156,7 +159,7 @@ class RenewalPersistenceTest {
             assertTrue(loan.getRenewals().isEmpty());
             assertEquals(loan.getDueDate(), loan.getOriginalDueDate());
         }
-        assertEquals("11", legacy.toProperties().getProperty("format"));
+        assertEquals("12", legacy.toProperties().getProperty("format"));
         records.setProperty("loan.1.renewal.count", "0");
         assertThrows(IOException.class, () -> ApplicationSnapshot.decode(records));
     }

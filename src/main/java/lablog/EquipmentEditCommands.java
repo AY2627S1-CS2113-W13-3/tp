@@ -28,6 +28,9 @@ public class EquipmentEditCommands {
         }
         String assetId = parts[1].substring(0, matcher.start()).strip();
         Equipment current = inventory.getEquipment(assetId);
+        if (current.isRetired()) {
+            throw new IllegalArgumentException("Retired equipment cannot be edited.");
+        }
         Map<String, String> fields = new HashMap<>();
         do {
             String prefix = matcher.group(1);
