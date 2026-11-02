@@ -71,6 +71,10 @@ Current application version: **LabLog v2.1** (Java 25).
 LabLog builds on the [SE-EDU Duke project template](https://github.com/se-edu/duke).
 The console banner uses the
 [FIGlet Standard font](https://github.com/xero/figlet-fonts/blob/main/Standard.flf).
+[JLine](https://github.com/jline/jline3) provides terminal input, display and
+native terminal support. [Mermaid](https://github.com/mermaid-js/mermaid) renders
+the diagrams on this documentation website;
+[GitHub Pages](https://pages.github.com/) renders the Markdown pages.
 
 ## Design
 
@@ -79,7 +83,8 @@ Diagrams use Mermaid and the
 Class diagrams show selected members; solid arrows represent stored references
 and dashed arrows temporary use or creation. Labels name fields where shown;
 omitted multiplicities are unspecified. Architecture grouping boxes summarise
-dependencies rather than Java packages.
+dependencies rather than Java packages. On the website, wide diagrams scroll
+horizontally to preserve readable labels; focus a diagram to scroll with the keyboard.
 
 Sequence diagrams use `:ClassName` or `name:ClassName` lifelines with activation
 bars. Operations use `name(parameter: Type): ReturnType`; `+` means public,
@@ -129,15 +134,15 @@ classDiagram
     ReservationBook --> "1" BookingAvailability : availability
 ```
 
-*`XyzCommands` stands for any of the 24 command handlers. Each handler depends only
+*`XyzCommands` stands for any of the 25 command handlers. Each handler depends only
 on the books its command needs; for example, `EquipmentSearchCommands` uses
 `Inventory`, `LoanBook` and `FaultBook`. `LabLog` also owns the books and passes the
 shared instances to every handler it creates.*
 
 | Layer | Classes | Responsibility |
 | --- | --- | --- |
-| Console | `LabLog`, `BorrowerCli`, `CommandHistory`, `ConsoleWelcome`, `Messages`, `TableFormatter` | Read command lines, recall recent commands, dispatch to a handler, save, and print results or errors. Successful changes are prefixed with `[OK]` and listings are printed as aligned tables. `BorrowerCli` is a separate borrower-only console. |
-| Commands | `EquipmentAdd/Copy/Edit/Move/List/Find/SearchCommands`, `BorrowerCommands`, `LoanCommands`, `ReturnCommands`, `RenewCommands`, `LostCommands`, `ActiveLoanCommands`, `LoanAuditCommands`, `LoanCorrectionCommands`, `HistoryCommands`, `HistoryRecordCommands`, `RepairCommands`, `ReservationCommands`, `WaitingRequestCommands`, `AvailableEquipmentCommands`, `UnavailableReasonCommands`, `OverviewCommands`, `HelpCommands` | Parse and validate one command, read or change the books, and return the text to display. |
+| Console | `LabLog`, `BorrowerCli`, `CommandHistory`, `ConsoleWelcome`, `ConsoleInput`, `TerminalInput`, `CommandOutput`, `ConsolePresentation`, `ResponsiveTableLayout`, `TerminalWordWrapper`, `PagerContext`, `Messages`, `TableFormatter` | Read command lines, recall recent commands, dispatch to a handler, save, and print results or errors. Plain output prefixes successful changes with `[OK]` and prints aligned tables; the interactive boundary adds labels, responsive layouts and paging. `BorrowerCli` is a separate borrower-only console. |
+| Commands | `EquipmentAdd/Copy/Edit/Move/List/Find/SearchCommands`, `RetireEquipmentCommands`, `BorrowerCommands`, `LoanCommands`, `ReturnCommands`, `RenewCommands`, `LostCommands`, `ActiveLoanCommands`, `LoanAuditCommands`, `LoanCorrectionCommands`, `HistoryCommands`, `HistoryRecordCommands`, `RepairCommands`, `ReservationCommands`, `WaitingRequestCommands`, `AvailableEquipmentCommands`, `UnavailableReasonCommands`, `OverviewCommands`, `HelpCommands` | Parse and validate one command, read or change the books, and return the text to display. |
 | Model | `Inventory`, `BorrowerBook`, `LoanBook`, `FaultBook`, `ReservationBook`, `WaitingRequestBook`, `BookingAvailability`, and records such as `Equipment`, `Borrower`, `Loan` and `Fault` | Hold the application state in memory and enforce record rules. `BookingAvailability` is the shared booking-conflict rule used by lending, renewal, reservations and availability queries. |
 | Storage | `ApplicationSnapshot`, `LabLogStore`, and the `*Codec` classes | Encode all records as one versioned UTF-8 properties file, validate it on load, and replace it atomically on save. |
 
@@ -570,10 +575,12 @@ inventory order or stored records. All options are validated before returning
 an empty result, including when the inventory is empty.
 
 Status is the equipment's current operational status, not its availability for
-a requested date range. The precedence is `lost`, `on-loan`, `unavailable`,
-then `available`: a lost loan yields `lost`; otherwise an active loan yields
+a requested date range. The precedence is `retired`, `lost`, `on-loan`,
+`unavailable`, then `available`: retirement yields `retired`; otherwise a lost
+loan yields `lost`; otherwise an active loan yields
 `on-loan`; otherwise an unresolved severe fault yields `unavailable`; all
-remaining units are `available`. The listing reads the live loan and fault
+remaining units are `available`. Retired units appear only with an explicit
+`status/retired` filter. The listing reads the live loan and fault
 books. Actual reservations block loans for overlapping date ranges but do not
 change this undated status; display-only history notes do not participate in
 booking checks.
@@ -641,7 +648,8 @@ command keeps free-text matching distinct from `list` filters and sorting.
 
 ##### Availability, errors, and verification
 
-Matching rows use the same columns and status precedence as `list`: lost,
+Search excludes retired units. Matching rows use the same columns and remaining
+status precedence as `list`: lost,
 on loan, unresolved severe fault, then available. Reservations do not affect
 this undated status; use `available` for interval checks.
 
@@ -2064,10 +2072,37 @@ Central utilities keep output consistent without a general table-library
 dependency. `TableFormatterTest` checks padding, separators, empty tables,
 invalid row widths and absence of trailing spaces.
 
+#### Interactive terminal boundary
+
+`ConsoleInput` separates command execution from terminal I/O. `TerminalInput`
+opens JLine only for a supported native console; redirected input, `TERM=dumb`,
+or terminal initialization failure selects the scanner-based plain reader.
+`CommandOutput` buffers one interactive result and calls
+`ConsoleInput.presentOutput` after the command (or before a guided prompt).
+This keeps the same handlers and persistence rules in both modes.
+
+Before display, `ResponsiveTableLayout` changes overflowing or Unicode-containing
+tables into labelled records. `ConsolePresentation` escapes terminal controls and
+adds fixed heading/status colours; `NO_COLOR` disables styling without disabling
+sanitization. `TerminalWordWrapper` wraps by display width. Plain output retains
+the handlers' tables and text, making it suitable for pipes and exact-output tests.
+
+`TerminalInput` frames short results and pages results that do not fit above the
+next input box. The pager starts at offset zero, reserves six rows for its frame,
+heading and footer, and clamps navigation to the available wrapped lines.
+`PagerContext` derives a fixed result/section breadcrumb from recognized headings,
+not arbitrary record values. Resizing reflows the original result; the pager polls
+for keys so it can redraw after a resize. Raw terminal attributes are restored in
+`finally` when it closes. The [User Guide](UserGuide.md#quick-start) lists the
+navigation keys; [manual scenario 14](#14-interactive-presentation-and-pager)
+checks the interactive boundary. Focused tests include `ConsolePresentationTest`,
+`ResponsiveTableLayoutTest`, `TerminalWordWrapperTest`, `PagerContextTest` and
+`TerminalInputTest`.
+
 ### Current integration limits and packaged verification
 
-List/find status reflects loans, losses and severe faults. Interval availability
-also checks reservations through `BookingAvailability`; undated status is not a
+List/find status reflects retirement, loans, losses and severe faults. Interval
+availability also checks reservations through `BookingAvailability`; undated status is not a
 booking guarantee. Lost-equipment recovery is unsupported; loan and return
 mistakes can be corrected with `reverse-loan` and `reverse-return`.
 
@@ -2101,7 +2136,7 @@ returns, and lookups, so a technician can:
 ## Appendix B: User stories
 
 The following v1.0 rows summarize the original baseline. The v2.0 table lists
-all 33 stories in the approved allocation; US identifiers refer to the team's
+33 stories in the team's recorded allocation; US identifiers refer to the team's
 planning sheet, not GitHub issue numbers. US08, US12 and US13 build on existing
 location and registration validation support rather than introducing it anew.
 
@@ -2154,11 +2189,16 @@ US58 excludes due-maintenance scheduling: maintenance notes are historical
 records, not a schedule. US60 covers borrowing and returning, including related
 corrections; it is not a general audit of every inventory-changing action.
 
+Retirement is an additional v2.1 capability: as a laboratory technician, I want
+to retire an unusable unit while retaining its records so that it cannot be lent
+or reserved again. No planning-sheet story identifier is asserted for it.
+
 ## Appendix C: Non-functional requirements
 
 | Requirement | Boundary |
 | --- | --- |
-| Runtime | Java 25; Gradle CI checks run on Windows, macOS and Ubuntu. |
+| Runtime | Java 25; the Gradle CI matrix is configured for Windows, macOS and Ubuntu. This configuration is not evidence that a particular release passed on all three. |
+| Console accessibility | Keyboard input; status text remains readable without colour. Plain redirected input avoids native paging. |
 | Persistence | UTF-8 snapshots; atomic replacement with no non-atomic fallback. |
 | Input limits | Reject files over 10 MiB and record counts beyond codec limits. No performance guarantee is specified. |
 | Data integrity | Invalid startup files remain unchanged; failed imports preserve current records. See [Storage](#storage) for save-failure behaviour. |
@@ -2171,6 +2211,8 @@ corrections; it is not a general audit of every inventory-changing action.
 * **Asset ID:** case-sensitive identifier of one physical equipment unit.
 * **Active loan:** a loan that has been neither returned nor reversed. A lost loan
   is still active because the borrower remains responsible for it.
+* **Retired equipment:** a retained unit marked out of service with a local date
+  and reason; excluded from lending, booking and ordinary list/search results.
 * **Overdue loan:** an active loan with a due date before today's local date.
 * **Severe fault:** an unresolved fault with severity `SEVERE`; it blocks lending.
 * **Snapshot format:** the schema version stored in the data file's `format` key;
@@ -2228,8 +2270,11 @@ Finish each scenario with `exit`. Keep real records outside this folder.
 Dates use `YYYY-MM-DD`. Replace `TODAY` with the computer's current local date;
 the future examples assume today is before 2099-01-01. Replace `FAULT_ID`,
 `RESERVATION_ID`, `LOAN_EVENT_ID` and `RETURN_EVENT_ID` with the actual IDs printed
-in that scenario. These names are placeholders, not literal commands. Successful
-changes start with `[OK]`; rejected commands start with `Error:`.
+in that scenario. These names are placeholders, not literal commands. In plain
+output, successful changes start with `[OK]`; rejected commands start with `Error:`. Interactive
+colour output uses filled OK and ERROR labels. For long results, use the pager
+keys in the [User Guide Quick Start](UserGuide.md#quick-start), then press `q`
+before entering the next command.
 
 * [1. Equipment registration, copy, edits and searches](#1-equipment-registration-copy-edits-and-searches)
 * [2. Borrower registration and contact editing](#2-borrower-registration-and-contact-editing)
@@ -2243,6 +2288,8 @@ changes start with `[OK]`; rejected commands start with `Error:`.
 * [10. Help, daily overview and command recall](#10-help-daily-overview-and-command-recall)
 * [11. Export, replacement import and rejected-file preservation](#11-export-replacement-import-and-rejected-file-preservation)
 * [12. Standalone borrower console](#12-standalone-borrower-console)
+* [13. Retirement and retained evidence](#13-retirement-and-retained-evidence)
+* [14. Interactive presentation and pager](#14-interactive-presentation-and-pager)
 
 #### 1. Equipment registration, copy, edits and searches
 
@@ -2586,3 +2633,68 @@ repeating it, and the loan query identifies Jamie Lim with no active loans.
 Restart the same console and run `loans A0123456X`; contacts persist but command
 history is empty. This console does not see the main console's loans or data
 file. Always use the main console to edit contacts belonging to its snapshot.
+
+#### 13. Retirement and retained evidence
+
+Use `retirement.properties`:
+
+```text
+add RET-001 n/Retirement scope c/Electronics m/S1 l/Lab
+copy RET-001 RET-002
+add-borrower A0123456X n/Jamie Tan p/91234567 e/jamie@u.nus.edu
+loan RET-001 b/A0123456X d/2099-01-01
+retire RET-001 reason/End of service
+return RET-001
+reserve RET-001 b/A0123456X from/2099-02-01 to/2099-02-02
+retire RET-001 reason/End of service
+reservations
+```
+
+Expected: retirement fails first for the outstanding loan and then for the future
+reservation. Replace `RESERVATION_ID` with the printed booking ID and enter:
+
+```text
+cancel-reservation RESERVATION_ID reason/Unit leaving service
+retire RET-001 reason/End of service
+retire RET-001 reason/Repeated retirement
+list
+list status/retired
+search Retirement
+find RET-001
+history RET-001
+loan RET-001 b/A0123456X d/2099-03-01
+reserve RET-001 b/A0123456X from/2099-03-01 to/2099-03-02
+available from/2099-03-01 to/2099-03-02
+why-unavailable RET-001 from/2099-03-01 to/2099-03-02
+```
+
+Expected: retirement succeeds once. Ordinary list and search show only RET-002;
+the retired filter shows RET-001. Exact lookup retains its date/reason, and
+history retains loan/return details and cancelled-booking evidence. Retirement
+metadata is shown by `find`, not as a separate history event. Lending
+and booking RET-001 fail, availability excludes it and the explanation names
+retirement. Restart and repeat the retired filter, lookup and history: all remain.
+An unknown asset or `retire RET-002 reason/` must fail without retiring RET-002.
+Export to a new `retirement-backup.properties`; import it with `--replace` into a
+new `retirement-import.properties` session. The same retired state and evidence
+must remain after another restart.
+
+#### 14. Interactive presentation and pager
+
+Use a native terminal and a new `presentation.properties`; redirected input
+cannot exercise the interactive display. Run `help` in a short window so that it
+opens a pager. Check the page and line navigation described in the
+[User Guide Quick Start](UserGuide.md#quick-start): move forward and backward,
+reach the last page, return to the first, then press `q`. Enter scrolls one line;
+it does not submit a command or close the pager. The fixed heading identifies
+the result/section and the footer reports the visible wrapped-line range.
+
+Resize while the pager is open: text rewraps and navigation stays within the
+result. Shrink below seven rows and restore the window: the view redraws;
+`q` still closes while minimized. After closing, enter `help loan` and confirm
+that the command prompt works. Register a unit with scenario 1's single-line
+form and run `list`: a narrow window uses labelled records, while a sufficiently
+wide window uses a table. Names containing Unicode also use labelled records.
+Restart with `NO_COLOR` set: labels remain readable without colour and navigation
+still works. Finally pipe `help` and `exit` to the JAR: plain output has no pager,
+boxed prompt or ANSI colour escapes. Use a disposable file for every run.

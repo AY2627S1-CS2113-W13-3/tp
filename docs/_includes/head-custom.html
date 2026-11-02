@@ -1,13 +1,47 @@
+<style>
+  .lablog-nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0 0 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid #d1d9e0; }
+  /* Preserve diagram text size; wide diagrams scroll instead of shrinking to illegibility. */
+  .mermaid { overflow-x: auto; margin: 1.5rem 0; padding-bottom: 0.5rem; }
+  .mermaid svg { max-width: none !important; }
+</style>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
+    var content = document.querySelector('.markdown-body');
+    if (content) {
+      var nav = document.createElement('nav');
+      nav.className = 'lablog-nav';
+      nav.setAttribute('aria-label', 'Documentation');
+      [
+        ['Home', '{{ "/" | relative_url }}'],
+        ['User Guide', '{{ "/UserGuide.html" | relative_url }}'],
+        ['Developer Guide', '{{ "/DeveloperGuide.html" | relative_url }}'],
+        ['Team portfolios', '{{ "/AboutUs.html" | relative_url }}']
+      ].forEach(function (item) {
+        var link = document.createElement('a');
+        link.textContent = item[0];
+        link.href = item[1];
+        nav.appendChild(link);
+      });
+      content.insertBefore(nav, content.firstChild);
+    }
+    // Keep readable source blocks when the CDN is unavailable.
+    if (typeof mermaid === 'undefined') return;
     document.querySelectorAll('pre > code.language-mermaid').forEach(function (codeEl) {
       var div = document.createElement('div');
       div.className = 'mermaid';
+      div.tabIndex = 0;
+      div.setAttribute('role', 'region');
+      div.setAttribute('aria-label', 'Diagram; scroll horizontally to see wide content');
       div.textContent = codeEl.textContent;
       codeEl.parentElement.replaceWith(div);
     });
     mermaid.initialize({ startOnLoad: false });
-    mermaid.run();
+    mermaid.run().then(function () {
+      document.querySelectorAll('.mermaid svg').forEach(function (svg) {
+        var box = svg.viewBox.baseVal;
+        if (box.width > 0) svg.style.width = box.width + 'px';
+      });
+    });
   });
 </script>
