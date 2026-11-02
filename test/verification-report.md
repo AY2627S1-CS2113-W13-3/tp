@@ -1,6 +1,33 @@
-# Release verification: 2 November 2026
+# Historical release verification: 2 November 2026
 
-## Scope and baseline
+## Dependency-free replacement
+
+Verified locally on 2 November 2026 on Java 25.0.4: compilation, main/test
+Checkstyle, and 38 focused tests passed. After final tab/style fixes, the six
+pager tests and Checkstyle passed again; the executable JAR rebuilt successfully.
+A short packaged help/list/exit run passed. A captured-output Java probe exercised
+next/back/quit and EOF through the injected interactive implementation, with and
+without NO_COLOR; the colour-disabled transcript contained no ANSI escapes.
+The JAR contains no JLine classes. Physical-terminal appearance was not manually
+verified. Probe artifacts are under build/ and are untracked.
+
+The results below describe
+the previous implementation and must not be used as evidence for this replacement.
+Full regression, broad packaged workflows and cross-platform terminal checks are
+deferred until publication preparation. Current launches require no native-access
+flag and the replacement does not bundle JLine.
+
+### Pagination follow-ups
+
+Section-aware pagination passed 12 focused pager/context tests. Fixed-height
+pagination subsequently passed all eight pager tests, main/test Checkstyle and
+the JAR build. Regression coverage checks help, detailed-help and overview section
+boundaries, backwards navigation, and equal page height for short/final pages.
+Windows locked the previous binary test-results directories; focused checks used
+fresh output directories under build/ without changing project configuration.
+These automated results do not establish physical-terminal appearance.
+
+## Historical scope and baseline
 
 Fetched upstream before creating isolated branch `chore/release-verification`.
 Verified source: `daff5f9acd73693303d5fc22e827fcacc4053ccc` (develop,

@@ -71,10 +71,7 @@ Current application version: **LabLog v2.1** (Java 25).
 LabLog builds on the [SE-EDU Duke project template](https://github.com/se-edu/duke).
 The console banner uses the
 [FIGlet Standard font](https://github.com/xero/figlet-fonts/blob/main/Standard.flf).
-[JLine](https://github.com/jline/jline3) provides terminal input, display and
-native terminal support. [Mermaid](https://github.com/mermaid-js/mermaid) renders
-the diagrams on this documentation website;
-[GitHub Pages](https://pages.github.com/) renders the Markdown pages.
+Console input and pagination use standard Java APIs without an external terminal library.
 
 ## Design
 
@@ -2045,18 +2042,11 @@ banner; the standalone borrower console prints it below its welcome line.
 This is guidance, not a launch restriction. The 75-character ASCII sentence
 also fits in an 80-column window.
 
-A layout probe using the actual help formatter, responsive table layout and
-word wrapper compared 80x24, 100x30 and 120x30 (one column is reserved by JLine).
-With two equipment rows (digital oscilloscope and digital multimeter, category
-Electronics, model and lab location), the 80-column view produced 15 labelled
-lines, exceeding its 14-line short-result allowance. Both wider views kept a
-four-line table. Help occupied 126, 125 and 125 wrapped lines respectively;
-the pager could show 18, 24 and 24 content lines. The command box had 75, 95
-and 115 inner columns. Thus 100x30 is a practical comfortable minimum for
-these examples; arbitrary long values may still wrap or trigger labelled records.
-Smaller interactive windows retain wrapping, responsive records and paging;
-plain/redirected input uses ordinary prompts and unpaged output. No terminal
-size is enforced, and the existing tiny-window fallbacks still apply.
+The previous JLine layout probe motivated the 100x30 recommendation; its measured
+page sizes and editable-box dimensions are historical. The replacement reads
+`COLUMNS` (minimum 20) and `LINES` (minimum 10) once at startup, defaulting to
+100x30 for absent, malformed, smaller or above-1000 values. It does not detect resizing.
+Wide and Unicode tables retain the labelled-record fallback.
 
 Equipment construction rejects control characters in asset IDs, including when
 a snapshot is loaded. Both consoles reject control characters in command lines
@@ -2104,29 +2094,33 @@ invalid row widths and absence of trailing spaces.
 #### Interactive terminal boundary
 
 `ConsoleInput` separates command execution from terminal I/O. `TerminalInput`
-opens JLine only for a supported native console; redirected input, `TERM=dumb`,
-or terminal initialization failure selects the scanner-based plain reader.
-`CommandOutput` buffers one interactive result and calls
-`ConsoleInput.presentOutput` after the command (or before a guided prompt).
-This keeps the same handlers and persistence rules in both modes.
+uses standard Java line input for interactive consoles. An absent `System.console()`
+or `TERM=dumb` selects the scanner-based plain reader. `CommandOutput` buffers
+interactive results and calls `ConsoleInput.presentOutput` before the next prompt.
+Handlers and persistence rules are shared across both modes.
 
-Before display, `ResponsiveTableLayout` changes overflowing or Unicode-containing
-tables into labelled records. `ConsolePresentation` escapes terminal controls and
-adds fixed heading/status colours; `NO_COLOR` disables styling without disabling
-sanitization. `TerminalWordWrapper` wraps by display width. Plain output retains
-the handlers' tables and text, making it suitable for pipes and exact-output tests.
+`ResponsiveTableLayout` converts overflowing or Unicode tables to labelled records.
+`TerminalWordWrapper` wraps plain text before `ConsolePresentation` sanitizes and
+styles it. Grapheme clusters remain intact; non-ASCII width estimates are conservative
+rather than an exact terminal-cell model. `NO_COLOR` suppresses styling.
+Plain output preserves handler text and bypasses pagination.
 
-`TerminalInput` frames short results and pages results that do not fit above the
-next input box. The pager starts at offset zero, reserves six rows for its frame,
-heading and footer, and clamps navigation to the available wrapped lines.
-`PagerContext` derives a fixed result/section breadcrumb from recognized headings,
-not arbitrary record values. Resizing reflows the original result; the pager polls
-for keys so it can redraw after a resize. Raw terminal attributes are restored in
-`finally` when it closes. The [User Guide](UserGuide.md#quick-start) lists the
-navigation keys; [manual scenario 14](#14-interactive-presentation-and-pager)
-checks the interactive boundary. Focused tests include `ConsolePresentationTest`,
-`ResponsiveTableLayoutTest`, `TerminalWordWrapperTest`, `PagerContextTest` and
-`TerminalInputTest`.
+The pager reserves eight rows, leaving `max(1, rows - 8)` body rows.
+`PagerContext.isSectionStart` recognises help categories, detailed-help labels and
+overview sections using the same result-aware rules as breadcrumbs; record values
+do not introduce section breaks. `TerminalInput` precomputes page starts at either
+the body capacity or a recognised section heading. Back navigation uses these same
+boundaries. Every paged body is padded with blank lines to its full capacity,
+including the final page; short unpaged output stays compact.
+
+Enter advances
+a page (or closes the final page), `b` then Enter goes back, and `q` then Enter closes. Invalid input repeats
+the navigation prompt; EOF closes paging and ends subsequent command input.
+Navigation never enters command history. Each appended page repeats the canonical
+result/section breadcrumb from `PagerContext` and the visible line range. Pages
+remain in scrollback. There is no raw mode, cursor redraw or automatic resize.
+Focused coverage belongs to `ConsolePresentationTest`, `ResponsiveTableLayoutTest`,
+`TerminalWordWrapperTest`, `PagerContextTest` and `TerminalInputTest`.
 
 ### Current integration limits and packaged verification
 
@@ -2740,19 +2734,19 @@ must remain after another restart.
 #### 14. Interactive presentation and pager
 
 Use a native terminal and a new `presentation.properties`; redirected input
-cannot exercise the interactive display. Run `help` in a short window so that it
-opens a pager. Check the page and line navigation described in the
-[User Guide Quick Start](UserGuide.md#quick-start): move forward and backward,
-reach the last page, return to the first, then press `q`. Enter scrolls one line;
-it does not submit a command or close the pager. The fixed heading identifies
-the result/section and the footer reports the visible wrapped-line range.
+cannot exercise interactive paging. Start with `COLUMNS=80` and `LINES=24`, then
+run `help`. Press Enter to advance, enter `b` to return, and enter `q` to close.
+Check that help categories, detailed-help labels and overview sections start on new
+pages. Short section pages and the final page should retain the same body height
+with blank padding. Go back to confirm the same page boundaries are restored.
+Check repeated result/section headings and line ranges, invalid navigation input,
+and EOF. Confirm paging input does not appear in `commands`. After closing, run
+`help loan` to confirm command input resumes normally.
 
-Resize while the pager is open: text rewraps and navigation stays within the
-result. Shrink below seven rows and restore the window: the view redraws;
-`q` still closes while minimized. After closing, enter `help loan` and confirm
-that the command prompt works. Register a unit with scenario 1's single-line
-form and run `list`: a narrow window uses labelled records, while a sufficiently
-wide window uses a table. Names containing Unicode also use labelled records.
-Restart with `NO_COLOR` set: labels remain readable without colour and navigation
-still works. Finally pipe `help` and `exit` to the JAR: plain output has no pager,
-boxed prompt or ANSI colour escapes. Use a disposable file for every run.
+Restart with different dimension variables to check wrapping and table fallback;
+resizing during a session does not recalculate layout. Unicode tables use labelled
+records. Repeat with `NO_COLOR` set, then pipe `help` and `exit` to the JAR and
+confirm plain output has no paging, acknowledgement or ANSI escapes. Use disposable
+data. Focused automated checks and captured-output probes are recorded in the
+[verification report](../test/verification-report.md); physical-terminal appearance
+and cross-platform checks remain pending.

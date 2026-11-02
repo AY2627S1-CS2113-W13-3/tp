@@ -5,11 +5,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.jline.terminal.Terminal;
-import org.jline.utils.AttributedString;
-import org.jline.utils.AttributedStringBuilder;
-
-/** Wraps styled terminal output at word boundaries while retaining its indentation and attributes. */
+/** Wraps plain terminal output at word boundaries while retaining its indentation. */
 final class TerminalWordWrapper {
     /** Keeps joined emoji, modifiers and combining marks within one visible character. */
     private static final Pattern GRAPHEME = Pattern.compile("\\X");
@@ -18,23 +14,22 @@ final class TerminalWordWrapper {
     }
 
     /**
-     * Splits logical lines and wraps their content using JLine display-column measurements.
+     * Splits logical lines and wraps their content using conservative display-column estimates.
      * Tabs must already be expanded by the caller. One final newline does not create an extra row.
      * Widths below one are treated as one. A grapheme cluster wider than the available columns is
      * retained whole on its own row, since splitting or dropping it would corrupt the content.
      *
-     * @param terminal terminal whose Unicode width rules apply
-     * @param content attributed output with any ANSI escapes already decoded
+     * @param content plain output before ANSI styling
      * @param width available display columns
-     * @return styled display rows, including intentional empty logical lines
+     * @return plain display rows, including intentional empty logical lines
      */
-    static List<AttributedString> wrap(Terminal terminal, AttributedString content, int width) {
-        List<AttributedString> rows = new ArrayList<>();
+    static List<String> wrap(String content, int width) {
+        List<String> rows = new ArrayList<>();
         int start = 0;
         for (int end = 0; end <= content.length(); end++) {
             if (end == content.length() || content.charAt(end) == '\n') {
                 int lineEnd = end > start && content.charAt(end - 1) == '\r' ? end - 1 : end;
-                wrapLine(terminal, content.subSequence(start, lineEnd), Math.max(1, width), rows);
+                wrapLine(content.substring(start, lineEnd), Math.max(1, width), rows);
                 start = end + 1;
             }
         }
@@ -45,10 +40,10 @@ final class TerminalWordWrapper {
         return rows;
     }
 
-    /** Repeats styled leading spaces, leaving at least half the row available for actual content. */
-    private static void wrapLine(Terminal terminal, AttributedString line, int width,
-            List<AttributedString> rows) {
-        if (line.columnLength(terminal) <= width) {
+    /** Repeats leading spaces, leaving at least half the row available for actual content. */
+    private static void wrapLine(String line, int width,
+            List<String> rows) {
+        if (displayWidth(line) <= width) {
             rows.add(line);
             return;
         }
@@ -57,7 +52,7 @@ final class TerminalWordWrapper {
             leading++;
         }
         int indent = Math.min(leading, width / 2);
-        AttributedString prefix = line.subSequence(0, indent);
+        String prefix = line.substring(0, indent);
         int available = width - indent;
         int start = leading;
         if (start == line.length()) {
@@ -65,7 +60,7 @@ final class TerminalWordWrapper {
             return;
         }
         while (start < line.length()) {
-            int fit = fittingEnd(terminal, line, start, available);
+            int fit = fittingEnd(line, start, available);
             int end = fit;
             int next = fit;
             if (fit < line.length()) {
@@ -82,23 +77,33 @@ final class TerminalWordWrapper {
                     next += Character.charCount(Character.codePointAt(line, next));
                 }
             }
-            rows.add(new AttributedStringBuilder().append(prefix).append(line.subSequence(start, end))
-                    .toAttributedString());
+            rows.add(prefix + line.substring(start, end));
             start = next;
         }
     }
 
+    /** Estimates each non-ASCII grapheme as two columns, retaining complete clusters. */
+    static int displayWidth(String text) {
+        int columns = 0;
+        Matcher clusters = GRAPHEME.matcher(text);
+        while (clusters.find()) {
+            String cluster = clusters.group();
+            columns += cluster.codePoints().allMatch(character -> character < 128) ? cluster.length() : 2;
+        }
+        return columns;
+    }
+
     /**
      * Finds a slice ending at a grapheme boundary, never separating joined emoji or their modifiers.
-     * Measuring attributed slices delegates Unicode and hidden-character widths to JLine.
+     * Non-ASCII graphemes use a conservative estimate rather than terminal-specific width rules.
      */
-    private static int fittingEnd(Terminal terminal, AttributedString line, int start, int width) {
+    private static int fittingEnd(String line, int start, int width) {
         int end = start;
         int columns = 0;
         Matcher graphemes = GRAPHEME.matcher(line).region(start, line.length());
         while (graphemes.find()) {
             int next = graphemes.end();
-            int characterWidth = line.subSequence(graphemes.start(), next).columnLength(terminal);
+            int characterWidth = displayWidth(line.substring(graphemes.start(), next));
             if (columns + characterWidth > width && end > start) {
                 break;
             }

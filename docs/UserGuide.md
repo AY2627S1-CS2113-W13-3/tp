@@ -80,28 +80,35 @@ console remains available. Both provide command help and examples.
 
 4. Use a terminal at least **100 columns wide and 30 rows high** for comfortable
    help, tables and command entry. This is a recommendation; smaller windows still
-   work using the wrapping, labelled records and paging described below.
+   work with dimensions configured before launch as described below.
 5. The LabLog v2.1 banner and terminal-size recommendation appear after data loads. In an interactive terminal,
-   press Enter at the ready message to show the clean welcome and boxed `lablog>`
+   press Enter at the ready message to show the welcome and labelled `lablog>`
    prompt. Try `help`, then `help loan`, then `exit`.
 
-Both consoles frame command results with separators. Results that do not fit with
-an input box open at their beginning in a paged view. Press Space or Page Down to
-advance one page, and `b` or Page Up to go back one page. Enter or Down Arrow
-advances one displayed line; Up Arrow goes back one line. Press `q` to close
-the view (Enter now scrolls instead of closing). At the last page, scrolling
-stops until you go back or quit. A fixed header identifies the
-current result and section while you scroll. The footer shows the visible line
-range; wrapping and window width affect the total. Colour-capable terminals show
-filled heading and status labels. Set `NO_COLOR` to disable colour. Redirected
-input and unsupported terminals use plain prompts without paging.
-Wide tables in an interactive terminal become numbered, labelled records when
-columns would overflow. Every field remains available; widen the window to return
-to a table. Unicode-containing tables use the labelled layout to avoid uneven
-character widths. Plain redirected output retains the original table format.
+Both consoles frame command results with separators. Long results open at their
+beginning in a paged view. Press Enter to advance one page, type `b` then Enter
+to go back, or `q` then Enter to close. Invalid responses repeat the navigation
+prompt; EOF ends input. Navigation is separate from command history. Each page
+repeats its result/section heading and visible line range. Recognised help categories,
+detailed-help labels and overview sections start on new pages, even if the previous
+page has space. Unused body rows are filled with blank lines, including on the final
+page, to keep headings and navigation aligned. Enter on the final page closes it.
+Short results without section breaks remain compact. Pages append to normal
+terminal scrollback; arrow keys and live resizing are not managed by LabLog.
+Colour-capable terminals show filled heading and status labels. Set `NO_COLOR`
+to disable colour. Redirected input and unsupported terminals use plain prompts
+without paging. Standard terminal editing replaces application-managed editing.
+
+Layout reads `COLUMNS` and `LINES` once at startup. Values below 20 columns or
+10 rows, values above 1000, absent values and invalid values use defaults of 100 columns and 30 rows.
+Set these variables to match your window before starting; restart to change layout.
+Wide tables become numbered, labelled records when columns would overflow.
+Every field remains available. Unicode-containing tables use labelled records;
+wrapping retains complete grapheme clusters, but exact emoji alignment is not guaranteed.
+Plain redirected output retains the original table format.
 
 For the standalone borrower console, run
-`java --enable-native-access=ALL-UNNAMED -cp lablog.jar lablog.BorrowerCli`
+`java -cp lablog.jar lablog.BorrowerCli`
 in the same folder. Exit either console with `exit`, or end input with Ctrl+Z then
 Enter on Windows, or Ctrl+D on macOS/Linux. The borrower console's default data
 file is `data/borrowers.properties`; add another path after `lablog.BorrowerCli`
