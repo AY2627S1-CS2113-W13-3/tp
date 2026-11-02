@@ -70,7 +70,8 @@ Both provide command help and examples.
 
 Both consoles frame command results with separators. Results that do not fit with
 an input box open at their beginning in a paged view. Use Up/Down Arrow to scroll
-one displayed line, and Enter to close the view. The footer shows the visible line
+one displayed line, and Enter to close the view. A fixed header identifies the
+current result and section while you scroll. The footer shows the visible line
 range; wrapping and window width affect the total. Colour-capable terminals show
 filled heading and status labels. Set `NO_COLOR` to disable colour. Redirected
 input and unsupported terminals use plain prompts without paging.

@@ -188,7 +188,7 @@ final class TerminalInput implements ConsoleInput {
                     return;
                 }
                 int width = Math.max(1, size.getColumns() - 1);
-                int capacity = Math.max(1, size.getRows() - 5);
+                int capacity = Math.max(1, size.getRows() - 6);
                 if (width != wrappedWidth) {
                     lines = wrapOutput(text, width);
                     wrappedWidth = width;
@@ -198,6 +198,12 @@ final class TerminalInput implements ConsoleInput {
                 if (width != displayedWidth || size.getRows() != displayedRows || offset != displayedOffset) {
                     List<AttributedString> screen = new ArrayList<>();
                     AttributedString separator = new AttributedString("-".repeat(width));
+                    String context = PagerContext.at(lines, offset);
+                    if (context.equals("RESULT")) {
+                        String firstSourceLine = text.stripLeading().lines().findFirst().orElse("");
+                        context = PagerContext.at(List.of(new AttributedString(firstSourceLine)), 0);
+                    }
+                    screen.add(contextHeading(context, width));
                     screen.add(separator);
                     screen.add(AttributedString.EMPTY);
                     for (int row = 0; row < capacity; row++) {
@@ -252,6 +258,17 @@ final class TerminalInput implements ConsoleInput {
             reader.resetDisplay();
             outputWidth = 0;
         }
+    }
+
+    /** Keeps the current result and section visible independently of the scrolled body. */
+    private AttributedString contextHeading(String context, int width) {
+        AttributedStringBuilder heading = new AttributedStringBuilder();
+        if (System.getenv("NO_COLOR") == null) {
+            heading.style(AttributedStyle.DEFAULT.foreground(AttributedStyle.WHITE)
+                    .background(AttributedStyle.BLUE).bold());
+        }
+        return heading.append(" ").append(context).append(" ").toAttributedString()
+                .columnSubSequence(terminal, 0, width);
     }
 
     /** Binds navigation through JLine's terminal-specific key definitions. */
