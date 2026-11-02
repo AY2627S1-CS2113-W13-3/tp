@@ -122,6 +122,9 @@ class ReservationTest {
         }
         Properties legacy = new ApplicationSnapshot(List.of(), List.of(), List.of(), List.of()).toProperties();
         legacy.setProperty("format", "5");
+        legacy.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(legacy::remove);
         legacy.remove("reservation.count");
         legacy.remove("waiting.count");
         assertTrue(ApplicationSnapshot.decode(legacy).getReservations().isEmpty());

@@ -127,6 +127,9 @@ class FaultReportingTest {
         Properties records = new ApplicationSnapshot(inventory().getEquipmentUnits(), List.of(),
                 List.of(), List.of(note)).toProperties();
         records.setProperty("format", "2");
+        records.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(records::remove);
         records.remove("reservation.count");
         records.remove("waiting.count");
         records.remove("fault.count");

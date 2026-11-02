@@ -156,6 +156,9 @@ class FaultSeverityTest {
         Fault original = store.getFaults().report("OSC-001", TODAY, "Damage", Fault.Severity.SEVERE);
         Properties records = store.toProperties();
         records.setProperty("format", "3");
+        records.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(records::remove);
         records.remove("fault.0.severity");
         records.remove("fault.0.resolved");
         records.remove("fault.0.repair");
@@ -169,6 +172,9 @@ class FaultSeverityTest {
         assertEquals(Fault.Severity.UNSPECIFIED,
                 ApplicationSnapshot.decode(records).getFaults().getFirst().getSeverity());
         records.setProperty("format", "4");
+        records.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(records::remove);
         store.write(records);
         assertThrows(IOException.class, () -> new LabLogStore(file));
         assertThrows(IOException.class, () -> ApplicationSnapshot.decode(records));

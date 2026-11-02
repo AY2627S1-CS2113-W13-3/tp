@@ -48,7 +48,7 @@ class LostPersistenceTest {
     void snapshot_restartExportAndImport_preserveLossBorrowerAndRenewals(@TempDir Path directory) throws Exception {
         Path data = directory.resolve("records.properties");
         sample().write(data);
-        assertEquals("11", ApplicationSnapshot.readProperties(data).getProperty("format"));
+        assertEquals("12", ApplicationSnapshot.readProperties(data).getProperty("format"));
         Loan loaded = ApplicationSnapshot.read(data).getLoans().getFirst();
         assertTrue(loaded.isLost());
         assertTrue(loaded.isActive());
@@ -145,6 +145,9 @@ class LostPersistenceTest {
     void snapshot_format9RetainsRenewalsWithoutInventingLoss_reportsHiddenLossFields() throws Exception {
         Properties legacy = sample().toProperties();
         legacy.setProperty("format", "9");
+        legacy.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(legacy::remove);
         legacy.keySet().removeIf(key -> key.toString().endsWith(".lost")
                 || (key.toString().startsWith("loan.") && key.toString().endsWith(".id")));
         ApplicationSnapshot restored = ApplicationSnapshot.decode(legacy);
@@ -152,7 +155,7 @@ class LostPersistenceTest {
         assertFalse(loan.isLost());
         assertTrue(loan.isActive());
         assertEquals(sample().getLoans().getFirst().getRenewals(), loan.getRenewals());
-        assertEquals("11", restored.toProperties().getProperty("format"));
+        assertEquals("12", restored.toProperties().getProperty("format"));
         legacy.setProperty("loan.0.lost", DAY.toString());
         assertThrows(IOException.class, () -> ApplicationSnapshot.decode(legacy));
     }
@@ -168,7 +171,7 @@ class LostPersistenceTest {
         assertEquals(DAY, loaded.getLostDate());
         assertEquals(sample().getLoans().getFirst().getRenewals(), loaded.getRenewals());
         assertTrue(loaded.isActive());
-        assertEquals("11", ApplicationSnapshot.readProperties(data).getProperty("format"));
+        assertEquals("12", ApplicationSnapshot.readProperties(data).getProperty("format"));
     }
 
     @Test

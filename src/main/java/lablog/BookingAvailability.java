@@ -39,6 +39,9 @@ public class BookingAvailability {
             throw new IllegalArgumentException("Equipment " + assetId + " was not found.");
         }
         List<String> reasons = new ArrayList<>();
+        if (inventory.getEquipment(assetId).isRetired()) {
+            reasons.add("Equipment " + assetId + " is retired and unavailable.");
+        }
         if (loans.hasLostLoan(assetId)) {
             reasons.add("Equipment " + assetId + " is marked lost and is unavailable.");
         }
@@ -75,7 +78,8 @@ public class BookingAvailability {
 
     /** Distinguishes operational equipment from units unavailable indefinitely through loss or severe faults. */
     public boolean isOperational(String assetId) {
-        return !loans.hasLostLoan(assetId) && !faults.blocksLending(assetId);
+        return !inventory.getEquipment(assetId).isRetired()
+                && !loans.hasLostLoan(assetId) && !faults.blocksLending(assetId);
     }
 
     /** Returns an immutable, deterministic snapshot of units free throughout the requested future period. */

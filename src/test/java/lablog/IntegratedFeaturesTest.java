@@ -88,6 +88,9 @@ class IntegratedFeaturesTest {
     void decode_olderFormats_rejectsFieldsThatWouldBeDiscarded() throws Exception {
         Properties records = sample().toProperties();
         records.setProperty("format", "3");
+        records.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(records::remove);
         records.remove("reservation.count");
         records.remove("waiting.count");
         records.remove("fault.0.resolved");
@@ -97,12 +100,18 @@ class IntegratedFeaturesTest {
         assertEquals(Fault.Severity.UNSPECIFIED,
                 ApplicationSnapshot.decode(records).getFaults().getFirst().getSeverity());
         records.setProperty("format", "4");
+        records.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(records::remove);
         records.setProperty("fault.0.severity", "SEVERE");
         records.setProperty("fault.0.repair", "Must not disappear");
         assertThrows(IOException.class, () -> ApplicationSnapshot.decode(records));
         records.remove("fault.0.repair");
         assertEquals(Fault.Severity.SEVERE, ApplicationSnapshot.decode(records).getFaults().getFirst().getSeverity());
         records.setProperty("format", "2");
+        records.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(records::remove);
         assertThrows(IOException.class, () -> ApplicationSnapshot.decode(records));
     }
 

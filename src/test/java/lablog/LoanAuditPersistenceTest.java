@@ -49,7 +49,7 @@ class LoanAuditPersistenceTest {
         Path data = directory.resolve("live.properties");
         expected.write(data);
         ApplicationSnapshot loaded = ApplicationSnapshot.read(data);
-        assertEquals("11", ApplicationSnapshot.readProperties(data).getProperty("format"));
+        assertEquals("12", ApplicationSnapshot.readProperties(data).getProperty("format"));
         assertEquals(expected.getAuditEvents(), loaded.getAuditEvents());
         assertEquals(expected.getLoans().stream().map(Loan::getId).toList(),
                 loaded.getLoans().stream().map(Loan::getId).toList());
@@ -141,6 +141,9 @@ class LoanAuditPersistenceTest {
     void migration_format10InventsNoEvents_andPersistsNewIdentitiesOnceSaved(@TempDir Path directory) throws Exception {
         Properties legacy = sample().toProperties();
         legacy.setProperty("format", "10");
+        legacy.stringPropertyNames().stream().filter(key -> key.startsWith("equipment.")
+                && (key.endsWith(".retired") || key.endsWith(".retirementReason")))
+                .forEach(legacy::remove);
         legacy.keySet().removeIf(key -> (key.toString().startsWith("loan.") && key.toString().endsWith(".id"))
                 || key.toString().startsWith("audit."));
         legacy.setProperty("audit.count", "0");

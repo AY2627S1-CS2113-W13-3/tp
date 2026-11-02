@@ -20,6 +20,7 @@ public class HelpCommands {
         {"edit-equipment ASSET_ID [n/NAME] [c/CATEGORY] [m/MODEL] [l/LOCATION]", "Edit equipment (main console)."},
         {"move-equipment ASSET_ID[,ASSET_ID...] l/LOCATION", "Move selected equipment together (main console)."},
         {"list [filters] [sort/FIELD]", "Filter and sort equipment (main console)."},
+        {"retire ASSET_ID reason/TEXT", "Retire equipment and keep its history (main console)."},
         {"find ASSET_ID", "Show one registered equipment unit (main console)."},
         {"search TEXT", "Search equipment names and models by partial text (main console)."},
         {"history ASSET_ID", "View equipment history (main console)."},
@@ -202,14 +203,15 @@ public class HelpCommands {
             return "Export supported equipment, borrowers, loans and history notes.\n"
                     + "Format: export FILE\nExample: export backups/lablog.properties\n"
                     + "Fields: FILE must be a new destination; spaces and enclosing double quotes are accepted.\n"
-                    + "Snapshot format 11 includes loan/return audit events, stable IDs, loss reports, "
+                    + "Snapshot format 12 includes retirement information, loan/return audit events, "
+                    + "stable IDs, loss reports, "
                     + "renewals, reservations, waiting requests, faults and history notes.\n"
                     + "Future domain records require a schema update; "
                     + "unsupported fields are rejected for every supported version, rather than silently dropped.";
         case "import":
             return "Replace all current records after complete snapshot validation.\n"
                     + "Format: import FILE --replace\nExample: import backups/lablog.properties --replace\n"
-                    + "Fields: FILE is a format-2 through 11 snapshot; --replace explicitly requests replacement,\n"
+                    + "Fields: FILE is a format-2 through 12 snapshot; --replace explicitly requests replacement,\n"
                     + "not merging.\n"
                     + "Invalid data or a failed save leaves live and saved records unchanged. "
                     + "Export first for a backup.\n"
@@ -390,11 +392,12 @@ public class HelpCommands {
         case "list":
             return "List registered equipment and current availability (main console).\n"
                     + "Format: list [category/VALUE] [location/VALUE] "
-                    + "[status/available|on-loan|unavailable|lost] [sort/FIELD]\n"
+                    + "[status/available|on-loan|unavailable|lost|retired] [sort/FIELD]\n"
                     + "Example: list category/Electronics location/Lab A status/available\n"
                     + "  Match category and location exactly, ignoring case; combine any filters.\n"
                     + "  Active loans determine on-loan status; "
                     + "unresolved severe faults and lost units are unavailable.\n"
+                    + "Retired units are hidden unless status/retired is supplied.\n"
                     + "Reservations are not reflected in these labels; use available for an interval check.\n"
                     + "Example: list sort/name\n  Sort all registered units by name.\n"
                     + "Example: list category/Electronics location/Lab A status/available sort/name\n"
@@ -403,8 +406,13 @@ public class HelpCommands {
                     + "Sorting is ascending and case-insensitive; ties use asset ID, then exact ID case.\n"
                     + "Sorting does not change inventory order; omitting sort/ preserves registration order.\n"
                     + "Fields: category/ and location/ match exact values; status/ is available, on-loan, "
-                    + "unavailable or lost; "
+                    + "unavailable, lost or retired; "
                     + "sort/FIELD selects one supported field.";
+        case "retire":
+            return "Retire equipment while keeping its history.\n"
+                    + "Format: retire ASSET_ID reason/TEXT\n"
+                    + "Example: retire OSC-001 reason/End of service\n"
+                    + "Return outstanding loans and cancel current or future reservations first.";
         case "find":
             return "Show one registered equipment unit by its exact asset ID.\n"
                     + "Format: find ASSET_ID\n"

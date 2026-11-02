@@ -31,12 +31,14 @@ public class LabLogStore {
         Properties records = new Properties();
         try (Reader reader = Files.newBufferedReader(this.file, StandardCharsets.UTF_8)) {
             records.load(reader);
-            if (!Set.of("1", "3", "4", "5", "6", "7", "8", "9", "10", "11").contains(required(records, "format"))) {
+            if (!Set.of("1", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")
+                    .contains(required(records, "format"))) {
                 throw new IllegalArgumentException("Unsupported data format.");
             }
             Set<String> assets = readEquipment(records);
             readLoans(records, assets);
-            if (Set.of("3", "4", "5", "6", "7", "8", "9", "10", "11").contains(records.getProperty("format", ""))) {
+            if (Set.of("3", "4", "5", "6", "7", "8", "9", "10", "11", "12")
+                    .contains(records.getProperty("format", ""))) {
                 readFaults(records);
             }
         } catch (IllegalArgumentException | DateTimeException exception) {
@@ -49,7 +51,7 @@ public class LabLogStore {
         file = null;
         Set<String> assets = readEquipment(records);
         readLoans(records, assets);
-        if (Set.of("3", "4", "5", "6", "7", "8", "9", "10", "11").contains(records.getProperty("format", ""))) {
+        if (Set.of("3", "4", "5", "6", "7", "8", "9", "10", "11", "12").contains(records.getProperty("format", ""))) {
             readFaults(records);
         }
     }
@@ -63,13 +65,13 @@ public class LabLogStore {
         int count = count(records, "fault.count");
         for (int index = 0; index < count; index++) {
             String key = "fault." + index + ".";
-            boolean hasResolution = Set.of("5", "6", "7", "8", "9", "10", "11")
+            boolean hasResolution = Set.of("5", "6", "7", "8", "9", "10", "11", "12")
                     .contains(records.getProperty("format", ""));
             String resolved = hasResolution ? required(records, key + "resolved") : "";
             String repair = hasResolution ? required(records, key + "repair") : "";
             faults.add(new Fault(required(records, key + "id"), required(records, key + "asset"),
                     LocalDate.parse(required(records, key + "date")), required(records, key + "description"),
-                    Set.of("4", "5", "6", "7", "8", "9", "10", "11").contains(records.getProperty("format", ""))
+                    Set.of("4", "5", "6", "7", "8", "9", "10", "11", "12").contains(records.getProperty("format", ""))
                             ? Fault.Severity.valueOf(required(records, key + "severity"))
                             : Fault.Severity.UNSPECIFIED,
                     resolved.isEmpty() ? null : LocalDate.parse(resolved), repair));
@@ -94,9 +96,12 @@ public class LabLogStore {
             if (id.isBlank() || id.chars().anyMatch(Character::isWhitespace) || !assets.add(id)) {
                 throw new IllegalArgumentException("Invalid or duplicate equipment ID.");
             }
+            String retired = "12".equals(records.getProperty("format")) ? required(records, key + "retired") : "";
+            String reason = "12".equals(records.getProperty("format"))
+                    ? required(records, key + "retirementReason") : "";
             inventory.addEquipment(new Equipment(id, required(records, key + "name"),
                     required(records, key + "category"), required(records, key + "model"),
-                    required(records, key + "location")));
+                    required(records, key + "location"), retired.isEmpty() ? null : LocalDate.parse(retired), reason));
         }
         return assets;
     }
@@ -115,7 +120,7 @@ public class LabLogStore {
                     || borrowerId.chars().anyMatch(Character::isWhitespace) || dueDate.isBefore(loanDate)) {
                 throw new IllegalArgumentException("Invalid loan identifiers or dates.");
             }
-            Loan loan = Set.of("9", "10", "11").contains(records.getProperty("format", ""))
+            Loan loan = Set.of("9", "10", "11", "12").contains(records.getProperty("format", ""))
                     ? LoanRenewalCodec.read(records, key, assetId, borrowerId, loanDate, dueDate)
                     : new Loan(assetId, borrowerId, loanDate, dueDate);
             String returned = required(records, key + "returned");
@@ -125,7 +130,7 @@ public class LabLogStore {
             } else if (!faults.isEmpty()) {
                 throw new IllegalArgumentException("Invalid active loan or return details.");
             }
-            if (Set.of("10", "11").contains(records.getProperty("format", ""))) {
+            if (Set.of("10", "11", "12").contains(records.getProperty("format", ""))) {
                 String lost = required(records, key + "lost");
                 if (!lost.isEmpty()) {
                     loan.markLost(LocalDate.parse(lost));
@@ -133,7 +138,7 @@ public class LabLogStore {
             }
             restored.add(loan);
         }
-        loans.replaceAll(restored, "11".equals(records.getProperty("format"))
+        loans.replaceAll(restored, Set.of("11", "12").contains(records.getProperty("format", ""))
                 ? LoanAuditCodec.read(records, restored) : List.of());
     }
 
@@ -163,7 +168,7 @@ public class LabLogStore {
     /** Reuses the established equipment and loan schema inside a complete snapshot. */
     Properties toProperties() {
         Properties records = new Properties();
-        records.setProperty("format", "11");
+        records.setProperty("format", "12");
         records.setProperty("equipment.count", Integer.toString(inventory.getEquipmentUnits().size()));
         records.setProperty("loan.count", Integer.toString(loans.getLoans().size()));
         int index = 0;
@@ -174,6 +179,8 @@ public class LabLogStore {
             records.setProperty(key + "category", unit.getCategory());
             records.setProperty(key + "model", unit.getModel());
             records.setProperty(key + "location", unit.getLocation());
+            records.setProperty(key + "retired", unit.isRetired() ? unit.getRetiredOn().toString() : "");
+            records.setProperty(key + "retirementReason", unit.getRetirementReason());
         }
         index = 0;
         for (Loan loan : loans.getLoans()) {

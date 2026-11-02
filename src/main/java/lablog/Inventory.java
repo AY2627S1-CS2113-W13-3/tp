@@ -70,6 +70,9 @@ public class Inventory {
                 throw new IllegalArgumentException("Asset IDs must be non-empty and unique.");
             }
             Equipment current = getEquipment(assetId);
+            if (current.isRetired()) {
+                throw new IllegalArgumentException("Retired equipment cannot be moved.");
+            }
             replacements.add(new Equipment(assetId, current.getName(), current.getCategory(),
                     current.getModel(), location));
         }

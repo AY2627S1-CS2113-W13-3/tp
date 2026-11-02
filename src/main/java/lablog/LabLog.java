@@ -38,6 +38,7 @@ public class LabLog {
     private final EquipmentCopyCommands equipmentCopy;
     private final EquipmentEditCommands equipmentEdit;
     private final EquipmentMoveCommands equipmentMove;
+    private final RetireEquipmentCommands retireEquipment;
     private final HistoryRecordCommands historyRecords;
     private final FaultBook faults;
     private final RepairCommands repairs;
@@ -108,6 +109,7 @@ public class LabLog {
         this.equipmentCopy = new EquipmentCopyCommands(inventory);
         this.equipmentEdit = new EquipmentEditCommands(inventory);
         this.equipmentMove = new EquipmentMoveCommands(inventory);
+        this.retireEquipment = new RetireEquipmentCommands(inventory, loans, reservations, clock);
         this.historyRecords = new HistoryRecordCommands(inventory, faults);
         this.activeLoans = new ActiveLoanCommands(loans, clock);
         this.overview = new OverviewCommands(reservations, loans, faults, clock);
@@ -405,6 +407,18 @@ public class LabLog {
             if (command.equals("edit-equipment")) {
                 try {
                     String result = equipmentEdit.execute(input);
+                    if (!saveChanges(output)) {
+                        return;
+                    }
+                    output.println(Messages.ok(result));
+                } catch (IllegalArgumentException exception) {
+                    output.println("Error: " + exception.getMessage());
+                }
+                continue;
+            }
+            if (command.equals("retire")) {
+                try {
+                    String result = retireEquipment.execute(input);
                     if (!saveChanges(output)) {
                         return;
                     }

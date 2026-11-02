@@ -34,7 +34,7 @@ class StartupValidationTest {
         BorrowerBook oldBorrowers = new BorrowerBook(sibling);
         oldBorrowers.addBorrower(new Borrower("A7654321X", "Other", "81234567", "other@u.nus.edu"));
         String savedSibling = Files.readString(sibling);
-        for (String format : List.of("2", "3", "4", "5", "6", "7", "8", "9", "10", "11")) {
+        for (String format : List.of("2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")) {
             Properties incomplete = records();
             incomplete.setProperty("format", format);
             incomplete.remove("borrower.count");
@@ -63,7 +63,7 @@ class StartupValidationTest {
             assertThrows(IOException.class, () -> LabLog.load(data), field);
             assertEquals(saved, Files.readString(data));
         }
-        for (String format : List.of("0", "12", "future")) {
+        for (String format : List.of("0", "13", "future")) {
             Properties unsupported = records();
             unsupported.setProperty("format", format);
             unsupported.remove("borrower.count");

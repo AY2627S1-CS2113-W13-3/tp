@@ -286,7 +286,7 @@ repairs, reservations and waiting requests. Each record uses indexed keys such a
 `loan.0.asset`, and a `*.count` key gives the number of records of each type.
 
 **Format versions.** The `format` key records the schema version. The current
-writer always saves format 11, and formats 2 to 10 still load without inventing
+writer always saves format 12, and formats 2 to 11 still load without inventing
 newer data. Each version added one kind of record:
 
 | Format | Added | Format | Added |
@@ -296,10 +296,11 @@ newer data. Each version added one kind of record:
 | 4 | Fault severity | 9 | Loan renewal chains |
 | 5 | Repairs and fault resolution | 10 | Loss reports |
 | 6 | Reservations | 11 | Stable loan IDs and the loan audit log |
+| 12 | Equipment retirement | | |
 
 Only an explicit `format=1` equipment/loan file uses legacy loading through
 `LabLogStore`, with contacts from the separate borrower file. The next successful
-change migrates those records to one snapshot. Formats 2 through 11 must pass
+change migrates those records to one snapshot. Formats 2 through 12 must pass
 complete snapshot validation. A missing `borrower.count` does not select legacy
 loading: missing counts and unknown formats stop startup before the prompt and
 leave the source file unchanged.
@@ -365,6 +366,20 @@ Features are grouped by area. [Appendix B](#appendix-b-user-stories) lists the
 user stories they implement.
 
 ### Equipment records
+
+`retire ASSET_ID reason/TEXT` replaces the immutable equipment record with one
+containing the local retirement date and reason. It rejects an outstanding loan
+or an uncancelled reservation ending today or later. The shared availability
+policy blocks retired assets from lending, reservations, and availability results.
+Ordinary list and search hide retired assets; `list status/retired`, `find`, and
+`history` retain access to them. Existing references and asset IDs remain valid.
+
+Snapshot format 12 stores `equipment.N.retired` and
+`equipment.N.retirementReason`. Earlier formats load as active equipment; format
+12 validates the paired fields and rejects retired assets with outstanding loans
+or overlapping current/future reservations. Replacement import and save use the
+existing full-snapshot validation and atomic write path. Retirement is irreversible
+in this version. A failed save stops the console with the prior file unchanged.
 
 These commands register, change and find individual equipment units. `Inventory`
 keeps units in registration order, and loans, faults and history refer to units by
@@ -1691,7 +1706,7 @@ before printing success (see [Storage](#storage)).
 
 Format 3 introduced `fault.count` and indexed `fault.N.id`, `asset`, `date`
 and `description` fields; formats 4 and 5 extend these records below. The current
-writer always saves one complete format-11 snapshot, including borrowers and notes.
+writer always saves one complete format-12 snapshot, including borrowers and notes.
 Legacy split-file installations migrate on save. Imports replace the existing
 shared fault book, so all handlers see replacement faults immediately.
 Derived fault history is excluded from exported notes to prevent duplication.
@@ -1724,7 +1739,7 @@ Live and export format 4 adds required `fault.N.severity` enum names. Live
 formats 1 and 3 and export formats 2 and 3 remain readable. Format 3 faults
 migrate to `UNSPECIFIED`, preserving IDs, dates and descriptions. Missing or
 unknown severity in format 4 or later is corruption, not a migration default.
-The current writer uses format 11, retaining audit evidence, renewal events and loss reports.
+The current writer uses format 12, retaining audit evidence, renewal events and loss reports.
 
 `FaultSeverityTest` covers all levels, description validation, immutable overview
 results, affected-unit isolation, date boundaries, reports during active loans,
@@ -1878,7 +1893,7 @@ ApplicationSnapshot format 8 adds waiting.count and indexed id, borrower,
 category, from and to fields. Formats 2-7 decode with empty waiting lists. Schema
 history: 3 introduced faults, 4 severity, 5 repairs, 6 reservations, 7 cancellation,
 8 waiting demand, 9 loan renewal chains, 10 loss reports, 11 loan IDs and audit evidence.
-Every current save/export writes format 11
+Every current save/export writes format 12
 and retains all these records. Unknown fields and missing required fields remain errors.
 
 WaitingRequestTest covers inclusive boundaries, duplicate and invalid demand,
@@ -2091,7 +2106,7 @@ corrections; it is not a general audit of every inventory-changing action.
 * **Overdue loan:** an active loan with a due date before today's local date.
 * **Severe fault:** an unresolved fault with severity `SEVERE`; it blocks lending.
 * **Snapshot format:** the schema version stored in the data file's `format` key;
-  the current writer uses format 11.
+  the current writer uses format 12.
 * **Audit event:** an immutable record of one loan, return or correction, shown by
   `loan-audit`.
 * **History entry:** a display snapshot of a record, not an immutable event log.

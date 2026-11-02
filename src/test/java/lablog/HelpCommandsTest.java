@@ -64,7 +64,7 @@ class HelpCommandsTest {
     void execute_listHelp_documentsFiltersAndAvailabilityRules() {
         String detail = help.execute("help list");
         assertTrue(detail.contains("Format: list [category/VALUE] [location/VALUE]"
-                + " [status/available|on-loan|unavailable|lost] [sort/FIELD]"));
+                + " [status/available|on-loan|unavailable|lost|retired] [sort/FIELD]"));
         assertTrue(detail.contains("Example: list category/Electronics location/Lab A status/available"));
         assertTrue(detail.contains("Match category and location exactly, ignoring case; combine any filters."));
         assertTrue(detail.contains("severe faults and lost units are unavailable"));
@@ -151,7 +151,7 @@ class HelpCommandsTest {
     void execute_listHelp_documentsSortFieldsAndTieHandling() {
         String detail = help.execute("help list");
 
-        assertTrue(detail.contains("[status/available|on-loan|unavailable|lost] [sort/FIELD]"));
+        assertTrue(detail.contains("[status/available|on-loan|unavailable|lost|retired] [sort/FIELD]"));
         assertTrue(detail.contains("Example: list sort/name"));
         assertTrue(detail.contains("asset-id, name, category, model, location, availability"));
         assertTrue(detail.contains("case-insensitive"));
