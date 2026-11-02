@@ -104,6 +104,24 @@ class TerminalInputTest {
         }
     }
 
+    @Test
+    void pager_shortSectionsAndFinalPageKeepTheSameHeight() {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        PrintStream output = new PrintStream(bytes, true, StandardCharsets.UTF_8);
+        TerminalInput input = new TerminalInput(new Scanner("\n\nq\n"), output, 100, 12);
+        input.presentOutput("LabLog commands:\n== Equipment ==\nlist\n== Loans ==\nloan", output);
+        String prompt = "Enter: next page/close at end | b: back | q: close (then Enter): ";
+        String[] pages = bytes.toString(StandardCharsets.UTF_8).split(java.util.regex.Pattern.quote(prompt), -1);
+        assertEquals(4, pages.length);
+        for (int page = 0; page < 3; page++) {
+            // Four body rows plus the top border, context, bottom border and line counter.
+            assertEquals(8, pages[page].lines().count());
+        }
+        assertTrue(pages[0].replace("\r\n", "\n").contains("LabLog commands:"));
+        assertTrue(pages[1].contains("Lines 2-3/5"));
+        assertTrue(pages[2].contains("Lines 4-5/5"));
+    }
+
     /** Produces numbered plain lines so page boundaries are deterministic. */
     private String result(int count) {
         return IntStream.rangeClosed(1, count).mapToObj(index -> "Result line " + index)

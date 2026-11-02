@@ -1043,3 +1043,4 @@ Use `reservation`, `fault`, or `maintenance` with `ASSET_ID d/DATE desc/DETAILS`
 to record a dated event in the main console. Fault reports are persistent records.
 
 Recognised sections in help, detailed help and overview results start on new pager pages.
+Paged results reserve a fixed body height, filling unused rows with blank lines so headings and navigation stay aligned.

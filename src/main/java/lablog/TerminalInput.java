@@ -144,6 +144,12 @@ final class TerminalInput implements ConsoleInput {
             output.println(PagerContext.at(lines, offset));
         }
         output.print(String.join("\n", styled.subList(offset, end)) + "\n");
+        if (paged) {
+            // Reserve the same body height even when a section ends before the page is full.
+            for (int row = end - offset; row < Math.max(1, rows - 8); row++) {
+                output.println();
+            }
+        }
         output.println("-".repeat(columns - 1));
         if (paged) {
             output.printf("Lines %d-%d/%d%n", offset + 1, end, lines.size());
