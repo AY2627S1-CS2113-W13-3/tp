@@ -159,8 +159,9 @@ final class TerminalInput implements ConsoleInput {
 
     /** Wraps at word boundaries while preserving rendered widths, indentation and colour. */
     private List<AttributedString> wrapOutput(String text, int width) {
+        String adapted = ResponsiveTableLayout.reflow(text, Math.max(1, width));
         AttributedString content = new AttributedStringBuilder().tabs(4)
-                .append(AttributedString.fromAnsi(ConsolePresentation.format(text, true))).toAttributedString();
+                .append(AttributedString.fromAnsi(ConsolePresentation.format(adapted, true))).toAttributedString();
         return TerminalWordWrapper.wrap(terminal, content, Math.max(1, width));
     }
 

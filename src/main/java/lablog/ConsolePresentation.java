@@ -163,14 +163,19 @@ final class ConsolePresentation {
     private static String styleRecordLine(String line, String trimmed) {
         for (String label : new String[] {"Asset ID:", "Name:", "Category:", "Model:", "Location:",
                 "Availability:", "Retired:", "Reason:", "Asset:", "Borrower:", "Due:", "Faults:",
-                "Event ID:", "Loan ID:", "Related event:", "Phone:", "Email:"}) {
+                "Event ID:", "Loan ID:", "Related event:", "Phone:", "Email:", "Equipment:", "Issued:",
+                "Due date:", "Overdue:", "Status:", "Date:", "Type:", "Details:", "Reservation ID:",
+                "Borrower ID:", "From:", "Through:", "Request ID:", "Description:", "Fault ID:", "Report date:"}) {
             if (!trimmed.startsWith(label + " ")) {
                 continue;
             }
             int start = line.length() - trimmed.length();
             String value = trimmed.substring(label.length());
-            if (label.equals("Availability:") && STATUS.matcher(value.strip()).matches()) {
+            if ((label.equals("Availability:") || label.equals("Status:"))
+                    && STATUS.matcher(value.strip()).matches()) {
                 value = " " + statusColor(value.strip()) + value.strip() + RESET;
+            } else if (label.equals("Overdue:") && (value.strip().equals("yes") || value.strip().equals("no"))) {
+                value = " " + (value.strip().equals("yes") ? AMBER_LABEL : GREEN_LABEL) + value.strip() + RESET;
             } else if (label.equals("Phone:")) {
                 value = value.replace(" | Email: ", " | " + CYAN + "Email:" + RESET + " ");
             }

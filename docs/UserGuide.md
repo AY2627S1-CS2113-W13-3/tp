@@ -74,6 +74,10 @@ one displayed line, and Enter to close the view. The footer shows the visible li
 range; wrapping and window width affect the total. Colour-capable terminals show
 filled heading and status labels. Set `NO_COLOR` to disable colour. Redirected
 input and unsupported terminals use plain prompts without paging.
+Wide tables in an interactive terminal become numbered, labelled records when
+columns would overflow. Every field remains available; widen the window to return
+to a table. Unicode-containing tables use the labelled layout to avoid uneven
+character widths. Plain redirected output retains the original table format.
 
 For the standalone borrower console, run
 `java --enable-native-access=ALL-UNNAMED -cp lablog.jar lablog.BorrowerCli`
