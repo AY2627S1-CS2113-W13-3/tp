@@ -62,6 +62,10 @@ public class BookingAvailability {
             if (loan == ignoredLoan || loan.isReversed() || !loan.getAssetId().equals(assetId)) {
                 continue;
             }
+            // Completed handovers no longer constrain today's or future bookings.
+            if (!loan.isActive() && !window.start().isBefore(loan.getReturnDate())) {
+                continue;
+            }
             LocalDate end = loan.isActive() ? loan.getDueDate() : loan.getReturnDate();
             if (loan.isActive() && end.isBefore(LocalDate.now(clock))) {
                 end = LocalDate.MAX;
@@ -74,6 +78,17 @@ public class BookingAvailability {
             }
         }
         return List.copyOf(reasons);
+    }
+
+    /** Allows collection by the reserved borrower only within that booking's complete period. */
+    public void requireAvailableForLoan(String assetId, String borrowerId, DateWindow window) {
+        String ownBooking = reservations.getReservations().stream()
+                .filter(item -> !item.isCancelled() && item.assetId().equals(assetId)
+                        && item.borrowerId().equals(borrowerId)
+                        && !window.start().isBefore(item.window().start())
+                        && !window.end().isAfter(item.window().end()))
+                .map(Reservation::id).findFirst().orElse(null);
+        requireAvailable(assetId, window, ownBooking, null);
     }
 
     /** Distinguishes operational equipment from units unavailable indefinitely through loss or severe faults. */

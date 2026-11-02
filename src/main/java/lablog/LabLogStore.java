@@ -125,16 +125,23 @@ public class LabLogStore {
                     : new Loan(assetId, borrowerId, loanDate, dueDate);
             String returned = required(records, key + "returned");
             String faults = required(records, key + "faults");
-            if (!returned.isEmpty()) {
-                loan.markReturned(LocalDate.parse(returned), faults);
-            } else if (!faults.isEmpty()) {
-                throw new IllegalArgumentException("Invalid active loan or return details.");
-            }
             if (Set.of("10", "11", "12").contains(records.getProperty("format", ""))) {
                 String lost = required(records, key + "lost");
                 if (!lost.isEmpty()) {
                     loan.markLost(LocalDate.parse(lost));
                 }
+            }
+            if (!returned.isEmpty()) {
+                if (loan.isLost()) {
+                    if (!faults.isEmpty()) {
+                        throw new IllegalArgumentException("Recovery cannot include return fault details.");
+                    }
+                    loan.recover(LocalDate.parse(returned));
+                } else {
+                    loan.markReturned(LocalDate.parse(returned), faults);
+                }
+            } else if (!faults.isEmpty()) {
+                throw new IllegalArgumentException("Invalid active loan or return details.");
             }
             restored.add(loan);
         }
@@ -193,7 +200,7 @@ public class LabLogStore {
             records.setProperty(key + "faults", loan.getReturnFaults());
             records.setProperty(key + "id", loan.getId());
             LoanRenewalCodec.write(records, key, loan);
-            records.setProperty(key + "lost", loan.isLost() ? loan.getLostDate().toString() : "");
+            records.setProperty(key + "lost", loan.getLostDate() != null ? loan.getLostDate().toString() : "");
         }
         LoanAuditCodec.write(records, loans.getAuditEvents());
         records.setProperty("fault.count", Integer.toString(faults.getFaults().size()));

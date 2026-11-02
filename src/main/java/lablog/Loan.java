@@ -121,7 +121,7 @@ public class Loan {
 
     /** Returns whether this outstanding loan has been reported lost. */
     public boolean isLost() {
-        return lostDate != null;
+        return lostDate != null && isActive();
     }
 
     /**
@@ -140,6 +140,15 @@ public class Loan {
             throw new IllegalArgumentException("Loss date must not precede the loan or its latest renewal.");
         }
         lostDate = date;
+    }
+
+    /** Closes a recovered loss while retaining its original report date as historical evidence. */
+    void recover(LocalDate date) {
+        if (!isLost() || date == null || date.isBefore(lostDate)) {
+            throw new IllegalArgumentException(
+                    "Recovery requires an outstanding loss and a date on or after its report.");
+        }
+        returnDate = date;
     }
 
     /** Stops ordinary lending transitions from silently clearing a loss report. */
@@ -173,8 +182,9 @@ public class Loan {
 
     /** Restores an outstanding loan; its original return evidence remains in the owning book. */
     void reverseReturn() {
-        if (returnDate == null) {
-            throw new IllegalArgumentException("Only a returned, non-reversed loan can be reopened.");
+        if (returnDate == null || lostDate != null) {
+            throw new IllegalArgumentException(
+                    "Only an ordinary returned loan can be reopened; recovered losses retain their closure.");
         }
         returnDate = null;
         returnFaults = "";
@@ -184,11 +194,15 @@ public class Loan {
     Loan copy() {
         Loan copy = new Loan(id, assetId, borrowerId, loanDate, getOriginalDueDate());
         renewals.forEach(event -> copy.renew(event.newDueDate(), event.date()));
-        if (returnDate != null) {
-            copy.markReturned(returnDate, returnFaults);
-        }
         if (lostDate != null) {
             copy.markLost(lostDate);
+        }
+        if (returnDate != null) {
+            if (copy.isLost()) {
+                copy.recover(returnDate);
+            } else {
+                copy.markReturned(returnDate, returnFaults);
+            }
         }
         if (reversed) {
             copy.reverseIssue();

@@ -200,7 +200,7 @@ class LostCommandsTest {
         assertTrue(compact(listing.execute("list sort/availability")).indexOf("FREE |")
                 < compact(listing.execute("list sort/availability")).indexOf("OSC |"));
         assertTrue(new HelpCommands().execute("help").contains("lost ASSET_ID"));
-        assertTrue(new HelpCommands().execute("help lost").contains("No recovery command"));
+        assertTrue(new HelpCommands().execute("help lost").contains("recover ASSET_ID"));
     }
 
     private String run(LabLog app, String input) {

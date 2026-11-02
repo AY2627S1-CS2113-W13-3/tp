@@ -69,15 +69,15 @@ public class HistoryCommands {
                 String details = "Borrower " + loan.getBorrowerId() + "; due " + loan.getDueDate()
                         + (loan.isReversed() ? "; REVERSED (loan cancelled)"
                                 : loan.isActive() ? "; active" : "; returned " + loan.getReturnDate());
-                if (loan.isLost()) {
-                    details += "; LOST since " + loan.getLostDate();
+                if (loan.getLostDate() != null) {
+                    details += (loan.isLost() ? "; LOST since " : "; loss reported ") + loan.getLostDate();
                 }
                 if (loan.getReturnDate() != null) {
                     details += loan.getReturnFaults().isEmpty()
                             ? "; no faults reported on return" : "; faults: " + loan.getReturnFaults();
                 }
                 entries.add(new HistoryEntry(assetId, loan.getLoanDate(), HistoryEntry.Type.LOAN, details));
-                if (loan.isLost()) {
+                if (loan.getLostDate() != null) {
                     entries.add(new HistoryEntry(assetId, loan.getLostDate(), HistoryEntry.Type.LOST,
                             "Borrower " + loan.getBorrowerId() + "; equipment reported lost; due "
                                     + loan.getDueDate()));

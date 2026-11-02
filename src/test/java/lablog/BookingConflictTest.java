@@ -60,7 +60,7 @@ class BookingConflictTest {
         loan.markReturned(TODAY);
         assertTrue(bookings.getAvailability().conflict("OSC",
                 new DateWindow(TODAY.plusDays(1), TODAY.plusDays(1)), null, null).isEmpty());
-        assertTrue(bookings.getAvailability().conflict("OSC", new DateWindow(TODAY, TODAY), null, null).isPresent());
+        assertTrue(bookings.getAvailability().conflict("OSC", new DateWindow(TODAY, TODAY), null, null).isEmpty());
         Loan overdue = new Loan("OTHER", "A0123456X", TODAY.minusDays(5), TODAY.minusDays(1));
         loans.addLoan(overdue);
         assertTrue(bookings.getAvailability().conflict("OTHER",

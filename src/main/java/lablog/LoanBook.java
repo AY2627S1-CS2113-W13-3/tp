@@ -29,6 +29,19 @@ public class LoanBook {
         audit.add(event);
     }
 
+    /** Validates recovery before closing the lost loan and retaining immutable return evidence. */
+    void recover(Loan loan, LocalDate date) {
+        if (!loans.contains(loan)) {
+            throw new IllegalArgumentException("Recovery requires a loan from this book.");
+        }
+        validateActionDate(loan, date);
+        Loan candidate = loan.copy();
+        candidate.recover(date);
+        LoanAuditEvent event = LoanAuditEvent.returned(loan, date, "");
+        loan.recover(date);
+        audit.add(event);
+    }
+
     /** Returns events in acceptance order as an immutable collection of immutable values. */
     public List<LoanAuditEvent> getAuditEvents() {
         return List.copyOf(audit);

@@ -27,6 +27,7 @@ public class HelpCommands {
         {"return ASSET_ID [faults/DESCRIPTION]", "Record a return (main console)."},
         {"return ASSET_ID ASSET_ID ...", "Return multiple units (no faults/, main console)."},
         {"renew ASSET_ID d/DUE_DATE", "Extend an active loan and retain the change (main console)."},
+        {"recover ASSET_ID", "Close a recovered lost loan and retain its loss history."},
         {"lost ASSET_ID", "Report an outstanding loan lost and keep its history (main console)."},
         {"active-loans [overdue]", "List all active loans or only overdue loans (main console)."},
         {"loan-audit [ASSET_ID]", "View recorded borrowing/return events (main console)."},
@@ -200,6 +201,12 @@ public class HelpCommands {
                     + "Example: edit-borrower A0123456X p/92345678\n"
                     + "Fields: Supply at least one field, once each. Omitted values remain unchanged.\n"
                     + "The same validation as add-borrower applies. Failed edits change nothing.";
+        case "recover":
+            return "Close one lost loan when the equipment has been recovered.\n"
+                    + "Format: recover ASSET_ID\nExample: recover OSC-001\n"
+                    + "Requires exactly one outstanding lost loan; the recovery date cannot precede the loss.\n"
+                    + "Retains the loss report and records return evidence. Faults and bookings still apply.\n"
+                    + "Use lost for a loss report and return for an ordinary return.";
         case "lost":
             return "Report one outstanding equipment loan lost.\n"
                     + "Format: lost ASSET_ID\nExample: lost OSC-001\n"
@@ -208,7 +215,7 @@ public class HelpCommands {
                     + "Lost units remain outstanding and unavailable indefinitely; return and renew are rejected.\n"
                     + "Use list status/lost, find, active-loans, loans or history to inspect the report.\n"
                     + "Overdue-only listings include lost loans when their due date is before today.\n"
-                    + "No recovery command is provided. Invalid input changes no records.";
+                    + "Use recover ASSET_ID when recovered. Invalid input changes no records.";
         case "renew":
             return "Extend an active loan, including an overdue loan, and retain its renewal record.\n"
                     + "Format: renew ASSET_ID d/YYYY-MM-DD\n"
@@ -392,7 +399,7 @@ public class HelpCommands {
                     + "  d/DUE_DATE     Gives the due date in YYYY-MM-DD format.\n"
                     + "\nBefore issuing\n"
                     + "Register the borrower with add-borrower before issuing a loan.\n"
-                    + "The inclusive loan interval must not overlap a reservation, including your own.\n"
+                    + "Collect your reservation with a loan wholly within its dates; other bookings block lending.\n"
                     + "Every unit must be registered, not on loan, and free of unresolved severe faults.\n"
                     + "Validate every selection before adding loans; an invalid batch records no loans.";
         case "return":
