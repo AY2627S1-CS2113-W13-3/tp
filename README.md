@@ -226,3 +226,8 @@ The project uses [GitHub actions](https://github.com/features/actions) for CI. W
 See the [User Guide](docs/UserGuide.md) for current commands and limitations,
 the [Developer Guide](docs/DeveloperGuide.md) for architecture and verification,
 and [borrower implementation notes](docs/BorrowerImplementation.md) for integration.
+
+Final merged-version verification on Windows Java 25 passed all 356 JUnit tests,
+Checkstyle, 10 packaged CLI workflows and both borrower-console cases. Interactive
+component probes passed with and without colour. Manual terminal checks passed as reported by the project author; see the
+[verification report](test/verification-report.md).

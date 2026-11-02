@@ -21,8 +21,8 @@ loan without changing the system clock. Use a disposable copy of that file.
 
 ## Interactive refresh checks
 
-Focused replacement tests and captured-output probes passed; physical-terminal
-verification remains pending. In an interactive terminal, launch the JAR
+The final 356-test regression, 10 packaged CLI checks, both borrower cases and
+interactive component probes passed on Windows Java 25; the project author also reported all manual terminal checks passed. In an interactive terminal, launch the JAR
 with disposable data and confirm the startup acknowledgement and labelled prompt.
 
 - Run `help`; Enter advances a page, `b` then Enter returns, and `q` then Enter closes.
@@ -42,8 +42,9 @@ with disposable data and confirm the startup acknowledgement and labelled prompt
 - Redirected output must contain no paging, startup acknowledgement or ANSI escapes.
 - Repeat paging in the standalone borrower console. No native-access flag is needed.
 
-Focused tests cover line-based navigation and layout. Cross-platform terminal
-appearance and the full packaged smoke suite are deferred until publication.
+Focused tests cover line-based navigation and layout. Manual terminal checks passed as reported by the project author; platform coverage
+was not independently observed by the agent. The full packaged smoke suite passed on the final
+merged version; see [verification-report.md](verification-report.md).
 
 The PowerShell 7 cases below remain available for exact-output borrower checks.
 
