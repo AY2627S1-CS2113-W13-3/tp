@@ -120,12 +120,12 @@ final class LoanAuditCodec {
             }
             seen.put(event.id(), event);
         }
-        validateState(loans, voided, corrected, currentReturns);
+        validateState(loans, issued, voided, corrected, currentReturns);
         return Set.copyOf(voided);
     }
 
-    /** Checks the persisted projection against effective events before restoring any derived reversal flags. */
-    private static void validateState(List<Loan> loans, Set<String> voided, Set<String> corrected,
+    /** Checks effective events, allowing unlogged legacy returns only when no original issue evidence exists. */
+    private static void validateState(List<Loan> loans, Set<String> issued, Set<String> voided, Set<String> corrected,
             Map<String, LoanAuditEvent> currentReturns) {
         Set<String> activeAssets = new HashSet<>();
         for (Loan loan : loans) {
@@ -145,8 +145,9 @@ final class LoanAuditCodec {
                     || !returned.dueDate().equals(loan.getDueDate()))) {
                 throw new IllegalArgumentException("Current return details must match the effective audit event.");
             }
-            if (corrected.contains(loan.getId()) && returned == null && loan.getReturnDate() != null) {
-                throw new IllegalArgumentException("A reversed return must restore the outstanding loan.");
+            if ((issued.contains(loan.getId()) || corrected.contains(loan.getId()))
+                    && returned == null && loan.getReturnDate() != null) {
+                throw new IllegalArgumentException("A returned audited loan must retain an effective RETURN event.");
             }
             if (loan.isActive() && !activeAssets.add(loan.getAssetId())) {
                 throw new IllegalArgumentException("Multiple active loans for equipment " + loan.getAssetId() + ".");

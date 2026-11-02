@@ -53,6 +53,31 @@ class TerminalWordWrapperTest {
                 .stream().map(AttributedString::toString).toList());
     }
 
+    @Test
+    void wrap_keepsJoinedEmojiModifiersFlagsAndCombiningMarksTogether() throws IOException {
+        for (String cluster : List.of("\uD83D\uDC69\u200D\uD83D\uDCBB", "\uD83D\uDC4D\uD83C\uDFFD",
+                "\uD83C\uDDF8\uD83C\uDDEC", "1\uFE0F\u20E3", "e\u0301",
+                "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67\u200D\uD83D\uDC66")) {
+            String token = "x".repeat(6) + cluster + "TAIL";
+            List<AttributedString> rows = wrap(new AttributedString(token), 8);
+
+            assertEquals(token, String.join("", rows.stream().map(AttributedString::toString).toList()));
+            assertTrue(rows.stream().anyMatch(row -> row.toString().contains(cluster)),
+                    "The complete visible character must stay on one row: " + cluster);
+        }
+    }
+
+    @Test
+    void wrap_clusterWiderThanTheTerminal_retainsTheWholeStyledCharacter() throws IOException {
+        String emoji = "\uD83D\uDC69\u200D\uD83D\uDCBB";
+        AttributedString text = AttributedString.fromAnsi("\u001B[32m" + emoji.repeat(2) + "\u001B[0m");
+        for (int width : new int[]{0, 1, 2}) {
+            List<AttributedString> rows = wrap(text, width);
+            assertEquals(List.of(emoji, emoji), rows.stream().map(AttributedString::toString).toList());
+            assertTrue(rows.stream().allMatch(row -> row.styleAt(0).equals(text.styleAt(0))));
+        }
+    }
+
     private List<AttributedString> wrap(AttributedString text, int width) throws IOException {
         try (Terminal terminal = new DumbTerminal(new ByteArrayInputStream(new byte[0]), new ByteArrayOutputStream())) {
             return TerminalWordWrapper.wrap(terminal, text, width);

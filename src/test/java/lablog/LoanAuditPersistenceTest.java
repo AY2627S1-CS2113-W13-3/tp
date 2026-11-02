@@ -44,6 +44,57 @@ class LoanAuditPersistenceTest {
     }
 
     @Test
+    void decode_missingReturnEvidence_rejectsStartupAndImportWithoutChangingRecords(@TempDir Path directory)
+            throws Exception {
+        ApplicationSnapshot original = sample();
+        Path live = directory.resolve("live.properties");
+        original.write(live);
+        String saved = Files.readString(live);
+        LabLog app = LabLog.load(live);
+        String before = run(app, "loan-audit\nhistory OSC");
+        Properties damaged = original.toProperties();
+        damaged.keySet().removeIf(key -> key.toString().startsWith("audit."));
+        LoanAuditCodec.write(damaged, List.of(original.getAuditEvents().get(0), original.getAuditEvents().get(2)));
+        Path source = directory.resolve("missing-return.properties");
+        try (Writer writer = Files.newBufferedWriter(source)) {
+            damaged.store(writer, "missing return evidence");
+        }
+        String sourceBytes = Files.readString(source);
+
+        assertThrows(IOException.class, () -> ApplicationSnapshot.decode(damaged));
+        assertThrows(IOException.class, () -> LabLog.load(source));
+        assertTrue(run(app, "import " + source + " --replace").contains("Current records were not changed."));
+        assertEquals(before, run(app, "loan-audit\nhistory OSC"));
+        assertEquals(saved, Files.readString(live));
+        assertEquals(sourceBytes, Files.readString(source));
+    }
+
+    @Test
+    void write_missingReturnEvidence_cannotOverwriteThePreviousSnapshot(@TempDir Path directory) throws Exception {
+        ApplicationSnapshot original = sample();
+        Path destination = directory.resolve("valid.properties");
+        original.write(destination);
+        String before = Files.readString(destination);
+        ApplicationSnapshot incomplete = withAudit(original,
+                List.of(original.getAuditEvents().get(0), original.getAuditEvents().get(2)));
+        assertThrows(IOException.class, () -> incomplete.write(destination));
+        assertEquals(before, Files.readString(destination));
+    }
+
+    @Test
+    void decode_returnedLegacyLoansWithoutIssueEvidence_doNotRequireInventedEvents() throws Exception {
+        ApplicationSnapshot original = sample();
+        for (List<LoanAuditEvent> legacyEvents : List.of(List.<LoanAuditEvent>of(),
+                List.of(original.getAuditEvents().get(1)))) {
+            ApplicationSnapshot legacy = withAudit(original, legacyEvents);
+            ApplicationSnapshot loaded = ApplicationSnapshot.decode(legacy.toProperties());
+            assertEquals(original.getLoans().getFirst().getReturnDate(), loaded.getLoans().getFirst().getReturnDate());
+            assertFalse(loaded.getLoans().getFirst().isActive());
+            assertEquals(legacyEvents, loaded.getAuditEvents());
+        }
+    }
+
+    @Test
     void snapshot_reloadExportAndImport_preserveAllIdsOrderAndEvidence(@TempDir Path directory) throws Exception {
         ApplicationSnapshot expected = sample();
         Path data = directory.resolve("live.properties");
