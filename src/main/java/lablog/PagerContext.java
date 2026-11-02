@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.jline.utils.AttributedString;
-
 /** Derives compact pager breadcrumbs from fixed application headings, never record values. */
 final class PagerContext {
     private static final Map<String, String> HELP_CATEGORIES = Map.ofEntries(
@@ -27,11 +25,11 @@ final class PagerContext {
      * Only the first nonblank row can establish a result type, preventing table values and
      * recalled command text from changing the breadcrumb later in the result.
      *
-     * @param renderedLines styled, already wrapped rows of one command result
+     * @param renderedLines plain, already wrapped rows of one command result
      * @param offset index of the first visible result row; out-of-range values are clamped
      * @return a canonical breadcrumb, or RESULT when the result has no recognised heading
      */
-    static String at(List<AttributedString> renderedLines, int offset) {
+    static String at(List<String> renderedLines, int offset) {
         if (renderedLines == null || renderedLines.isEmpty()) {
             return "RESULT";
         }
@@ -40,7 +38,7 @@ final class PagerContext {
         String section = "";
         boolean foundFirstLine = false;
         for (int index = 0; index <= last; index++) {
-            String original = renderedLines.get(index).toString();
+            String original = renderedLines.get(index);
             String line = original.strip();
             if (line.isEmpty()) {
                 continue;
