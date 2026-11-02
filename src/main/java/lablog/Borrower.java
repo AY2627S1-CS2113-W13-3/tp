@@ -23,7 +23,8 @@ public class Borrower {
         if (phone == null || !phone.matches("[0-9]{8}")) {
             throw new IllegalArgumentException("Phone must contain exactly 8 digits.");
         }
-        if (email == null || !email.matches("[A-Za-z0-9_+%-]+(?:\\.[A-Za-z0-9_+%-]+)*@u\\.nus\\.edu")) {
+        // Email domains ignore case; retain the supplied spelling in the stored contact.
+        if (email == null || !email.matches("[A-Za-z0-9_+%-]+(?:\\.[A-Za-z0-9_+%-]+)*@(?i:u\\.nus\\.edu)")) {
             throw new IllegalArgumentException("Email must use the domain u.nus.edu, for example jamietan@u.nus.edu.");
         }
         this.borrowerId = borrowerId;
