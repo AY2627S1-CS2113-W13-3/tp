@@ -1,82 +1,72 @@
 package lablog;
 
-import java.io.IOException;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-import org.jline.keymap.BindingReader;
-import org.jline.keymap.KeyMap;
-import org.jline.reader.EndOfFileException;
-import org.jline.reader.UserInterruptException;
-import org.jline.reader.impl.LineReaderImpl;
-import org.jline.terminal.Attributes;
-import org.jline.terminal.Size;
-import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
-import org.jline.utils.AttributedString;
-import org.jline.utils.AttributedStringBuilder;
-import org.jline.utils.AttributedStyle;
-import org.jline.utils.Display;
-import org.jline.utils.InfoCmp.Capability;
-import org.jline.utils.NonBlockingReader;
-
-/** Owns the native terminal and delegates command editing to JLine. */
+/** Provides line-based prompts and paging without native terminal controls. */
 final class TerminalInput implements ConsoleInput {
-    private final Terminal terminal;
-    private final BoxReader reader;
-    private int outputWidth;
+    private final Scanner scanner;
+    /** Raw destination: presentation is applied once, after wrapping each page. */
+    private final PrintStream output;
+    private final int columns;
+    private final int rows;
+    private boolean ended;
 
-    private TerminalInput(Terminal terminal) throws IOException {
-        this.terminal = terminal;
-        this.reader = new BoxReader(terminal);
+    /** Uses caller-owned streams, making paging independent of a physical terminal. */
+    TerminalInput(Scanner scanner, PrintStream output, int columns, int rows) {
+        this.scanner = scanner;
+        this.output = output;
+        this.columns = columns >= 20 && columns <= 1000 ? columns : 100;
+        this.rows = rows >= 10 && rows <= 1000 ? rows : 30;
     }
 
-    /** Opens a native console, falling back without reading any input on unsupported sessions. */
+    /** Opens interactive presentation only when a real, supported console is available. */
     static ConsoleInput open() {
+        Scanner scanner = new Scanner(System.in);
         if (System.console() == null || "dumb".equalsIgnoreCase(System.getenv("TERM"))) {
-            return ConsoleInput.plain(new Scanner(System.in), System.out);
+            return ConsoleInput.plain(scanner, System.out);
         }
-        Terminal terminal = null;
+        return new TerminalInput(scanner, System.out,
+                dimension(System.getenv("COLUMNS"), 20, 100), dimension(System.getenv("LINES"), 10, 30));
+    }
+
+    /** Ignores malformed, tiny and excessive dimensions rather than allocating an enormous page. */
+    static int dimension(String value, int minimum, int fallback) {
         try {
-            terminal = TerminalBuilder.builder().system(true).dumb(false).build();
-            if (terminal.getType().startsWith("dumb")) {
-                terminal.close();
-                return ConsoleInput.plain(new Scanner(System.in), System.out);
-            }
-            return new TerminalInput(terminal);
-        } catch (IOException | RuntimeException | LinkageError exception) {
-            if (terminal != null) {
-                try {
-                    terminal.close();
-                } catch (IOException ignored) {
-                    // Retain the plain fallback even when native cleanup fails.
-                }
-            }
-            return ConsoleInput.plain(new Scanner(System.in), System.out);
+            int parsed = Integer.parseInt(value);
+            return parsed >= minimum && parsed <= 1000 ? parsed : fallback;
+        } catch (NumberFormatException exception) {
+            return fallback;
         }
     }
 
     @Override
     public String readLine(String label, String prompt) {
-        reader.label = label == null ? "" : label;
-        if (!reader.label.isEmpty() && terminal.getSize().getColumns() >= BoxReader.MIN_BOX_WIDTH) {
-            terminal.writer().println();
-            terminal.flush();
+        if (ended) {
+            return null;
+        }
+        if (label != null && !label.isEmpty()) {
+            output.println();
+            output.println("--- " + label + " ---");
         }
         while (true) {
-            try {
-                String line = reader.readLine(reader.colored(prompt).toAnsi(terminal));
-                if (!reader.label.isEmpty() || line.isEmpty()) {
-                    return line;
-                }
-            } catch (UserInterruptException exception) {
-                // Ctrl-C discards the current command and starts a fresh prompt.
-            } catch (EndOfFileException exception) {
-                return null;
+            output.print(prompt);
+            output.flush();
+            String line = nextLine();
+            if (line == null || (label != null && !label.isEmpty()) || line.isEmpty()) {
+                return line;
             }
         }
+    }
+
+    /** Records EOF so pager input can never be interpreted as a subsequent application command. */
+    private String nextLine() {
+        if (ended || !scanner.hasNextLine()) {
+            ended = true;
+            return null;
+        }
+        return scanner.nextLine();
     }
 
     @Override
@@ -84,344 +74,94 @@ final class TerminalInput implements ConsoleInput {
         return true;
     }
 
+    /** Separates startup content without clearing or moving the terminal cursor. */
     @Override
     public void clearScreen() {
-        terminal.puts(Capability.clear_screen);
-        reader.resetDisplay();
-        terminal.flush();
+        output.println();
     }
 
-    /** Scrolls the old viewport into history and starts the newest result at the top. */
+    /** Wraps plain content before styling, retaining normal terminal scrollback for every page. */
     @Override
-    public void beginOutput() {
-        int rows = terminal.getSize().getRows();
-        int columns = terminal.getSize().getColumns();
-        outputWidth = 0;
-        if (rows <= 0 || columns <= 1 || terminal.getStringCapability(Capability.cursor_address) == null) {
+    public void presentOutput(String text, PrintStream destination) {
+        String adapted = ResponsiveTableLayout.reflow(sanitize(text), columns - 1);
+        List<String> lines = TerminalWordWrapper.wrap(adapted, columns - 1);
+        // Style the whole wrapped result once so later pages retain table-column context.
+        List<String> styled = ConsolePresentation.format(String.join("\n", lines) + "\n", true).lines().toList();
+        int capacity = Math.max(1, rows - 8);
+        if (lines.size() <= capacity) {
+            printPage(lines, styled, 0, lines.size(), false);
             return;
         }
-        outputWidth = columns - 1;
-        // Leave breathing room after the input hint in the preserved command history.
-        terminal.writer().println();
-        terminal.writer().println();
-        terminal.puts(Capability.cursor_address, rows - 1, 0);
-        // Newlines at the bottom scroll every old row into history without erasing it.
-        for (int row = 0; row < rows; row++) {
-            terminal.writer().println();
-        }
-        terminal.puts(Capability.cursor_address, 0, 0);
-        reader.resetDisplay();
-        terminal.writer().println("-".repeat(outputWidth));
-        terminal.writer().println();
-        terminal.flush();
-    }
-
-    /** Closes the result block, leaving normal scrolling in effect for long results. */
-    @Override
-    public void endOutput() {
-        if (outputWidth == 0) {
-            return;
-        }
-        terminal.writer().println();
-        terminal.writer().println("-".repeat(outputWidth));
-        terminal.writer().println();
-        terminal.flush();
-        reader.resetDisplay();
-        outputWidth = 0;
-    }
-
-    /** Frames short results and opens long results at their first page. */
-    @Override
-    public void presentOutput(String text, PrintStream output) {
-        Size size = terminal.getSize();
-        if (size.getRows() < 7 || size.getColumns() < 2
-                || terminal.getStringCapability(Capability.cursor_address) == null) {
-            output.print(text);
-            output.flush();
-            return;
-        }
-        List<AttributedString> lines = wrapOutput(text, size.getColumns() - 1);
-        // Reserve the frame, spacing, and next command box below a short result.
-        if (lines.size() <= Math.max(1, size.getRows() - 10)) {
-            beginOutput();
-            try {
-                for (AttributedString line : lines) {
-                    terminal.writer().println(line.toAnsi(terminal));
-                }
-                terminal.flush();
-            } finally {
-                endOutput();
-            }
-            return;
-        }
-        showPages(text);
-    }
-
-    /** Wraps at word boundaries while preserving rendered widths, indentation and colour. */
-    private List<AttributedString> wrapOutput(String text, int width) {
-        String adapted = ResponsiveTableLayout.reflow(text, Math.max(1, width));
-        AttributedString content = new AttributedStringBuilder().tabs(4)
-                .append(AttributedString.fromAnsi(ConsolePresentation.format(adapted, true))).toAttributedString();
-        return TerminalWordWrapper.wrap(terminal, content, Math.max(1, width));
-    }
-
-    /** Uses JLine key bindings and display updates without entering an alternate screen. */
-    private void showPages(String text) {
-        beginOutput();
-        terminal.puts(Capability.cursor_address, 0, 0);
-        Display pages = new Display(terminal, true);
-        pages.setScrollOptimization(false);
-        BindingReader keys = new BindingReader(terminal.reader());
-        KeyMap<PageAction> bindings = pageBindings();
-        Attributes previous = terminal.enterRawMode();
         int offset = 0;
-        int wrappedWidth = -1;
-        int displayedWidth = -1;
-        int displayedRows = -1;
-        int displayedOffset = -1;
-        List<AttributedString> lines = List.of();
-        terminal.puts(Capability.keypad_xmit);
-        try {
+        while (true) {
+            printPage(lines, styled, offset, capacity, true);
+            String action;
             while (true) {
-                Size size = terminal.getSize();
-                if (size.getRows() < 7 || size.getColumns() < 2) {
-                    // Retain the page while minimized and force a complete redraw even at the previous size.
-                    pages.clear();
-                    displayedWidth = -1;
-                    displayedRows = -1;
-                    if (readPageAction(keys, bindings) == PageAction.CLOSE) {
-                        return;
-                    }
-                    continue;
+                output.print("Enter: next page/close at end | b: back | q: close (then Enter): ");
+                output.flush();
+                action = nextLine();
+                if (action == null || action.isEmpty() || action.equals("b") || action.equals("q")) {
+                    break;
                 }
-                int width = Math.max(1, size.getColumns() - 1);
-                int capacity = Math.max(1, size.getRows() - 6);
-                if (width != wrappedWidth) {
-                    lines = wrapOutput(text, width);
-                    wrappedWidth = width;
-                }
-                int lastOffset = Math.max(0, lines.size() - capacity);
-                offset = Math.max(0, Math.min(offset, lastOffset));
-                if (width != displayedWidth || size.getRows() != displayedRows || offset != displayedOffset) {
-                    List<AttributedString> screen = new ArrayList<>();
-                    AttributedString separator = new AttributedString("-".repeat(width));
-                    String context = PagerContext.at(lines, offset);
-                    if (context.equals("RESULT")) {
-                        String firstSourceLine = text.stripLeading().lines().findFirst().orElse("");
-                        context = PagerContext.at(List.of(new AttributedString(firstSourceLine)), 0);
-                    }
-                    screen.add(contextHeading(context, width));
-                    screen.add(separator);
-                    screen.add(AttributedString.EMPTY);
-                    for (int row = 0; row < capacity; row++) {
-                        int index = offset + row;
-                        screen.add(index < lines.size() ? lines.get(index) : AttributedString.EMPTY);
-                    }
-                    screen.add(AttributedString.EMPTY);
-                    screen.add(separator);
-                    String hint = String.format(
-                            "Lines %d-%d/%d | q: quit | Space: page | b: back | Enter: line",
-                            offset + 1, Math.min(offset + capacity, lines.size()), lines.size());
-                    screen.add(reader.colored(hint).columnSubSequence(terminal, 0, width));
-                    // Explicit default-style padding prevents a heading background leaking across blank cells.
-                    for (int row = 0; row < screen.size(); row++) {
-                        AttributedString line = screen.get(row);
-                        screen.set(row, new AttributedStringBuilder().append(line).style(AttributedStyle.DEFAULT)
-                                .append(" ".repeat(Math.max(0, width - line.columnLength(terminal))))
-                                .toAttributedString());
-                    }
-                    pages.resize(size);
-                    pages.update(screen, size.cursorPos(screen.size() - 1, 0), true);
-                    displayedWidth = width;
-                    displayedRows = size.getRows();
-                    displayedOffset = offset;
-                }
-                PageAction action = readPageAction(keys, bindings);
-                if (action == PageAction.CLOSE) {
+                output.println("Use Enter, b or q.");
+            }
+            if (action == null || action.equals("q")) {
+                return;
+            }
+            if (action.isEmpty()) {
+                if (offset + capacity >= lines.size()) {
                     return;
                 }
-                // The terminal may shrink while key polling is blocked; ignore navigation until it fits again.
-                Size navigationSize = terminal.getSize();
-                if (navigationSize.getRows() < 7 || navigationSize.getColumns() < 2) {
-                    continue;
-                }
-                switch (action) {
-                case NEXT -> offset++;
-                case PREVIOUS -> offset--;
-                case NEXT_PAGE -> offset += capacity;
-                case PREVIOUS_PAGE -> offset -= capacity;
-                default -> {
-                    // Ignore unrelated keys rather than passing them to the command prompt.
-                }
-                }
+                offset += capacity;
+            } else {
+                offset = Math.max(0, offset - capacity);
             }
-        } finally {
-            terminal.puts(Capability.keypad_local);
-            terminal.setAttributes(previous);
-            terminal.puts(Capability.cursor_address, Math.max(0, terminal.getSize().getRows() - 1), 0);
-            terminal.writer().println();
-            terminal.flush();
-            reader.resetDisplay();
-            outputWidth = 0;
         }
     }
 
-    /** Polls without consuming a partial key so resize checks continue and close/EOF still work while minimized. */
-    private PageAction readPageAction(BindingReader keys, KeyMap<PageAction> bindings) {
-        int next = keys.peekCharacter(200);
-        if (next == NonBlockingReader.READ_EXPIRED) {
-            return PageAction.IGNORE;
+    /** Prints a complete page together so table and heading styling retains its context. */
+    private void printPage(List<String> lines, List<String> styled, int offset, int capacity, boolean paged) {
+        int end = Math.min(lines.size(), offset + capacity);
+        output.println("-".repeat(columns - 1));
+        if (paged) {
+            output.println(PagerContext.at(lines, offset));
         }
-        if (next < 0) {
-            return PageAction.CLOSE;
+        output.print(String.join("\n", styled.subList(offset, end)) + "\n");
+        output.println("-".repeat(columns - 1));
+        if (paged) {
+            output.printf("Lines %d-%d/%d%n", offset + 1, end, lines.size());
         }
-        PageAction action = keys.readBinding(bindings);
-        return action == null ? PageAction.CLOSE : action;
+        output.flush();
     }
 
-    /** Keeps the current result and section visible independently of the scrolled body. */
-    private AttributedString contextHeading(String context, int width) {
-        AttributedStringBuilder heading = new AttributedStringBuilder();
-        if (System.getenv("NO_COLOR") == null) {
-            heading.style(AttributedStyle.DEFAULT.foreground(AttributedStyle.WHITE)
-                    .background(AttributedStyle.BLUE).bold());
+    /** Makes untrusted controls visible before measuring text, while preserving layout whitespace. */
+    private static String sanitize(String text) {
+        StringBuilder safe = new StringBuilder();
+        int column = 0;
+        String normalized = text.replace("\r\n", "\n").replace('\r', '\n');
+        for (int index = 0; index < normalized.length(); index++) {
+            char character = normalized.charAt(index);
+            if (character == '\t') {
+                int spaces = 4 - column % 4;
+                safe.append(" ".repeat(spaces));
+                column += spaces;
+            } else if (character == '\n') {
+                safe.append(character);
+                column = 0;
+            } else if (Character.isISOControl(character)) {
+                safe.append(String.format("\\u%04X", (int) character));
+                column += 6;
+            } else {
+                safe.append(character);
+                column++;
+            }
         }
-        return heading.append(" ").append(context).append(" ").toAttributedString()
-                .columnSubSequence(terminal, 0, width);
-    }
-
-    /** Binds navigation through JLine's terminal-specific key definitions. */
-    private KeyMap<PageAction> pageBindings() {
-        KeyMap<PageAction> bindings = new KeyMap<>();
-        bindings.setNomatch(PageAction.IGNORE);
-        bindings.setUnicode(PageAction.IGNORE);
-        bindings.bind(PageAction.CLOSE, "q", KeyMap.ctrl('C'), KeyMap.ctrl('D'));
-        bindings.bind(PageAction.NEXT, "\r", "\n");
-        bindings.bind(PageAction.NEXT_PAGE, " ");
-        bindings.bind(PageAction.PREVIOUS_PAGE, "b");
-        bindPageKey(bindings, PageAction.NEXT, Capability.key_down);
-        bindPageKey(bindings, PageAction.PREVIOUS, Capability.key_up);
-        bindPageKey(bindings, PageAction.NEXT_PAGE, Capability.key_npage);
-        bindPageKey(bindings, PageAction.PREVIOUS_PAGE, Capability.key_ppage);
-        return bindings;
-    }
-
-    private void bindPageKey(KeyMap<PageAction> bindings, PageAction action, Capability capability) {
-        String key = KeyMap.key(terminal, capability);
-        if (key != null) {
-            bindings.bind(action, key);
-        }
-    }
-
-    /** Navigation operations decoded by JLine, independent of native key sequences. */
-    private enum PageAction {
-        NEXT, PREVIOUS, NEXT_PAGE, PREVIOUS_PAGE, CLOSE, IGNORE
+        return safe.toString();
     }
 
     @Override
     public void close() {
-        try {
-            terminal.close();
-        } catch (IOException ignored) {
-            // Terminal close has already attempted to restore native console settings.
-        }
-    }
-
-    /** Renders a bordered editing region through JLine's cursor-aware display engine. */
-    private static final class BoxReader extends LineReaderImpl {
-        private static final int MIN_BOX_WIDTH = 40;
-        private final boolean useColor = System.getenv("NO_COLOR") == null;
-        private String label = "";
-        private boolean finishing;
-
-        private BoxReader(Terminal terminal) throws IOException {
-            super(terminal, "LabLog");
-        }
-
-        /** Forgets stale cursor coordinates after the application moves the viewport. */
-        private void resetDisplay() {
-            lock.lock();
-            try {
-                display.reset();
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        private AttributedString colored(String text) {
-            AttributedStringBuilder result = new AttributedStringBuilder();
-            if (useColor) {
-                result.style(AttributedStyle.DEFAULT.foreground(AttributedStyle.CYAN));
-            }
-            return result.append(text).toAttributedString();
-        }
-
-        /** Keeps the final box intact and moves subsequent output below its last row. */
-        @Override
-        protected void cleanup() {
-            finishing = true;
-            try {
-                super.cleanup();
-            } finally {
-                finishing = false;
-            }
-        }
-
-        /** Redraws wrapped rows and places the cursor using JLine's display coordinates. */
-        @Override
-        protected void redisplay(boolean flush) {
-            if (label.isEmpty() || size.getColumns() < MIN_BOX_WIDTH || size.getRows() < 6) {
-                super.redisplay(flush);
-                return;
-            }
-            lock.lock();
-            try {
-                int width = size.getColumns() - 1;
-                int innerWidth = width - 4;
-                AttributedString content = new AttributedStringBuilder().tabs(4)
-                        .append(prompt).style(AttributedStyle.DEFAULT).append(buf.toString()).toAttributedString();
-                List<AttributedString> wrapped = new ArrayList<>(
-                        content.columnSplitLength(terminal, innerWidth, true, false));
-                AttributedString beforeCursor = new AttributedStringBuilder().tabs(4)
-                        .append(prompt).append(buf.upToCursor()).toAttributedString();
-                List<AttributedString> cursorLines = beforeCursor.columnSplitLength(terminal, innerWidth, true, false);
-                int cursorRow = Math.max(0, cursorLines.size() - 1);
-                int cursorColumn = cursorLines.isEmpty() ? 0
-                        : cursorLines.get(cursorRow).columnLength(terminal);
-                if (cursorColumn == innerWidth) {
-                    cursorRow++;
-                    cursorColumn = 0;
-                }
-                while (wrapped.size() <= cursorRow) {
-                    wrapped.add(AttributedString.EMPTY);
-                }
-                boolean mainPrompt = "TYPE COMMAND".equalsIgnoreCase(label);
-                int capacity = Math.max(1, size.getRows() - (mainPrompt ? 4 : 3));
-                int start = Math.max(0, cursorRow - capacity + 1);
-                int end = Math.min(wrapped.size(), start + capacity);
-                List<AttributedString> lines = new ArrayList<>();
-                String title = " " + label + " ";
-                if (title.length() > width - 2) {
-                    title = title.substring(0, width - 2);
-                }
-                lines.add(colored("+" + title + "-".repeat(width - 2 - title.length()) + "+"));
-                for (int i = start; i < end; i++) {
-                    AttributedString row = wrapped.get(i);
-                    lines.add(new AttributedStringBuilder().append("| ").append(row)
-                            .append(" ".repeat(Math.max(0, innerWidth - row.columnLength(terminal))))
-                            .append(" |").toAttributedString());
-                }
-                lines.add(colored("+" + "-".repeat(width - 2) + "+"));
-                if (mainPrompt) {
-                    lines.add(new AttributedString("Enter to run | help for commands | exit to quit")
-                            .columnSubSequence(terminal, 0, width));
-                }
-                int cursor = finishing ? size.cursorPos(lines.size() - 1, 0)
-                        : size.cursorPos(cursorRow - start + 1, cursorColumn + 2);
-                display.update(lines, cursor, flush);
-            } finally {
-                lock.unlock();
-            }
-        }
+        output.flush();
+        // Standard input and output belong to the application, not this presentation boundary.
     }
 }
