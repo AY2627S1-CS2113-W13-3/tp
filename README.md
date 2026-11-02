@@ -107,11 +107,13 @@ From the repository root in PowerShell:
 
 ```powershell
 java -version
-.\gradlew.bat classes
-java -cp build/classes/java/main lablog.BorrowerCli build/borrowers-demo.properties
+.\gradlew.bat shadowJar
+java --enable-native-access=ALL-UNNAMED -cp build/libs/lablog.jar lablog.BorrowerCli build/borrowers-demo.properties
 ```
 
-On macOS or Linux, use `./gradlew classes` for the build step; the Java command is the same. Ensure `java -version` reports Java 25.
+On macOS or Linux, use `./gradlew shadowJar` for the build step; the Java command is the same. Ensure `java -version` reports Java 25.
+The packaged JAR includes the terminal dependencies. The native-access flag enables
+the terminal provider when launching a class with `-cp`.
 
 Example input:
 

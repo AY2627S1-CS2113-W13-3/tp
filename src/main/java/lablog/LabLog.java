@@ -1,8 +1,6 @@
 package lablog;
 
 import java.io.PrintStream;
-import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -325,7 +323,7 @@ public class LabLog {
             if (!TerminalText.hasUnsafeControls(input) && input.strip().equals("exit")) {
                 return;
             }
-            ResultOutput resultOutput = console.isInteractive() ? new ResultOutput(console, destination) : null;
+            CommandOutput resultOutput = console.isInteractive() ? new CommandOutput(console, destination) : null;
             if (resultOutput != null) {
                 output = resultOutput;
             }
@@ -635,7 +633,7 @@ public class LabLog {
         String[] details = new String[prompts.length];
         output.println("\nADD EQUIPMENT / " + assetId);
         output.println("Type cancel at any prompt to discard.");
-        if (output instanceof ResultOutput resultOutput) {
+        if (output instanceof CommandOutput resultOutput) {
             resultOutput.showPending();
         }
         for (int i = 0; i < prompts.length; i++) {
@@ -651,34 +649,6 @@ public class LabLog {
             }
         }
         return new Equipment(assetId, details[0], details[1], details[2], details[3]);
-    }
-
-    /** Buffers one interactive result so long output can open at its beginning. */
-    private static final class ResultOutput extends PrintStream {
-        private final ByteArrayOutputStream pending;
-        private final ConsoleInput console;
-        private final PrintStream destination;
-
-        private ResultOutput(ConsoleInput console, PrintStream destination) {
-            this(new ByteArrayOutputStream(), console, destination);
-        }
-
-        private ResultOutput(ByteArrayOutputStream pending, ConsoleInput console, PrintStream destination) {
-            super(pending, true, StandardCharsets.UTF_8);
-            this.pending = pending;
-            this.console = console;
-            this.destination = destination;
-        }
-
-        /** Presents pending text before a guided prompt or after a complete command. */
-        private void showPending() {
-            flush();
-            String text = pending.toString(StandardCharsets.UTF_8);
-            pending.reset();
-            if (!text.isEmpty()) {
-                console.presentOutput(text, destination);
-            }
-        }
     }
 
     /** Separates an explicit cancellation from EOF, which closes the console. */

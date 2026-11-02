@@ -21,36 +21,42 @@ final class ConsolePresentation {
     private static final String BLUE_TITLE = "\u001B[1;97;44m";
     private static final String MAGENTA_TITLE = "\u001B[1;97;45m";
     private static final String NEUTRAL_TITLE = "\u001B[30;47m";
+    /** Only complete values in known status columns receive badges. */
     private static final Pattern STATUS = Pattern.compile(
-            "(?<![A-Za-z0-9_-])(ON LOAN|ON_LOAN|AVAILABLE|UNAVAILABLE|OVERDUE|LOST|RETIRED"
-                    + "|CONFIRMED|CANCELLED|WAITING|RESOLVED|REVERSED|Available|On loan|Unavailable|Retired)"
-                    + "(?![A-Za-z0-9_-])");
-
+            "ON LOAN|ON_LOAN|AVAILABLE|UNAVAILABLE|OVERDUE|LOST|RETIRED|CONFIRMED|CANCELLED|WAITING"
+                    + "|RESOLVED|REVERSED|Available|On loan|Unavailable(?:: severe fault)?|Retired|Lost|On time"
+                    + "|Confirmed|Cancelled|UNAVAILABLE: SEVERE FAULT"
+                    + "|LOST \\(overdue\\)");
     private ConsolePresentation() {
     }
 
     /**
-     * Returns a non-owning stream that decorates string output when color is requested.
+     * Returns a non-owning stream that sanitizes and decorates interactive string output.
      * A present NO_COLOR environment variable disables color, including when its value is empty.
      * Closing the wrapper flushes but never closes the caller's stream.
      *
      * @param output destination owned by the caller
-     * @param color whether the destination supports ANSI color
+     * @param color whether interactive terminal presentation is enabled
      * @return presentation stream; plain mode preserves the original text exactly
      */
     static PrintStream decorate(PrintStream output, boolean color) {
-        return new PresentationStream(output, color && System.getenv("NO_COLOR") == null);
+        return new PresentationStream(output, color);
     }
 
     /**
      * Formats text before a native terminal or pager measures and renders it.
+     * Interactive controls are escaped even when NO_COLOR suppresses styling.
      *
      * @param text text to present
-     * @param color whether the destination supports ANSI color
-     * @return styled text, or the original text when color is disabled or NO_COLOR is present
+     * @param color whether interactive terminal presentation is enabled
+     * @return sanitized interactive text (colored unless NO_COLOR is present), or exact plain text
      */
     static String format(String text, boolean color) {
-        return color && System.getenv("NO_COLOR") == null ? style(text) : text;
+        if (!color) {
+            return text;
+        }
+        String safe = escapeControls(text);
+        return System.getenv("NO_COLOR") == null ? style(safe) : safe;
     }
 
     /**
@@ -72,13 +78,29 @@ final class ConsolePresentation {
         return "";
     }
 
-    /** Styles each logical line independently so a multiline command result cannot leak color. */
+    /** Styles logical lines with local table-column context and resets every colored span. */
     private static String style(String text) {
         String safe = escapeControls(text);
         Matcher lines = Pattern.compile("[^\r\n]+").matcher(safe);
         StringBuilder result = new StringBuilder();
+        String tableHeader = null;
+        int previousEnd = 0;
         while (lines.find()) {
-            lines.appendReplacement(result, Matcher.quoteReplacement(styleLine(lines.group())));
+            String line = lines.group();
+            if (safe.substring(previousEnd, lines.start()).replace("\r", "").contains("\n\n")) {
+                tableHeader = null;
+            }
+            String presented;
+            if (isTableHeader(line)) {
+                tableHeader = line;
+                presented = CYAN + line + RESET;
+            } else if (tableHeader != null && !line.matches("[- ]+")) {
+                presented = styleTableRow(line, tableHeader);
+            } else {
+                presented = styleLine(line);
+            }
+            lines.appendReplacement(result, Matcher.quoteReplacement(presented));
+            previousEnd = lines.end();
         }
         lines.appendTail(result);
         return result.toString();
@@ -123,6 +145,10 @@ final class ConsolePresentation {
         if (detailLabel != null) {
             return headingLabel(line, detailLabel, NEUTRAL_TITLE);
         }
+        String record = styleRecordLine(line, trimmed);
+        if (record != null) {
+            return record;
+        }
         if (trimmed.startsWith("lablog>")) {
             int start = line.length() - trimmed.length();
             return line.substring(0, start) + CYAN + trimmed + RESET;
@@ -130,25 +156,123 @@ final class ConsolePresentation {
         if (trimmed.startsWith("[OK]")) {
             return feedbackLabel(line, "[OK]", " OK ", GREEN_LABEL);
         }
-        Matcher statuses = STATUS.matcher(line);
-        StringBuilder result = new StringBuilder();
-        while (statuses.find()) {
-            String status = statuses.group();
-            String color = switch (status.toUpperCase(Locale.ROOT)) {
-            case "AVAILABLE", "CONFIRMED", "RESOLVED" -> GREEN_LABEL;
-            case "UNAVAILABLE", "LOST" -> RED_LABEL;
-            case "RETIRED", "CANCELLED", "REVERSED" -> NEUTRAL_LABEL;
-            default -> AMBER_LABEL;
-            };
-            statuses.appendReplacement(result, Matcher.quoteReplacement(color + status + RESET));
+        return line;
+    }
+
+    /** Styles fixed record labels and generated availability summaries, leaving their values intact. */
+    private static String styleRecordLine(String line, String trimmed) {
+        for (String label : new String[] {"Asset ID:", "Name:", "Category:", "Model:", "Location:",
+                "Availability:", "Retired:", "Reason:", "Asset:", "Borrower:", "Due:", "Faults:",
+                "Event ID:", "Loan ID:", "Related event:", "Phone:", "Email:"}) {
+            if (!trimmed.startsWith(label + " ")) {
+                continue;
+            }
+            int start = line.length() - trimmed.length();
+            String value = trimmed.substring(label.length());
+            if (label.equals("Availability:") && STATUS.matcher(value.strip()).matches()) {
+                value = " " + statusColor(value.strip()) + value.strip() + RESET;
+            } else if (label.equals("Phone:")) {
+                value = value.replace(" | Email: ", " | " + CYAN + "Email:" + RESET + " ");
+            }
+            return line.substring(0, start) + CYAN + label + RESET + value;
         }
-        statuses.appendTail(result);
-        return result.toString();
+        Matcher event = Pattern.compile("^(\\[\\d+\\] )(LOAN|RETURN|REVERSE_LOAN|REVERSE_RETURN)"
+                + "( — \\d{4}-\\d{2}-\\d{2})$")
+                .matcher(trimmed);
+        if (event.matches()) {
+            String color = switch (event.group(2)) {
+            case "RETURN" -> GREEN_LABEL;
+            case "REVERSE_LOAN", "REVERSE_RETURN" -> NEUTRAL_LABEL;
+            default -> BLUE_TITLE;
+            };
+            return line.substring(0, line.length() - trimmed.length()) + event.group(1)
+                    + color + event.group(2) + RESET + event.group(3);
+        }
+        Matcher availability = Pattern.compile("^(Equipment \\S+ is )(available throughout|unavailable during)"
+                + "( \\d{4}-\\d{2}-\\d{2} through \\d{4}-\\d{2}-\\d{2} \\(inclusive\\)[.:])$")
+                .matcher(trimmed);
+        if (availability.matches()) {
+            return line.substring(0, line.length() - trimmed.length()) + availability.group(1)
+                    + (availability.group(2).startsWith("available") ? GREEN_LABEL : RED_LABEL)
+                    + availability.group(2) + RESET + availability.group(3);
+        }
+        return null;
+    }
+
+    /** Matches complete fixed header layouts, never arbitrary lines merely containing a column word. */
+    private static boolean isTableHeader(String line) {
+        String columns = line.strip().replaceAll(" {2,}", "|");
+        return switch (columns) {
+        case "Asset ID|Name|Category|Model|Location|Availability",
+                "Asset ID|Name|Category|Model|Location",
+                "Asset ID|Borrower ID|Due date|Status",
+                "Asset ID|Equipment|Issued|Due|Overdue|Status",
+                "Date|Type|Details",
+                "Reservation ID|Asset ID|Borrower ID|From|Through|Status",
+                "Reservation ID|Asset ID|Borrower ID|From|Through",
+                "Request ID|Borrower ID|Category|From|Through|Status",
+                "Loan ID|Asset ID|Borrower ID|Due date|Status",
+                "Fault ID|Asset ID|Report date|Description" -> true;
+        default -> false;
+        };
+    }
+
+    /** Colors known type/status columns; free-text names, models and descriptions remain untouched. */
+    private static String styleTableRow(String line, String header) {
+        int typeStart = header.indexOf("Type");
+        int detailsStart = header.indexOf("Details");
+        if (typeStart >= 0 && detailsStart > typeStart && line.length() >= detailsStart
+                && line.matches("\\d{4}-\\d{2}-\\d{2}  .*")) {
+            String type = line.substring(typeStart, detailsStart).stripTrailing();
+            String color = switch (type) {
+            case "LOAN", "RENEWAL" -> BLUE_TITLE;
+            case "RESERVATION" -> MAGENTA_TITLE;
+            case "FAULT", "MAINTENANCE" -> AMBER_LABEL;
+            case "LOST" -> RED_LABEL;
+            default -> null;
+            };
+            if (color != null) {
+                return line.substring(0, typeStart) + color + type + RESET
+                        + line.substring(typeStart + type.length());
+            }
+        }
+        int statusStart = header.indexOf("Availability");
+        if (statusStart < 0) {
+            statusStart = header.indexOf("Status");
+        }
+        if (statusStart < 0 || line.length() <= statusStart) {
+            return styleLine(line);
+        }
+        String status = line.substring(statusStart);
+        if (!STATUS.matcher(status).matches()) {
+            return styleLine(line);
+        }
+        String prefix = line.substring(0, statusStart);
+        int overdueStart = header.indexOf("Overdue");
+        if (overdueStart >= 0) {
+            String overdue = prefix.substring(overdueStart).stripTrailing();
+            if (overdue.equals("yes") || overdue.equals("no")) {
+                prefix = prefix.substring(0, overdueStart)
+                        + (overdue.equals("yes") ? AMBER_LABEL : GREEN_LABEL) + overdue + RESET
+                        + prefix.substring(overdueStart + overdue.length());
+            }
+        }
+        return prefix + statusColor(status) + status + RESET;
+    }
+
+    /** Uses the same palette for inventory availability and loan/reservation states. */
+    private static String statusColor(String status) {
+        return switch (status.toUpperCase(Locale.ROOT)) {
+        case "AVAILABLE", "CONFIRMED", "RESOLVED", "ON TIME" -> GREEN_LABEL;
+        case "UNAVAILABLE", "UNAVAILABLE: SEVERE FAULT", "LOST", "LOST (OVERDUE)" -> RED_LABEL;
+        case "RETIRED", "CANCELLED", "REVERSED" -> NEUTRAL_LABEL;
+        default -> AMBER_LABEL;
+        };
     }
 
     /**
      * Replaces a feedback prefix with a padded filled label and resets before the message.
-     * Status tokens below use no padding, preserving the visible width of aligned table cells.
+     * Table status tokens use no padding, preserving the visible width of aligned cells.
      */
     private static String feedbackLabel(String line, String prefix, String label, String color) {
         int start = line.indexOf(prefix);
@@ -191,7 +315,29 @@ final class ConsolePresentation {
                 || line.startsWith("TODAY'S RESERVATIONS (")) {
             return CYAN_TITLE;
         }
-        return line.startsWith("LOAN /") ? BLUE_TITLE : null;
+        if (line.startsWith("LOAN /") || line.equals("Loan audit:")
+                || line.startsWith("Loan audit for ") && line.endsWith(":")) {
+            return BLUE_TITLE;
+        }
+        if (line.startsWith("Active loans for ") && line.endsWith(":")) {
+            return BLUE_TITLE;
+        }
+        if (line.startsWith("History for ") && line.endsWith(":")) {
+            return CYAN_TITLE;
+        }
+        if (line.equals("Reservations (inclusive dates):")) {
+            return MAGENTA_TITLE;
+        }
+        if (line.equals("WAITING requests (not confirmed reservations):")) {
+            return AMBER_LABEL;
+        }
+        if (line.matches("Available throughout \\d{4}-\\d{2}-\\d{2} through \\d{4}-\\d{2}-\\d{2} \\(inclusive\\):")) {
+            return CYAN_TITLE;
+        }
+        if (line.equals("Recent commands (oldest first):") || line.equals("Recalled (not executed):")) {
+            return NEUTRAL_TITLE;
+        }
+        return null;
     }
 
     /** Recognizes nested help labels, leaving command examples and their values unfilled. */
@@ -221,12 +367,12 @@ final class ConsolePresentation {
 
         @Override
         public synchronized void print(String text) {
-            destination.print(color ? style(String.valueOf(text)) : text);
+            destination.print(ConsolePresentation.format(String.valueOf(text), color));
         }
 
         @Override
         public synchronized void println(String text) {
-            destination.println(color ? style(String.valueOf(text)) : text);
+            destination.println(ConsolePresentation.format(String.valueOf(text), color));
         }
 
         @Override
