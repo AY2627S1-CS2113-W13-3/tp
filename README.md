@@ -170,7 +170,7 @@ After compiling, run the recorded console cases with PowerShell 7:
 pwsh -File test/run-borrower-ui-tests.ps1
 ```
 
-The runner uses a fresh demonstration file under `build/`, verifies exact output, and checks persistence across two separate Java processes. It stops on the first failure and writes the results to [the recorded transcript](test/borrower-ui-transcript.md). See the [test plan](test/ui-test-plan.md) for inputs and expected output. The optional `-Classes` argument selects an alternate compiled-class directory.
+The runner uses a fresh demonstration file under `build/`, verifies exact output, and checks persistence across two separate Java processes. It stops on the first failure and writes the results to [the recorded transcript](test/borrower-ui-transcript.md). See the [test plan](test/ui-test-plan.md) for inputs and expected output. The optional `-Jar` argument selects an alternate packaged JAR.
 
 Run these console checks explicitly: the Gradle checks and GitHub Actions workflow do not invoke the PowerShell runner. Each run updates the transcript, so review that change before including it in a commit.
 
