@@ -1,0 +1,4 @@
+title: LabLog
+description: Laboratory equipment loans and records
+# Keep the GitHub Pages default theme explicit so local previews use the same layout.
+theme: jekyll-theme-primer
