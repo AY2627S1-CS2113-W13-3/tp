@@ -1,6 +1,7 @@
 package lablog;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
@@ -20,6 +21,8 @@ class BorrowerExitTest {
                 new LoanBook(), id -> null, Clock.systemDefaultZone());
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         BorrowerCli.run(new Scanner("exit extra\n  exit  \nhelp\n"), new PrintStream(output), commands);
+        assertEquals(ConsoleWelcome.TERMINAL_RECOMMENDATION, output.toString().lines().toList().get(1));
+        assertEquals(1, output.toString().split(ConsoleWelcome.TERMINAL_RECOMMENDATION, -1).length - 1);
         assertTrue(output.toString().contains("Error:"));
         assertFalse(output.toString().contains("LabLog commands:"));
     }

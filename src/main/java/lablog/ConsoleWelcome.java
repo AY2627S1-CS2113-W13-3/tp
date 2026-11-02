@@ -7,6 +7,10 @@ public final class ConsoleWelcome {
     /** Current released version; update alongside the next release. */
     public static final String VERSION = "2.1";
 
+    /** Comfortable viewport guidance shared by both entry points; smaller windows remain supported. */
+    public static final String TERMINAL_RECOMMENDATION =
+            "LabLog works best in a terminal at least 100 columns wide and 30 rows high.";
+
     /**
      * "LabLog" in the figlet Standard font. Plain ASCII keeps it readable in every terminal
      * encoding; Windows consoles garble non-ASCII characters such as box-drawing symbols.
@@ -28,6 +32,7 @@ public final class ConsoleWelcome {
         for (String line : BANNER) {
             output.println(line);
         }
+        output.println(TERMINAL_RECOMMENDATION);
         output.println("LabLog v" + VERSION + " - Lab equipment and loan manager");
         output.println("Manage your laboratory equipment and loans here.");
     }

@@ -55,6 +55,7 @@ public class BorrowerCli {
      */
     static void run(ConsoleInput console, PrintStream output, BorrowerCommands commands) {
         output.println("LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.");
+        output.println(ConsoleWelcome.TERMINAL_RECOMMENDATION);
         CommandHistory history = new CommandHistory();
         PrintStream destination = output;
         while (true) {
