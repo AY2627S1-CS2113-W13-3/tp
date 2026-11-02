@@ -11,7 +11,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 JAR = Path(os.environ.get("LABLOG_TEST_JAR", ROOT / "build/libs/lablog.jar"))
-GREETING = "LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.\n"
+GREETING = ("LabLog borrower console. Use add-borrower or loans. Type exit or send EOF to exit.\n"
+            "LabLog works best in a terminal at least 100 columns wide and 30 rows high.\n")
 
 
 class CliSmokeTests(unittest.TestCase):
