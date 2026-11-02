@@ -145,8 +145,10 @@ final class TerminalInput implements ConsoleInput {
         if (lines.size() <= Math.max(1, size.getRows() - 10)) {
             beginOutput();
             try {
-                output.print(text);
-                output.flush();
+                for (AttributedString line : lines) {
+                    terminal.writer().println(line.toAnsi(terminal));
+                }
+                terminal.flush();
             } finally {
                 endOutput();
             }
@@ -155,47 +157,11 @@ final class TerminalInput implements ConsoleInput {
         showPages(text);
     }
 
-    /** Measures rendered columns rather than ANSI bytes, preserving result colours. */
+    /** Wraps at word boundaries while preserving rendered widths, indentation and colour. */
     private List<AttributedString> wrapOutput(String text, int width) {
         AttributedString content = new AttributedStringBuilder().tabs(4)
                 .append(AttributedString.fromAnsi(ConsolePresentation.format(text, true))).toAttributedString();
-        List<AttributedString> lines = new ArrayList<>();
-        int start = 0;
-        for (int end = 0; end <= content.length(); end++) {
-            if (end == content.length() || content.charAt(end) == '\n') {
-                int lineEnd = end > start && content.charAt(end - 1) == '\r' ? end - 1 : end;
-                wrapIndentedLine(content.subSequence(start, lineEnd), Math.max(1, width), lines);
-                start = end + 1;
-            }
-        }
-        if (text.endsWith("\n") && !lines.isEmpty() && lines.getLast().length() == 0) {
-            lines.removeLast();
-        }
-        return lines;
-    }
-
-    /** Repeats a logical line's indentation on continuation rows without stripping styles. */
-    private void wrapIndentedLine(AttributedString line, int width, List<AttributedString> result) {
-        if (line.columnLength(terminal) <= width) {
-            result.add(line);
-            return;
-        }
-        int leadingSpaces = 0;
-        while (leadingSpaces < line.length() && line.charAt(leadingSpaces) == ' ') {
-            leadingSpaces++;
-        }
-        // Leave at least half the width for content when the terminal becomes narrow.
-        int indent = Math.min(leadingSpaces, width / 2);
-        AttributedString prefix = line.subSequence(0, indent);
-        AttributedString body = line.subSequence(leadingSpaces, line.length());
-        List<AttributedString> chunks = body.columnSplitLength(terminal, width - indent, false, false);
-        for (int index = 0; index < chunks.size(); index++) {
-            AttributedString chunk = chunks.get(index);
-            if (index > 0 && index == chunks.size() - 1 && chunk.length() == 0) {
-                continue;
-            }
-            result.add(new AttributedStringBuilder().append(prefix).append(chunk).toAttributedString());
-        }
+        return TerminalWordWrapper.wrap(terminal, content, Math.max(1, width));
     }
 
     /** Uses JLine key bindings and display updates without entering an alternate screen. */
