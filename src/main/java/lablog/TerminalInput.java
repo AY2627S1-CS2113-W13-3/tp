@@ -213,7 +213,7 @@ final class TerminalInput implements ConsoleInput {
                     screen.add(AttributedString.EMPTY);
                     screen.add(separator);
                     String hint = String.format(
-                            "Lines %d-%d/%d | Up/Down Arrow: scroll | Enter: close",
+                            "Lines %d-%d/%d | q: quit | Space: page | b: back | Enter: line",
                             offset + 1, Math.min(offset + capacity, lines.size()), lines.size());
                     screen.add(reader.colored(hint).columnSubSequence(terminal, 0, width));
                     // Explicit default-style padding prevents a heading background leaking across blank cells.
@@ -244,6 +244,8 @@ final class TerminalInput implements ConsoleInput {
                 switch (action) {
                 case NEXT -> offset++;
                 case PREVIOUS -> offset--;
+                case NEXT_PAGE -> offset += capacity;
+                case PREVIOUS_PAGE -> offset -= capacity;
                 default -> {
                     // Ignore unrelated keys rather than passing them to the command prompt.
                 }
@@ -276,9 +278,14 @@ final class TerminalInput implements ConsoleInput {
         KeyMap<PageAction> bindings = new KeyMap<>();
         bindings.setNomatch(PageAction.IGNORE);
         bindings.setUnicode(PageAction.IGNORE);
-        bindings.bind(PageAction.CLOSE, "\r", "\n", KeyMap.ctrl('C'), KeyMap.ctrl('D'));
+        bindings.bind(PageAction.CLOSE, "q", KeyMap.ctrl('C'), KeyMap.ctrl('D'));
+        bindings.bind(PageAction.NEXT, "\r", "\n");
+        bindings.bind(PageAction.NEXT_PAGE, " ");
+        bindings.bind(PageAction.PREVIOUS_PAGE, "b");
         bindPageKey(bindings, PageAction.NEXT, Capability.key_down);
         bindPageKey(bindings, PageAction.PREVIOUS, Capability.key_up);
+        bindPageKey(bindings, PageAction.NEXT_PAGE, Capability.key_npage);
+        bindPageKey(bindings, PageAction.PREVIOUS_PAGE, Capability.key_ppage);
         return bindings;
     }
 
@@ -291,7 +298,7 @@ final class TerminalInput implements ConsoleInput {
 
     /** Navigation operations decoded by JLine, independent of native key sequences. */
     private enum PageAction {
-        NEXT, PREVIOUS, CLOSE, IGNORE
+        NEXT, PREVIOUS, NEXT_PAGE, PREVIOUS_PAGE, CLOSE, IGNORE
     }
 
     @Override

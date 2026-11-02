@@ -30,7 +30,9 @@ boxed prompt. Redirected input must begin executing commands immediately.
 - Resize width and height while the pager is idle: wrapping and footer ranges
   update without dropping table columns or cell values. Wide/Unicode tables
   become complete numbered records; fitting ASCII tables remain aligned.
-- Enter closes the pager. Ctrl-C, Ctrl-D and EOF restore terminal settings.
+- Space/Page Down advances a page; b/Page Up goes back a page. Enter advances
+  one line. Navigation stops at the first/last page, including after resizing.
+- q closes the pager. Ctrl-C, Ctrl-D and EOF restore terminal settings.
 - Repeat with NO_COLOR set: labels lose colour but user-supplied controls remain
   escaped. Redirected output uses no pager or interactive acknowledgement.
 - Repeat help/paging in the standalone borrower console using the fat JAR and
